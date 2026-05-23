@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   operationsService,
   requestsService,
+  vesselsService,
   type ApiAreaOfOperation,
   type ApiRequest,
   type ApiSurveyType,
   type ApiVesselType,
   type RequestPayload,
+  type ApiVessel,
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
@@ -67,6 +69,9 @@ export default function CreateRequestPage() {
   const [saving, setSaving] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
 
+  const [vesselSearchQuery, setVesselSearchQuery] = useState('');
+  const [vesselSearchResults, setVesselSearchResults] = useState<ApiVessel[]>([]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -94,6 +99,29 @@ export default function CreateRequestPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      try {
+        const res = await vesselsService.searchVessels(vesselSearchQuery);
+        setVesselSearchResults(res.data);
+      } catch (err) {
+        console.error('Failed to search vessels', err);
+      }
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [vesselSearchQuery]);
+
+  const uqmsOptions = useMemo(() => {
+    const opts = vesselSearchResults.map((v) => ({
+      id: v.uqmsNumber || v._id,
+      label: v.uqmsNumber ? `${v.uqmsNumber} - ${v.vesselName}` : v.vesselName,
+    }));
+    if (formData.uqmsNumber && !opts.find((o) => o.id === formData.uqmsNumber)) {
+      opts.unshift({ id: formData.uqmsNumber, label: formData.uqmsNumber });
+    }
+    return opts;
+  }, [vesselSearchResults, formData.uqmsNumber]);
 
   const vesselOptions = useMemo(
     () => vesselTypes.map((item) => ({ id: item._id, label: `${item.group} - ${item.name}` })),
@@ -226,11 +254,31 @@ export default function CreateRequestPage() {
           <div className={s.formGrid}>
             <div>
               <label className="form-label">UQMS Number (Optional)</label>
-              <input
-                className="form-input"
-                type="text"
+              <SearchableSelect
                 value={formData.uqmsNumber || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, uqmsNumber: e.target.value }))}
+                options={uqmsOptions}
+                placeholder="Search UQMS / Vessel Name"
+                searchPlaceholder="Type to search..."
+                allowClear={true}
+                onSearchChange={setVesselSearchQuery}
+                onChange={(val) => {
+                  if (!val) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      uqmsNumber: '',
+                      vesselName: '',
+                      imoNumber: '',
+                    }));
+                    return;
+                  }
+                  const vessel = vesselSearchResults.find((v) => (v.uqmsNumber || v._id) === val);
+                  setFormData((prev) => ({
+                    ...prev,
+                    uqmsNumber: vessel?.uqmsNumber || val,
+                    vesselName: vessel?.vesselName || prev.vesselName,
+                    imoNumber: vessel?.imoNumber || prev.imoNumber,
+                  }));
+                }}
               />
             </div>
             <div>

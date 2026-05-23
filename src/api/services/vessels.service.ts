@@ -8,6 +8,9 @@ export const vesselsService = {
   getVesselById: (id: string) => {
     return request<{ success: boolean; data: ApiVessel }>(`/vessels/${id}`);
   },
+  searchVessels: (query: string) => {
+    return request<{ success: boolean; count: number; data: ApiVessel[] }>(`/vessels/search?query=${encodeURIComponent(query)}`);
+  },
   createVessel: (payload: Partial<ApiVessel>) => {
     return request<{ success: boolean; message: string; data: ApiVessel }>('/vessels', {
       method: 'POST',

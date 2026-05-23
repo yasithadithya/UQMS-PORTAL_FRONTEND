@@ -56,6 +56,24 @@
   color: var(--muted);
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clearBtn {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.clearBtn:hover {
+  color: var(--label);
+}
+
 .dropdown {
   position: absolute;
   z-index: 60;

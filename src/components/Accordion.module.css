@@ -1,0 +1,65 @@
+.item {
+    margin-bottom: 2px;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px 4px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--label);
+    border-bottom: 1px solid var(--separator);
+    gap: 10px;
+    text-align: left;
+    transition: color .2s;
+}
+
+.header:hover {
+    color: var(--primary);
+}
+
+.icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+}
+
+.headerLabel {
+    flex: 1;
+}
+
+.chevron {
+    margin-left: auto;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+    flex-shrink: 0;
+}
+
+.open .chevron {
+    transform: rotate(45deg);
+}
+
+.body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .35s cubic-bezier(.4,0,.2,1);
+}
+
+.open .body {
+    max-height: 600px;
+}
+
+.content {
+    padding: 12px 4px 18px;
+}

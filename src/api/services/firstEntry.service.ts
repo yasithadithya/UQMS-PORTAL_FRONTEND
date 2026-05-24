@@ -1,5 +1,5 @@
 import { request, requestFormData } from '../client';
-import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument } from '../types';
+import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking } from '../types';
 
 export const firstEntryService = {
   // First Entry endpoints
@@ -35,6 +35,31 @@ export const firstEntryService = {
   },
   deleteFirstEntry: (id: string) => {
     return request<{ success: boolean; message: string }>(`/first-entries/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // First Entry Survey Booking endpoints
+  getFirstEntrySurveyBookings: () => {
+    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyBooking[] }>('/first-entry-survey-bookings');
+  },
+  getFirstEntrySurveyBookingById: (id: string) => {
+    return request<{ success: boolean; data: ApiFirstEntrySurveyBooking }>(`/first-entry-survey-bookings/${id}`);
+  },
+  createFirstEntrySurveyBooking: (payload: Partial<ApiFirstEntrySurveyBooking>) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntrySurveyBooking }>('/first-entry-survey-bookings', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  updateFirstEntrySurveyBooking: (id: string, payload: Partial<ApiFirstEntrySurveyBooking>) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntrySurveyBooking }>(`/first-entry-survey-bookings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteFirstEntrySurveyBooking: (id: string) => {
+    return request<{ success: boolean; message: string }>(`/first-entry-survey-bookings/${id}`, {
       method: 'DELETE',
     });
   },

@@ -1,21 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { firstEntryService } from '@/api';
-import type { ApiFirstEntry } from '@/api';
+import type { ApiFirstEntry, ApiFirstEntrySurveyBooking } from '@/api';
 
 export default function MarineModulePage() {
   const [entries, setEntries] = useState<ApiFirstEntry[]>([]);
+  const [surveyBookings, setSurveyBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [surveyLoading, setSurveyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [surveyError, setSurveyError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'certificates'>('first-entry');
 
   useEffect(() => {
-    fetchEntries();
-  }, []);
+    if (activeTab === 'first-entry') {
+      fetchEntries();
+    } else if (activeTab === 'survey') {
+      fetchSurveyBookings();
+    }
+  }, [activeTab]);
 
   const fetchEntries = async () => {
     try {
       setLoading(true);
+      setError(null);
       const res = await firstEntryService.getFirstEntries();
       if (res.success) {
         setEntries(res.data);
@@ -26,6 +34,23 @@ export default function MarineModulePage() {
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSurveyBookings = async () => {
+    try {
+      setSurveyLoading(true);
+      setSurveyError(null);
+      const res = await firstEntryService.getFirstEntrySurveyBookings();
+      if (res.success) {
+        setSurveyBookings(res.data);
+      } else {
+        setSurveyError('Failed to fetch survey bookings');
+      }
+    } catch (err: any) {
+      setSurveyError(err.message || 'An error occurred fetching survey bookings');
+    } finally {
+      setSurveyLoading(false);
     }
   };
 
@@ -45,6 +70,22 @@ export default function MarineModulePage() {
     }
   };
 
+  const handleDeleteSurveyBooking = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this Survey Booking?')) {
+      return;
+    }
+    try {
+      const res = await firstEntryService.deleteFirstEntrySurveyBooking(id);
+      if (res.success) {
+        setSurveyBookings(prev => prev.filter(b => b._id !== id));
+      } else {
+        alert('Failed to delete survey booking');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting survey booking');
+    }
+  };
+
   return (
     <div className="animate-in" style={{ padding: '4px' }}>
       {/* Header Info */}
@@ -56,15 +97,27 @@ export default function MarineModulePage() {
           </p>
         </div>
         <div>
-          <Link to="/reporting/marine/first-entry/create" style={{ textDecoration: 'none' }}>
-            <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              Create First Entry
-            </button>
-          </Link>
+          {activeTab === 'first-entry' ? (
+            <Link to="/reporting/marine/first-entry/create" style={{ textDecoration: 'none' }}>
+              <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Create First Entry
+              </button>
+            </Link>
+          ) : activeTab === 'survey' ? (
+            <Link to="/reporting/marine/survey-booking/create" style={{ textDecoration: 'none' }}>
+              <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Book Survey
+              </button>
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -97,12 +150,10 @@ export default function MarineModulePage() {
             fontWeight: 600,
             padding: '12px 4px',
             cursor: 'pointer',
-            opacity: 0.6
+            transition: 'all var(--transition)'
           }}
-          disabled
-          title="Module under construction"
         >
-          Surveys (Upcoming)
+          Surveys
         </button>
         <button 
           onClick={() => setActiveTab('certificates')}
@@ -177,18 +228,15 @@ export default function MarineModulePage() {
 
                     return (
                       <tr key={entry._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
-                        {/* Vessel Name */}
                         <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
                           {vessel?.vesselName || 'Unknown Vessel'}
                           <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
                             IMO: {vessel?.imoNumber || 'N/A'}
                           </span>
                         </td>
-                        {/* Request No */}
                         <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
                           {request?.requestNumber || 'N/A'}
                         </td>
-                        {/* UQMS Number */}
                         <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           {uqms ? (
                             <span style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '6px', background: 'var(--green-subtle)', color: 'var(--green)', fontWeight: 600, fontSize: '12px' }}>
@@ -200,7 +248,6 @@ export default function MarineModulePage() {
                             </span>
                           )}
                         </td>
-                        {/* Quote Status */}
                         <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           {entry.isQuoted ? (
                             <div>
@@ -222,7 +269,6 @@ export default function MarineModulePage() {
                             </div>
                           )}
                         </td>
-                        {/* Schedule II Docs */}
                         <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           {schedule && schedule.documents && schedule.documents.length > 0 ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -245,7 +291,6 @@ export default function MarineModulePage() {
                             </div>
                           )}
                         </td>
-                        {/* Actions */}
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
                             <Link to={`/reporting/marine/first-entry/edit/${entry._id}`} style={{ textDecoration: 'none' }}>
@@ -278,15 +323,145 @@ export default function MarineModulePage() {
                   })}
                 </tbody>
               </table>
-              <style dangerouslySetInnerHTML={{__html: `
-                .table-row-hover:hover {
-                  background: rgba(148, 163, 184, .02);
-                }
-              `}} />
             </div>
           )}
         </div>
       )}
+
+      {/* Surveys Tab Content */}
+      {activeTab === 'survey' && (
+        <div>
+          {surveyLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+              <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+              <p style={{ fontSize: '14px' }}>Loading Survey Bookings...</p>
+            </div>
+          ) : surveyError ? (
+            <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
+              <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{surveyError}</p>
+              <button className="btn-secondary" onClick={fetchSurveyBookings} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+            </div>
+          ) : surveyBookings.length === 0 ? (
+            <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.6 }}>📅</div>
+              <h3 style={{ fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>No Survey Bookings Found</h3>
+              <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
+                There are no surveys booked for first entry vessels yet. Click the button below to book a new survey visit.
+              </p>
+              <Link to="/reporting/marine/survey-booking/create" style={{ textDecoration: 'none' }}>
+                <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Book A Survey
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--separator)' }}>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Ship Name</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>UQMS No.</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Requested Date</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Society</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Surveys Requested</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Planned Visits</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {surveyBookings.map((booking) => {
+                    const reqDate = booking.requestedDate ? new Date(booking.requestedDate).toLocaleDateString() : 'N/A';
+                    return (
+                      <tr key={booking._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
+                        <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
+                          {booking.shipName}
+                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
+                            Type: {booking.shipType || 'N/A'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                          {booking.uqmsNo ? (
+                            <span style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '6px', background: 'var(--green-subtle)', color: 'var(--green)', fontWeight: 600, fontSize: '12px' }}>
+                              {booking.uqmsNo}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {reqDate}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {booking.society || '—'}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '200px' }}>
+                            {booking.surveysRequested && booking.surveysRequested.length > 0 ? (
+                              booking.surveysRequested.map((code, idx) => (
+                                <span key={idx} style={{ display: 'inline-flex', padding: '2px 6px', borderRadius: '4px', background: 'var(--primary-subtle)', color: 'var(--primary)', fontWeight: 600, fontSize: '10px' }}>
+                                  {code}
+                                </span>
+                              ))
+                            ) : (
+                              <span style={{ color: 'var(--muted)', fontSize: '11px' }}>None</span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                          {booking.visitDetails && booking.visitDetails.length > 0 ? (
+                            <span style={{ fontWeight: 600, color: 'var(--label)' }}>
+                              {booking.visitDetails.length} Visit(s)
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--muted)' }}>No visits planned</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px' }}>
+                            <Link to={`/reporting/marine/survey-booking/edit/${booking._id}`} style={{ textDecoration: 'none' }}>
+                              <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
+                                Edit
+                              </button>
+                            </Link>
+                            <button 
+                              onClick={() => handleDeleteSurveyBooking(booking._id)}
+                              className="btn-secondary" 
+                              style={{ 
+                                padding: '6px 12px', 
+                                fontSize: '12px', 
+                                borderRadius: '8px', 
+                                minWidth: '60px', 
+                                color: 'var(--red)', 
+                                borderColor: 'rgba(239, 68, 68, .2)',
+                                background: 'transparent',
+                                marginBottom: 0 
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .table-row-hover:hover {
+          background: rgba(148, 163, 184, .02);
+        }
+      `}} />
     </div>
   );
 }

@@ -184,3 +184,53 @@ export interface ApiFirstEntry {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ApiSurveyorAssignment {
+  surveyorId?: ApiUser | string;
+  currency?: string;
+  specialAttendanceFees?: number;
+}
+
+export interface ApiVisitDetail {
+  visitNo?: string;
+  visitDate: string;
+  startSurvey?: string;
+  endSurvey?: string;
+  location?: string;
+  status?: string;
+  surveyorAssignments: ApiSurveyorAssignment[];
+}
+
+export interface ApiFirstEntrySurveyBooking {
+  _id: string;
+  vesselId?: ApiVessel | string;
+  requestIds?: Array<ApiRequest | string>;
+  shipName: string;
+  requestedBy?: string;
+  portOfSurvey?: string;
+  reportNo?: string;
+  portOfRegistry?: string;
+  flag?: string;
+  shipType?: string;
+  shipBuilder?: string;
+  engineBuilder?: string;
+  duallyClassWith?: string;
+  dwt?: number;
+  keelDate?: string;
+  uqmsNo?: string;
+  requestedDate: string;
+  surveyMode: string;
+  society?: string;
+  managedBy?: string;
+  buildDate?: string;
+  yardNo?: string;
+  officialNo?: string;
+  gt?: number;
+  callSign?: string;
+  visitDetails: ApiVisitDetail[];
+  surveysRequested: string[];
+  status: string;
+  companyId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

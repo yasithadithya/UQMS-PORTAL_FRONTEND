@@ -1,5 +1,5 @@
 import { request, requestFormData } from '../client';
-import type { ApiRequest } from '../types';
+import type { ApiRequest, ApiSurveyType } from '../types';
 
 export type RequestPayload = {
   uqmsNumber?: string;
@@ -93,5 +93,8 @@ export const requestsService = {
     });
 
     return generated.data.url;
+  },
+  getRequestSurveys: (id: string) => {
+    return request<{ success: boolean; data: ApiSurveyType[] }>(`/requests/${id}/surveys`);
   },
 };

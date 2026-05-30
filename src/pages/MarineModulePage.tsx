@@ -413,9 +413,16 @@ export default function MarineModulePage() {
                         </td>
                         <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           {booking.visitDetails && booking.visitDetails.length > 0 ? (
-                            <span style={{ fontWeight: 600, color: 'var(--label)' }}>
-                              {booking.visitDetails.length} Visit(s)
-                            </span>
+                            <div>
+                              <span style={{ fontWeight: 600, color: 'var(--label)' }}>
+                                {booking.visitDetails.length} Visit(s)
+                              </span>
+                              {(booking.lastVisitDate || booking.lastVisit) && (
+                                <span style={{ display: 'block', fontSize: '11px', color: 'var(--primary)', fontWeight: 600, marginTop: '4px' }}>
+                                  Last: {new Date(booking.lastVisitDate || booking.lastVisit!).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span style={{ color: 'var(--muted)' }}>No visits planned</span>
                           )}

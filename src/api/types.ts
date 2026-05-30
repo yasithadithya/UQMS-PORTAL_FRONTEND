@@ -198,6 +198,8 @@ export interface ApiVisitDetail {
   endSurvey?: string;
   location?: string;
   status?: string;
+  isLastVist?: boolean;
+  isLastVisitDate?: boolean;
   surveyorAssignments: ApiSurveyorAssignment[];
 }
 
@@ -227,6 +229,8 @@ export interface ApiFirstEntrySurveyBooking {
   officialNo?: string;
   gt?: number;
   callSign?: string;
+  lastVisitDate?: string;
+  lastVisit?: string;
   visitDetails: ApiVisitDetail[];
   surveysRequested: string[];
   status: string;

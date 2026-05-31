@@ -126,6 +126,8 @@ export default function CreateFirstEntrySurveyBooking() {
             const formattedVisits = (booking.visitDetails || []).map(v => ({
               ...v,
               visitDate: v.visitDate ? v.visitDate.split('T')[0] : '',
+              isLastVisitDate: !!v.isLastVisitDate || !!v.isLastVist,
+              isLastVist: !!v.isLastVisitDate || !!v.isLastVist,
               surveyorAssignments: (v.surveyorAssignments || []).map(sa => ({
                 ...sa,
                 surveyorId: typeof sa.surveyorId === 'object' ? sa.surveyorId?._id || '' : sa.surveyorId || ''
@@ -299,6 +301,8 @@ export default function CreateFirstEntrySurveyBooking() {
       endSurvey: '',
       location: '',
       status: 'scheduled',
+      isLastVisitDate: false,
+      isLastVist: false,
       surveyorAssignments: []
     };
     setVisitDetails([...visitDetails, newVisit]);
@@ -314,6 +318,25 @@ export default function CreateFirstEntrySurveyBooking() {
       ...updated[visitIndex],
       [field]: value
     };
+    setVisitDetails(updated);
+  };
+
+  const handleLastVisitToggle = (visitIndex: number, checked: boolean) => {
+    const updated = visitDetails.map((v, idx) => {
+      if (idx === visitIndex) {
+        return {
+          ...v,
+          isLastVisitDate: checked,
+          isLastVist: checked
+        };
+      } else {
+        return {
+          ...v,
+          isLastVisitDate: false,
+          isLastVist: false
+        };
+      }
+    });
     setVisitDetails(updated);
   };
 
@@ -932,6 +955,17 @@ export default function CreateFirstEntrySurveyBooking() {
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', height: '100%', paddingLeft: '4px', alignSelf: 'end', marginBottom: '6px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
+                        <input
+                          type="checkbox"
+                          checked={!!visit.isLastVisitDate || !!visit.isLastVist}
+                          onChange={e => handleLastVisitToggle(visitIdx, e.target.checked)}
+                          style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                        />
+                        Is Last Visit?
+                      </label>
                     </div>
                   </div>
 

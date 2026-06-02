@@ -238,3 +238,39 @@ export interface ApiFirstEntrySurveyBooking {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ApiSurveyReportCategory {
+  _id?: string;
+  surveyCategory: string;
+  surveyStatus?: string;
+  isPostponed?: boolean;
+  postponeDate?: string;
+  surveyDate?: string;
+  assignedDate?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  remarks?: string;
+}
+
+export interface ApiFirstEntrySurveyReport {
+  _id: string;
+  bookingId: ApiFirstEntrySurveyBooking | string;
+  vesselId?: ApiVessel | string;
+  shipName: string;
+  managedBy?: string;
+  uqmsNo?: string;
+  surveyRequestedDate?: string;
+  firstSurveyDate?: string;
+  reportNo: string;
+  portOfSurvey?: string;
+  lastSurveyDate?: string;
+  reportRemarks?: string;
+  anniversaryDate?: string;
+  surveys: ApiSurveyReportCategory[];
+  status?: string;
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

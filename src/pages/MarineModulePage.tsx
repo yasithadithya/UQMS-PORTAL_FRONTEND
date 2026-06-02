@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { firstEntryService } from '@/api';
-import type { ApiFirstEntry, ApiFirstEntrySurveyBooking } from '@/api';
+import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '@/api';
 
 export default function MarineModulePage() {
   const [entries, setEntries] = useState<ApiFirstEntry[]>([]);
   const [surveyBookings, setSurveyBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
+  const [reports, setReports] = useState<ApiFirstEntrySurveyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [surveyLoading, setSurveyLoading] = useState(false);
+  const [reportsLoading, setReportsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [surveyError, setSurveyError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'certificates'>('first-entry');
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'reports' | 'certificates'>('first-entry');
 
   useEffect(() => {
     if (activeTab === 'first-entry') {
       fetchEntries();
     } else if (activeTab === 'survey') {
       fetchSurveyBookings();
+    } else if (activeTab === 'reports') {
+      fetchReports();
     }
   }, [activeTab]);
 
@@ -86,6 +91,39 @@ export default function MarineModulePage() {
     }
   };
 
+  const fetchReports = async () => {
+    try {
+      setReportsLoading(true);
+      setReportsError(null);
+      const res = await firstEntryService.getFirstEntrySurveyReports();
+      if (res.success) {
+        setReports(res.data);
+      } else {
+        setReportsError('Failed to fetch survey reports');
+      }
+    } catch (err: any) {
+      setReportsError(err.message || 'An error occurred fetching survey reports');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this Survey Report?')) {
+      return;
+    }
+    try {
+      const res = await firstEntryService.deleteFirstEntrySurveyReport(id);
+      if (res.success) {
+        setReports(prev => prev.filter(r => r._id !== id));
+      } else {
+        alert('Failed to delete survey report');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting survey report');
+    }
+  };
+
   return (
     <div className="animate-in" style={{ padding: '4px' }}>
       {/* Header Info */}
@@ -115,6 +153,16 @@ export default function MarineModulePage() {
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
                 Book Survey
+              </button>
+            </Link>
+          ) : activeTab === 'reports' ? (
+            <Link to="/reporting/marine/survey-report/create" style={{ textDecoration: 'none' }}>
+              <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Create Survey Report
               </button>
             </Link>
           ) : null}
@@ -154,6 +202,22 @@ export default function MarineModulePage() {
           }}
         >
           Surveys
+        </button>
+        <button 
+          onClick={() => setActiveTab('reports')}
+          style={{
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'reports' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: activeTab === 'reports' ? 'var(--label)' : 'var(--muted)',
+            fontSize: '14px',
+            fontWeight: 600,
+            padding: '12px 4px',
+            cursor: 'pointer',
+            transition: 'all var(--transition)'
+          }}
+        >
+          Survey Reports
         </button>
         <button 
           onClick={() => setActiveTab('certificates')}
@@ -436,6 +500,136 @@ export default function MarineModulePage() {
                             </Link>
                             <button 
                               onClick={() => handleDeleteSurveyBooking(booking._id)}
+                              className="btn-secondary" 
+                              style={{ 
+                                padding: '6px 12px', 
+                                fontSize: '12px', 
+                                borderRadius: '8px', 
+                                minWidth: '60px', 
+                                color: 'var(--red)', 
+                                borderColor: 'rgba(239, 68, 68, .2)',
+                                background: 'transparent',
+                                marginBottom: 0 
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Survey Reports Tab Content */}
+      {activeTab === 'reports' && (
+        <div>
+          {reportsLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+              <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+              <p style={{ fontSize: '14px' }}>Loading Survey Reports...</p>
+            </div>
+          ) : reportsError ? (
+            <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
+              <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{reportsError}</p>
+              <button className="btn-secondary" onClick={fetchReports} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.6 }}>📝</div>
+              <h3 style={{ fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>No Survey Reports Found</h3>
+              <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
+                There are no survey reports generated yet. Click the button below to generate a new report.
+              </p>
+              <Link to="/reporting/marine/survey-report/create" style={{ textDecoration: 'none' }}>
+                <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  Generate Survey Report
+                </button>
+              </Link>
+            </div>
+          ) : (
+            <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--separator)' }}>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Report No.</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Ship Name</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>UQMS No.</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Port of Survey</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>1st Survey Date</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Last Survey Date</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Status</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reports.map((report) => {
+                    const firstDate = report.firstSurveyDate ? new Date(report.firstSurveyDate).toLocaleDateString() : 'N/A';
+                    const lastDate = report.lastSurveyDate ? new Date(report.lastSurveyDate).toLocaleDateString() : 'N/A';
+                    return (
+                      <tr key={report._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
+                        <td style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--primary)', fontSize: '13px', fontFamily: 'monospace' }}>
+                          {report.reportNo}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
+                          {report.shipName}
+                          {report.managedBy && (
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
+                              Managed by: {report.managedBy}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                          {report.uqmsNo ? (
+                            <span style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '6px', background: 'var(--green-subtle)', color: 'var(--green)', fontWeight: 600, fontSize: '12px' }}>
+                              {report.uqmsNo}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {report.portOfSurvey || '—'}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {firstDate}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {lastDate}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            background: report.status === 'Approved' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(148, 163, 184, 0.15)',
+                            color: report.status === 'Approved' ? 'var(--green)' : 'var(--muted)',
+                            fontWeight: 600,
+                            fontSize: '11px'
+                          }}>
+                            {report.status || 'Draft'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px' }}>
+                            <Link to={`/reporting/marine/survey-report/edit/${report._id}`} style={{ textDecoration: 'none' }}>
+                              <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
+                                Edit
+                              </button>
+                            </Link>
+                            <button 
+                              onClick={() => handleDeleteReport(report._id)}
                               className="btn-secondary" 
                               style={{ 
                                 padding: '6px 12px', 

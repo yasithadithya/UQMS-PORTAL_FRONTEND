@@ -1,5 +1,5 @@
 import { request, requestFormData } from '../client';
-import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking } from '../types';
+import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '../types';
 
 export const firstEntryService = {
   // First Entry endpoints
@@ -110,6 +110,34 @@ export const firstEntryService = {
       };
     }>('/uploads?prefix=schedule2', formData, {
       method: 'POST',
+    });
+  },
+
+  // First Entry Survey Report endpoints
+  getFirstEntrySurveyReports: () => {
+    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyReport[] }>('/first-entry-survey-reports');
+  },
+  getFirstEntrySurveyReportById: (id: string) => {
+    return request<{ success: boolean; data: ApiFirstEntrySurveyReport }>(`/first-entry-survey-reports/${id}`);
+  },
+  getPrePopulatedReportData: (bookingId: string) => {
+    return request<{ success: boolean; message: string; data: Partial<ApiFirstEntrySurveyReport> }>(`/first-entry-survey-reports/pre-populate/${bookingId}`);
+  },
+  createFirstEntrySurveyReport: (payload: Partial<ApiFirstEntrySurveyReport>) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntrySurveyReport }>('/first-entry-survey-reports', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  updateFirstEntrySurveyReport: (id: string, payload: Partial<ApiFirstEntrySurveyReport>) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntrySurveyReport }>(`/first-entry-survey-reports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+  deleteFirstEntrySurveyReport: (id: string) => {
+    return request<{ success: boolean; message: string }>(`/first-entry-survey-reports/${id}`, {
+      method: 'DELETE',
     });
   },
 };

@@ -35,6 +35,7 @@ interface AuthContextType {
   deleteRole: (id: string) => Promise<{ success: boolean; error?: string }>;
   refreshRoles: () => Promise<void>;
   refreshModules: () => Promise<void>;
+  setModulesOptimistic: (modules: ApiModule[]) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -110,6 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Failed to fetch modules:', err);
     }
+  }, []);
+
+  const setModulesOptimistic = useCallback((updatedModules: ApiModule[]) => {
+    setModules(updatedModules);
   }, []);
 
   useEffect(() => {
@@ -238,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login, logout, 
         addUser, updateUser, deleteUser, refreshUsers,
         addRole, updateRole, deleteRole, refreshRoles,
-        refreshModules 
+        refreshModules, setModulesOptimistic 
       }}
     >
       {children}

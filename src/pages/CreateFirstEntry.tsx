@@ -17,7 +17,8 @@ import type {
 
 export default function CreateFirstEntry() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>(); // FirstEntry ID if editing
+  const { id, module } = useParams<{ id?: string; module?: string }>(); // FirstEntry ID if editing
+  const activeModule = module || 'reporting';
   const isEdit = !!id;
 
   // Metadata Dropdowns
@@ -419,7 +420,7 @@ export default function CreateFirstEntry() {
       }
 
       toast.success(isEdit ? 'First Entry updated successfully!' : 'First Entry created successfully!');
-      navigate('/reporting/marine');
+      navigate(`/${activeModule}/marine`);
     } catch (err: any) {
       toast.error('Failed to save entries: ' + err.message);
     } finally {
@@ -440,7 +441,7 @@ export default function CreateFirstEntry() {
     <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-        <Link to="/reporting/marine" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)' }}>
+        <Link to={`/${activeModule}/marine`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
@@ -1186,7 +1187,7 @@ export default function CreateFirstEntry() {
           >
             {loading ? 'Saving...' : 'Save First Entry'}
           </button>
-          <Link to="/reporting/marine" style={{ textDecoration: 'none' }}>
+          <Link to={`/${activeModule}/marine`} style={{ textDecoration: 'none' }}>
             <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
               Cancel
             </button>

@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '@/api';
 
 export default function MarineModulePage() {
+  const { module } = useParams<{ module?: string }>();
+  const location = useLocation();
+  // Derive the base path for this First Entry module from the URL
+  // e.g., /reporting/marine/first-entry => basePath = /reporting/marine/first-entry
+  const basePath = (() => {
+    const segments = location.pathname.split('/').filter(Boolean);
+    // Find 'first-entry' segment and use everything up to and including it
+    const feIndex = segments.findIndex(s => s === 'first-entry');
+    if (feIndex >= 0) return '/' + segments.slice(0, feIndex + 1).join('/');
+    // Fallback to /:module/marine/first-entry
+    return `/${module || 'reporting'}/marine/first-entry`;
+  })();
   const [entries, setEntries] = useState<ApiFirstEntry[]>([]);
   const [surveyBookings, setSurveyBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
   const [reports, setReports] = useState<ApiFirstEntrySurveyReport[]>([]);
@@ -129,14 +141,14 @@ export default function MarineModulePage() {
       {/* Header Info */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 className="greeting" style={{ animation: 'fadeUp .4s ease both' }}>Marine Operations</h1>
+          <h1 className="greeting" style={{ animation: 'fadeUp .4s ease both' }}>First Entry Operations</h1>
           <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
             Manage first entries, survey details, and Schedule II attachments.
           </p>
         </div>
         <div>
           {activeTab === 'first-entry' ? (
-            <Link to="/reporting/marine/first-entry/create" style={{ textDecoration: 'none' }}>
+            <Link to={`${basePath}/create`} style={{ textDecoration: 'none' }}>
               <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -146,7 +158,7 @@ export default function MarineModulePage() {
               </button>
             </Link>
           ) : activeTab === 'survey' ? (
-            <Link to="/reporting/marine/survey-booking/create" style={{ textDecoration: 'none' }}>
+            <Link to={`${basePath}/survey-booking/create`} style={{ textDecoration: 'none' }}>
               <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -156,7 +168,7 @@ export default function MarineModulePage() {
               </button>
             </Link>
           ) : activeTab === 'reports' ? (
-            <Link to="/reporting/marine/survey-report/create" style={{ textDecoration: 'none' }}>
+            <Link to={`${basePath}/survey-report/create`} style={{ textDecoration: 'none' }}>
               <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -260,7 +272,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no First Entry records created yet. Get started by registering a new vessel and request association.
               </p>
-              <Link to="/reporting/marine/first-entry/create" style={{ textDecoration: 'none' }}>
+              <Link to={`${basePath}/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -357,7 +369,7 @@ export default function MarineModulePage() {
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
-                            <Link to={`/reporting/marine/first-entry/edit/${entry._id}`} style={{ textDecoration: 'none' }}>
+                            <Link to={`${basePath}/edit/${entry._id}`} style={{ textDecoration: 'none' }}>
                               <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
                                 Edit
                               </button>
@@ -412,7 +424,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no surveys booked for first entry vessels yet. Click the button below to book a new survey visit.
               </p>
-              <Link to="/reporting/marine/survey-booking/create" style={{ textDecoration: 'none' }}>
+              <Link to={`${basePath}/survey-booking/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -493,7 +505,7 @@ export default function MarineModulePage() {
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
-                            <Link to={`/reporting/marine/survey-booking/edit/${booking._id}`} style={{ textDecoration: 'none' }}>
+                            <Link to={`${basePath}/survey-booking/edit/${booking._id}`} style={{ textDecoration: 'none' }}>
                               <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
                                 Edit
                               </button>
@@ -548,7 +560,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no survey reports generated yet. Click the button below to generate a new report.
               </p>
-              <Link to="/reporting/marine/survey-report/create" style={{ textDecoration: 'none' }}>
+              <Link to={`${basePath}/survey-report/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -623,7 +635,7 @@ export default function MarineModulePage() {
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
-                            <Link to={`/reporting/marine/survey-report/edit/${report._id}`} style={{ textDecoration: 'none' }}>
+                            <Link to={`${basePath}/survey-report/edit/${report._id}`} style={{ textDecoration: 'none' }}>
                               <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
                                 Edit
                               </button>

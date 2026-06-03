@@ -49,17 +49,17 @@ function App() {
             <Route path="/modules" element={<AdminGate><ModulesPage /></AdminGate>} />
             <Route path="/roles" element={<AdminGate><RolesPage /></AdminGate>} />
             
-            {/* Marine Submodule Custom Routes */}
-            <Route path="/reporting/marine/first-entry/create" element={<CreateFirstEntry />} />
-            <Route path="/reporting/marine/first-entry/edit/:id" element={<CreateFirstEntry />} />
-            <Route path="/reporting/marine/survey-booking/create" element={<CreateFirstEntrySurveyBooking />} />
-            <Route path="/reporting/marine/survey-booking/edit/:id" element={<CreateFirstEntrySurveyBooking />} />
-            <Route path="/reporting/marine/survey-report/create" element={<CreateFirstEntrySurveyReport />} />
-            <Route path="/reporting/marine/survey-report/edit/:id" element={<CreateFirstEntrySurveyReport />} />
+            {/* First Entry Sub-Sub-Module Custom Routes (under Marine) */}
+            <Route path="/:module/marine/first-entry/create" element={<CreateFirstEntry />} />
+            <Route path="/:module/marine/first-entry/edit/:id" element={<CreateFirstEntry />} />
+            <Route path="/:module/marine/first-entry/survey-booking/create" element={<CreateFirstEntrySurveyBooking />} />
+            <Route path="/:module/marine/first-entry/survey-booking/edit/:id" element={<CreateFirstEntrySurveyBooking />} />
+            <Route path="/:module/marine/first-entry/survey-report/create" element={<CreateFirstEntrySurveyReport />} />
+            <Route path="/:module/marine/first-entry/survey-report/edit/:id" element={<CreateFirstEntrySurveyReport />} />
 
-            {/* Catch-all dynamic route for DB modules */}
+            {/* Catch-all dynamic route for DB modules (supports unlimited nesting) */}
             <Route path="/:module" element={<GenericModulePage />} />
-            <Route path="/:module/:submodule" element={<GenericModulePage />} />
+            <Route path="/:module/*" element={<GenericModulePage />} />
           </Routes>
         </AuthGate>
         <ToastContainer position="top-right" autoClose={4000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover theme="colored" style={{ fontSize: '13px' }} />

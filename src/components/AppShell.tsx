@@ -107,6 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         // Top level modules
         const topModules = modules.filter(m => !m.parentId);
+        topModules.sort((a, b) => (a.order || 0) - (b.order || 0));
         
         for (const mod of topModules) {
             if (hasAccess(mod.name)) {
@@ -187,8 +188,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className={s.main}>
                 {/* Top Header */}
                 <header className={s.header}>
-                    <div className={s.headerTitle}>{currentTitle}</div>
-                    <div className={s.headerSub}>UQMS Management System</div>
+                    <div className={s.headerContent}>
+                        <img src="/logo.png" alt="UQMS Logo" className={s.headerLogo} />
+                        <div className={s.headerText}>
+                            <div className={s.headerTitle}>{currentTitle}</div>
+                            <div className={s.headerSub}>UQMS Management System</div>
+                        </div>
+                    </div>
                 </header>
 
                 {/* Page Content */}

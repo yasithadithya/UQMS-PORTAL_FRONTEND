@@ -26,12 +26,7 @@ export default function LoginPage() {
         <div className={s.container}>
             <form className={s.card} onSubmit={handleSubmit}>
                 <div className={s.logo}>
-                    <svg viewBox="0 0 32 32" fill="none">
-                        <path d="M8 6h16a2 2 0 012 2v16a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z" fill="rgba(255,255,255,.25)" />
-                        <path d="M12 14h8M12 18h5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                        <circle cx="22" cy="22" r="5" fill="#fff" />
-                        <path d="M20 22l1.5 1.5 3-3" stroke="#007AFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <img src="/logo.png" alt="UQMS Logo" className={s.logoImage} />
                 </div>
 
                 <h1 className={s.title}>UQMS</h1>

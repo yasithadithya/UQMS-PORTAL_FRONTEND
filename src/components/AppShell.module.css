@@ -197,17 +197,35 @@
     border-bottom: 1px solid var(--border);
 }
 
+.headerContent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.headerText {
+    display: flex;
+    flex-direction: column;
+}
+
+.headerLogo {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+}
+
 .headerTitle {
     font-size: 15px;
     font-weight: 700;
-    text-align: center;
+    text-align: left;
     color: var(--label);
 }
 
 .headerSub {
     font-size: 11px;
     color: var(--muted);
-    text-align: center;
+    text-align: left;
     margin-top: 2px;
 }
 

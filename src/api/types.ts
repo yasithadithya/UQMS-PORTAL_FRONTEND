@@ -10,6 +10,7 @@ export interface ApiModule {
   name: string;
   description?: string;
   parentId?: string | ApiModule;
+  order?: number;
   createdAt: string;
   updatedAt: string;
 }

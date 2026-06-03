@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import {
   operationsService,
   requestsService,
@@ -65,6 +66,7 @@ const makeId = () => {
 const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
 
 export default function NewRequestPage() {
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
@@ -72,6 +74,7 @@ export default function NewRequestPage() {
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [editingRequest, setEditingRequest] = useState<ApiRequest | null>(null);
@@ -110,14 +113,20 @@ export default function NewRequestPage() {
     }
   };
 
-  const refreshRequests = async () => {
+  const refreshRequests = async (search?: string) => {
     try {
-      const res = await requestsService.getRequests();
+      const res = await requestsService.getRequests(search !== undefined ? search : searchTerm);
       setRequests(res.data);
     } catch (err: any) {
       setPageError(err.message || 'Failed to refresh requests.');
     }
   };
+
+  useEffect(() => {
+    if (!loading) {
+      refreshRequests();
+    }
+  }, [searchTerm]);
 
   useEffect(() => {
     loadData();
@@ -353,7 +362,7 @@ export default function NewRequestPage() {
                 className={`${s.actionBtn} ${s.deleteBtn}`}
                 type="button"
                 onClick={() => handleDeleteDocument(request._id, doc._id)}
-                disabled={request.status !== 'active'}
+                disabled={request.status !== 'active' || (!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete') && !hasPermission(null, 'delete'))}
               >
                 Delete
               </button>
@@ -383,6 +392,17 @@ export default function NewRequestPage() {
         </button>
       </div>
 
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Search by request no or vessel name..."
+          style={{ maxWidth: '400px', width: '100%' }}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       {pageError && (
         <div className="card" style={{ borderColor: 'rgba(239,68,68,.25)', color: 'var(--red)' }}>
           {pageError}
@@ -391,8 +411,10 @@ export default function NewRequestPage() {
 
       {loading ? (
         <div className="card">Loading requests...</div>
-      ) : requests.length === 0 ? (
+      ) : requests.length === 0 && !searchTerm ? (
         <div className={s.emptyState}>No requests yet. Create a new request to get started.</div>
+      ) : requests.length === 0 ? (
+        <div className={s.emptyState}>No requests match your search.</div>
       ) : (
         <>
           <div className={s.tableWrap}>
@@ -762,6 +784,7 @@ export default function NewRequestPage() {
                 className="btn-primary"
                 style={{ background: 'var(--red)' }}
                 onClick={() => handleDelete(deleteConfirm)}
+                disabled={!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete') && !hasPermission(null, 'delete')}
               >
                 Delete
               </button>

@@ -11,8 +11,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font);
-  font-size: 13px;
+  font-family: var(--font-title);
+  font-size: 14.5px;
   font-weight: 600;
   color: #fff;
   background: var(--primary);
@@ -45,12 +45,13 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .table th {
   text-align: left;
-  font-size: 11px;
+  font-family: var(--font-title);
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
@@ -91,7 +92,7 @@
   cursor: pointer;
   color: var(--muted);
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 500;
   transition: background .2s, color .2s;
 }
@@ -139,13 +140,14 @@
 }
 
 .mobileTitle {
+  font-family: var(--font-title);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15.5px;
   color: var(--label);
 }
 
 .mobileSub {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--muted);
   margin-top: 2px;
 }
@@ -210,7 +212,8 @@
 }
 
 .modalTitle {
-  font-size: 17px;
+  font-family: var(--font-title);
+  font-size: 19px;
   font-weight: 700;
   color: var(--label);
 }
@@ -223,7 +226,7 @@
   border-radius: 50%;
   cursor: pointer;
   color: var(--secondary);
-  font-size: 14px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -256,7 +259,8 @@
   gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-family: var(--font-title);
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -292,7 +296,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--label);
 }
 
@@ -327,13 +331,14 @@
 }
 
 .fileName {
+  font-family: var(--font-title);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--label);
 }
 
 .fileSize {
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
@@ -364,13 +369,14 @@
 }
 
 .docName {
+  font-family: var(--font-title);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--label);
 }
 
 .docMeta {
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
@@ -393,7 +399,8 @@
   border-radius: 999px;
   background: rgba(59,130,246,.12);
   color: var(--primary);
-  font-size: 12px;
+  font-family: var(--font-title);
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -406,7 +413,7 @@
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--secondary);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   text-decoration: none;
   transition: color .2s, border-color .2s;
@@ -451,7 +458,7 @@
 .detailSubtitle {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .detailActions,
@@ -501,7 +508,8 @@
 .summaryTile span {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-family: var(--font-title);
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: .05em;
   margin-bottom: 5px;
@@ -511,7 +519,8 @@
 .summaryTile strong {
   display: block;
   color: var(--label);
-  font-size: 14px;
+  font-family: var(--font-title);
+  font-size: 15.5px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -544,13 +553,14 @@
 
 .detailSectionHeader span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
 .detailSectionTitle {
   color: var(--label);
-  font-size: 13px;
+  font-family: var(--font-title);
+  font-size: 14.5px;
   font-weight: 800;
   letter-spacing: .06em;
   margin-bottom: 14px;
@@ -577,7 +587,8 @@
 
 .detailField dt {
   color: var(--muted);
-  font-size: 11px;
+  font-family: var(--font-title);
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -585,7 +596,7 @@
 
 .detailField dd {
   color: var(--label);
-  font-size: 14px;
+  font-size: 15.5px;
   font-weight: 600;
   margin: 0;
   overflow-wrap: anywhere;

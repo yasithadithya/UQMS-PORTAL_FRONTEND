@@ -36,6 +36,7 @@ interface AuthContextType {
   refreshRoles: () => Promise<void>;
   refreshModules: () => Promise<void>;
   setModulesOptimistic: (modules: ApiModule[]) => void;
+  hasPermission: (moduleName: string | null, action: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -236,6 +237,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshRoles]
   );
 
+  const hasPermission = useCallback((moduleName: string | null, action: string) => {
+    if (!user || !user.role) return false;
+    if (user.role.roleName.toLowerCase() === 'admin') return true;
+    
+    if (moduleName) {
+      const targetModule = modules.find(m => m.name.toLowerCase() === moduleName.toLowerCase());
+      if (!targetModule) return false;
+
+      const perm = user.role.permissions?.find(p => {
+        const pModId = typeof p.module === 'object' ? p.module._id : p.module;
+        return pModId === targetModule._id;
+      });
+
+      if (!perm) return false;
+      return perm.actions.includes(action);
+    }
+    
+    return user.role.permissions?.some(p => p.actions.includes(action)) || false;
+  }, [user, modules]);
+
   return (
     <AuthContext.Provider
       value={{ 
@@ -243,7 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login, logout, 
         addUser, updateUser, deleteUser, refreshUsers,
         addRole, updateRole, deleteRole, refreshRoles,
-        refreshModules, setModulesOptimistic 
+        refreshModules, setModulesOptimistic, hasPermission 
       }}
     >
       {children}

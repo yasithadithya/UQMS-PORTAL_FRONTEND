@@ -25,7 +25,8 @@
 }
 
 .sidebarTitle {
-    font-size: 18px;
+    font-family: var(--font-title);
+    font-size: 19px;
     font-weight: 800;
     color: var(--label);
     letter-spacing: -.03em;
@@ -45,7 +46,7 @@
 }
 
 .sidebarSub {
-    font-size: 11px;
+    font-size: 12.5px;
     color: var(--muted);
     margin-top: 4px;
     font-weight: 500;
@@ -68,7 +69,7 @@
     background: transparent;
     color: var(--muted);
     font-family: var(--font);
-    font-size: 13px;
+    font-size: 14.5px;
     font-weight: 500;
     text-decoration: none;
     transition: background .2s, color .2s;
@@ -163,19 +164,19 @@
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 700;
     flex-shrink: 0;
 }
 
 .sidebarUserName {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--label);
 }
 
 .sidebarUserRole {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
     margin-top: 1px;
 }
@@ -192,7 +193,7 @@
     top: 0;
     z-index: 100;
     padding: 16px 20px 14px;
-    background: rgba(11,15,26,.8);
+    background: var(--header-bg);
     backdrop-filter: saturate(180%) blur(16px);
     border-bottom: 1px solid var(--border);
 }
@@ -216,14 +217,15 @@
 }
 
 .headerTitle {
-    font-size: 15px;
+    font-family: var(--font-title);
+    font-size: 16px;
     font-weight: 700;
     text-align: left;
     color: var(--label);
 }
 
 .headerSub {
-    font-size: 11px;
+    font-size: 12.5px;
     color: var(--muted);
     text-align: left;
     margin-top: 2px;
@@ -245,7 +247,7 @@
     justify-content: space-around;
     align-items: flex-end;
     padding: 8px 0 calc(12px + env(safe-area-inset-bottom, 0px));
-    background: rgba(17,24,39,.92);
+    background: var(--tabbar-bg);
     backdrop-filter: saturate(180%) blur(16px);
     border-top: 1px solid var(--border);
 }
@@ -270,7 +272,7 @@
 .tab svg { width: 24px; height: 24px; }
 
 .tabLabel {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
 }
 
@@ -278,7 +280,7 @@
     .sidebar { display: flex; }
     .tabBar { display: none; }
     .header { padding: 20px 40px 16px; }
-    .headerTitle { font-size: 18px; text-align: left; }
+    .headerTitle { font-size: 19px; text-align: left; }
     .headerSub { text-align: left; }
     .content { padding: 32px 40px 40px; max-width: 1200px; }
 }

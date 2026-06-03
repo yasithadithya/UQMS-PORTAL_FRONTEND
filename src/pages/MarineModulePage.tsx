@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '@/api';
+import { useAuth } from '@/context/AuthContext';
 
 export default function MarineModulePage() {
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission('Admin', 'delete') || hasPermission('Marine', 'delete') || hasPermission(null, 'delete');
   const { module } = useParams<{ module?: string }>();
   const location = useLocation();
   // Derive the base path for this First Entry module from the URL
@@ -377,6 +380,7 @@ export default function MarineModulePage() {
                             <button 
                               onClick={() => handleDelete(entry._id)}
                               className="btn-secondary" 
+                              disabled={!canDelete}
                               style={{ 
                                 padding: '6px 12px', 
                                 fontSize: '12px', 
@@ -385,7 +389,10 @@ export default function MarineModulePage() {
                                 color: 'var(--red)', 
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
-                                marginBottom: 0 
+                                marginBottom: 0,
+                                opacity: canDelete ? 1 : 0.4,
+                                cursor: canDelete ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDelete ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -443,7 +450,7 @@ export default function MarineModulePage() {
                     <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>UQMS No.</th>
                     <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Requested Date</th>
                     <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Society</th>
-                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Surveys Requested</th>
+                    {/* <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Surveys Requested</th> */}
                     <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Planned Visits</th>
                     <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -474,7 +481,7 @@ export default function MarineModulePage() {
                         <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
                           {booking.society || '—'}
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px' }}>
+                        {/* <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '200px' }}>
                             {booking.surveysRequested && booking.surveysRequested.length > 0 ? (
                               booking.surveysRequested.map((code, idx) => (
@@ -486,7 +493,7 @@ export default function MarineModulePage() {
                               <span style={{ color: 'var(--muted)', fontSize: '11px' }}>None</span>
                             )}
                           </div>
-                        </td>
+                        </td> */}
                         <td style={{ padding: '16px 20px', fontSize: '13px' }}>
                           {booking.visitDetails && booking.visitDetails.length > 0 ? (
                             <div>
@@ -513,6 +520,7 @@ export default function MarineModulePage() {
                             <button 
                               onClick={() => handleDeleteSurveyBooking(booking._id)}
                               className="btn-secondary" 
+                              disabled={!canDelete}
                               style={{ 
                                 padding: '6px 12px', 
                                 fontSize: '12px', 
@@ -521,7 +529,10 @@ export default function MarineModulePage() {
                                 color: 'var(--red)', 
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
-                                marginBottom: 0 
+                                marginBottom: 0,
+                                opacity: canDelete ? 1 : 0.4,
+                                cursor: canDelete ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDelete ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -643,6 +654,7 @@ export default function MarineModulePage() {
                             <button 
                               onClick={() => handleDeleteReport(report._id)}
                               className="btn-secondary" 
+                              disabled={!canDelete}
                               style={{ 
                                 padding: '6px 12px', 
                                 fontSize: '12px', 
@@ -651,7 +663,10 @@ export default function MarineModulePage() {
                                 color: 'var(--red)', 
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
-                                marginBottom: 0 
+                                marginBottom: 0,
+                                opacity: canDelete ? 1 : 0.4,
+                                cursor: canDelete ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDelete ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}

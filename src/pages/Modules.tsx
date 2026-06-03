@@ -5,7 +5,8 @@ import { toast } from 'react-toastify';
 import s from './UserManagement.module.css';
 
 export default function ModulesPage() {
-    const { modules, refreshModules, setModulesOptimistic } = useAuth();
+    const { modules, refreshModules, setModulesOptimistic, hasPermission } = useAuth();
+    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete') || hasPermission(null, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingModule, setEditingModule] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -337,7 +338,7 @@ export default function ModulesPage() {
                                                 <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         </button>
-                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete">
+                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete" disabled={!canDeleteModule}>
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                 <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>

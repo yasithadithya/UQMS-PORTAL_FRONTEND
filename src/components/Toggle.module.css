@@ -6,13 +6,13 @@
 }
 
 .label {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 400;
     color: var(--secondary);
 }
 
 .labelSmall {
-    font-size: 13px;
+    font-size: 14.5px;
 }
 
 .toggle {

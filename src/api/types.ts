@@ -170,6 +170,7 @@ export interface ApiScheduleII {
   firstEntry: string;
   documents: ApiScheduleIIDocument[];
   status: string;
+  emailSent?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

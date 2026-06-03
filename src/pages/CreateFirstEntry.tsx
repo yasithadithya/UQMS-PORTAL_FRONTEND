@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import ConfirmModal from '@/components/ConfirmModal';
 import {
   requestsService,
   vesselsService,
@@ -113,6 +114,9 @@ export default function CreateFirstEntry() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [existingVesselId, setExistingVesselId] = useState<string | null>(null);
   const [existingScheduleIIId, setExistingScheduleIIId] = useState<string | null>(null);
+  const [scheduleEmailSent, setScheduleEmailSent] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
 
   // Fetch Lookups and Edit Details
   useEffect(() => {
@@ -142,13 +146,17 @@ export default function CreateFirstEntry() {
             if (entry.scheduleII && typeof entry.scheduleII === 'object') {
               setExistingScheduleIIId(entry.scheduleII._id);
               setAttachedDocuments(entry.scheduleII.documents || []);
+              setScheduleEmailSent(entry.scheduleII.emailSent || false);
             } else if (typeof entry.scheduleII === 'string') {
               setExistingScheduleIIId(entry.scheduleII);
               // Fetch schedule directly
-              const sched = await firstEntryService.getScheduleIIById(entry.scheduleII);
-              if (sched.success) {
-                setAttachedDocuments(sched.data.documents || []);
-              }
+              try {
+                const sched = await firstEntryService.getScheduleIIById(entry.scheduleII);
+                if (sched.success) {
+                  setAttachedDocuments(sched.data.documents || []);
+                  setScheduleEmailSent(sched.data.emailSent || false);
+                }
+              } catch (err) {}
             }
 
             if (entry.vessel && typeof entry.vessel === 'object') {
@@ -428,6 +436,33 @@ export default function CreateFirstEntry() {
     }
   };
 
+  const handleSendEmailClick = () => {
+    if (!existingScheduleIIId) return;
+    if (attachedDocuments.length === 0) {
+      toast.error('No Schedule II documents to send.');
+      return;
+    }
+    setShowEmailConfirm(true);
+  };
+
+  const performSendEmail = async () => {
+    setShowEmailConfirm(false);
+    setIsSendingEmail(true);
+    try {
+      const res = await firstEntryService.sendScheduleIIEmail(existingScheduleIIId!);
+      if (res.success) {
+        toast.success('Email sent successfully!');
+        setScheduleEmailSent(true);
+      } else {
+        toast.error(res.message || 'Failed to send email.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error sending email.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
   if (initialLoading) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -529,7 +564,7 @@ export default function CreateFirstEntry() {
             >
               <option value="">-- Choose an Approved Request --</option>
               {requests
-                .filter(r => r.status === 'print' || r._id === selectedRequestId)
+                .filter(r => (r.status === 'print' && r.uqmsNumber === '') || r._id === selectedRequestId)
                 .map(r => (
                   <option key={r._id} value={r._id}>
                     {r.requestNumber} - {r.vesselName} ({r.companyName})
@@ -1074,7 +1109,45 @@ export default function CreateFirstEntry() {
 
         {/* SECTION 4: Schedule II Documents */}
         <div className="card" style={{ marginBottom: '32px' }}>
-          <div className="card-header">4. Schedule II Attachments</div>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>4. Schedule II Attachments</span>
+            {existingScheduleIIId && attachedDocuments.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSendEmailClick}
+                disabled={scheduleEmailSent || isSendingEmail}
+                className="btn-secondary"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  borderRadius: '8px',
+                  minWidth: '100px',
+                  marginBottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  color: scheduleEmailSent ? 'var(--green)' : 'var(--primary)',
+                  borderColor: scheduleEmailSent ? 'rgba(16, 185, 129, .2)' : 'rgba(59, 130, 246, .2)',
+                  background: scheduleEmailSent ? 'rgba(16, 185, 129, .05)' : 'transparent',
+                  cursor: (scheduleEmailSent || isSendingEmail) ? 'not-allowed' : 'pointer',
+                  opacity: (scheduleEmailSent || isSendingEmail) ? 0.8 : 1
+                }}
+                title={scheduleEmailSent ? "Email already sent" : "Send documents via email"}
+              >
+                {isSendingEmail ? (
+                  <>
+                    <span style={{ width: '12px', height: '12px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                    Sending...
+                  </>
+                ) : scheduleEmailSent ? (
+                  '✓ Email Sent'
+                ) : (
+                  'Send Email'
+                )}
+              </button>
+            )}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
             <div>
@@ -1259,6 +1332,15 @@ export default function CreateFirstEntry() {
           `}} />
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showEmailConfirm}
+        title="Send Schedule II Documents"
+        message="Are you sure you want to send the Schedule II documents via email to the DSSC?"
+        confirmText="Send Email"
+        onConfirm={performSendEmail}
+        onCancel={() => setShowEmailConfirm(false)}
+      />
     </div>
   );
 }

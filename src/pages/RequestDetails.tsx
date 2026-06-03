@@ -96,7 +96,8 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 }
 
 export default function RequestDetailsPage() {
-  const { submodule: id } = useParams();
+  const params = useParams();
+  const id = params.submodule || (params['*'] ? params['*'].split('/')[0] : undefined);
   const navigate = useNavigate();
   const [request, setRequest] = useState<ApiRequest | null>(null);
   const [loading, setLoading] = useState(true);

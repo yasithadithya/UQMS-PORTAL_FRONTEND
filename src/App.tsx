@@ -12,6 +12,7 @@ import RolesPage from '@/pages/Roles';
 import GenericModulePage from '@/pages/GenericModulePage';
 import CreateFirstEntry from '@/pages/CreateFirstEntry';
 import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking';
+import CreateFirstEntrySurveyReport from '@/pages/CreateFirstEntrySurveyReport';
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -53,6 +54,8 @@ function App() {
             <Route path="/reporting/marine/first-entry/edit/:id" element={<CreateFirstEntry />} />
             <Route path="/reporting/marine/survey-booking/create" element={<CreateFirstEntrySurveyBooking />} />
             <Route path="/reporting/marine/survey-booking/edit/:id" element={<CreateFirstEntrySurveyBooking />} />
+            <Route path="/reporting/marine/survey-report/create" element={<CreateFirstEntrySurveyReport />} />
+            <Route path="/reporting/marine/survey-report/edit/:id" element={<CreateFirstEntrySurveyReport />} />
 
             {/* Catch-all dynamic route for DB modules */}
             <Route path="/:module" element={<GenericModulePage />} />

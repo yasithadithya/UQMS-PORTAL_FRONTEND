@@ -1,24 +1,30 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { modulesService } from '@/api/services/modules.service';
+import { toast } from 'react-toastify';
 import s from './UserManagement.module.css';
 
 export default function ModulesPage() {
-    const { modules, refreshModules } = useAuth();
+    const { modules, refreshModules, setModulesOptimistic, hasPermission } = useAuth();
+    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete') || hasPermission(null, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingModule, setEditingModule] = useState<any>(null);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
         parentId: '',
+        order: 0,
     });
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
 
+    const [draggedId, setDraggedId] = useState<string | null>(null);
+    const [dragOverId, setDragOverId] = useState<string | null>(null);
+
     const openAdd = () => {
         setEditingModule(null);
-        setFormData({ name: '', description: '', parentId: '' });
+        setFormData({ name: '', description: '', parentId: '', order: 0 });
         setFormError('');
         setShowModal(true);
     };
@@ -29,6 +35,7 @@ export default function ModulesPage() {
             name: mod.name,
             description: mod.description || '',
             parentId: mod.parentId ? (typeof mod.parentId === 'object' ? mod.parentId._id : mod.parentId) : '',
+            order: mod.order || 0,
         });
         setFormError('');
         setShowModal(true);
@@ -47,6 +54,7 @@ export default function ModulesPage() {
             const payload: any = {
                 name: formData.name,
                 description: formData.description,
+                order: formData.order,
             };
             if (formData.parentId) {
                 payload.parentId = formData.parentId;
@@ -59,6 +67,10 @@ export default function ModulesPage() {
                     setSaving(false);
                     return;
                 }
+                // Optimistic: update the module in state immediately
+                setModulesOptimistic(
+                    modules.map(m => m._id === editingModule._id ? { ...m, ...payload, parentId: payload.parentId || m.parentId } : m)
+                );
             } else {
                 const res = await modulesService.createModule(payload);
                 if (!res.success) {
@@ -66,8 +78,13 @@ export default function ModulesPage() {
                     setSaving(false);
                     return;
                 }
+                // Optimistic: add the new module to state immediately
+                if (res.data) {
+                    setModulesOptimistic([...modules, res.data]);
+                }
             }
-            await refreshModules();
+            // Also refresh from server to get canonical data (populated parentId etc.)
+            refreshModules();
             setShowModal(false);
         } catch (err: any) {
             setFormError(err.message || 'An error occurred');
@@ -79,21 +96,158 @@ export default function ModulesPage() {
     const handleDelete = async (id: string) => {
         try {
             await modulesService.deleteModule(id);
-            await refreshModules();
+            // Optimistic: remove the module from state immediately
+            setModulesOptimistic(modules.filter(m => m._id !== id));
+            // Also refresh from server
+            refreshModules();
         } catch (err: any) {
             alert(err.message || 'Failed to delete module. It might have sub-modules.');
         }
         setDeleteConfirm(null);
     };
 
-    const getParentName = (parentId: any) => {
-        if (!parentId) return '-';
-        if (typeof parentId === 'object') return parentId.name;
-        const parent = modules.find(m => m._id === parentId);
-        return parent ? parent.name : '-';
+
+
+
+    // --- Helpers for tree structure ---
+    const getParentId = (mod: any) => {
+        if (!mod.parentId) return null;
+        return typeof mod.parentId === 'object' ? mod.parentId._id : mod.parentId;
     };
 
-    const parentModules = modules.filter(m => !m.parentId);
+    // Build a flat sorted list with depth for display
+    const sortedModules = (() => {
+        const result: (typeof modules[0] & { depth: number })[] = [];
+
+        const addChildren = (parentId: string | null, depth: number) => {
+            const children = modules.filter(m => getParentId(m) === parentId);
+            children.sort((a, b) => (a.order || 0) - (b.order || 0));
+            for (const child of children) {
+                (child as any).depth = depth;
+                result.push(child as any);
+                addChildren(child._id, depth + 1);
+            }
+        };
+
+        addChildren(null, 0);
+        return result;
+    })();
+
+    // Get all descendant IDs of a module (to exclude from parent dropdown when editing)
+    const getDescendantIds = (moduleId: string): Set<string> => {
+        const descendants = new Set<string>();
+        const queue = [moduleId];
+        while (queue.length > 0) {
+            const currentId = queue.shift()!;
+            const children = modules.filter(m => getParentId(m) === currentId);
+            for (const child of children) {
+                if (!descendants.has(child._id)) {
+                    descendants.add(child._id);
+                    queue.push(child._id);
+                }
+            }
+        }
+        return descendants;
+    };
+
+    // Build full ancestry path string for display
+    const getAncestryPath = (mod: any): string => {
+        const path: string[] = [];
+        let current = mod;
+        let depth = 0;
+        while (current?.parentId && depth < 10) {
+            const parent = typeof current.parentId === 'object' ? current.parentId : modules.find(m => m._id === current.parentId);
+            if (parent) {
+                path.unshift(parent.name);
+                current = parent;
+            } else break;
+            depth++;
+        }
+        return path.length > 0 ? path.join(' › ') : '-';
+    };
+
+    // Build tree-indented options for parent dropdown (all modules, indented by depth)
+    const parentDropdownOptions = (() => {
+        const options: { id: string; label: string; depth: number }[] = [];
+        const excludedIds = editingModule ? getDescendantIds(editingModule._id) : new Set<string>();
+
+        const addOptions = (parentId: string | null, depth: number) => {
+            const children = modules.filter(m => getParentId(m) === parentId);
+            children.sort((a, b) => (a.order || 0) - (b.order || 0));
+            for (const child of children) {
+                // Exclude self and all descendants when editing
+                if (editingModule && child._id === editingModule._id) continue;
+                if (excludedIds.has(child._id)) continue;
+                options.push({ id: child._id, label: child.name, depth });
+                addOptions(child._id, depth + 1);
+            }
+        };
+
+        addOptions(null, 0);
+        return options;
+    })();
+
+    const handleDrop = async (targetMod: any) => {
+        if (!draggedId || draggedId === targetMod._id) return;
+
+        const draggedMod = modules.find(m => m._id === draggedId);
+        if (!draggedMod) return;
+
+        const parentId = getParentId(draggedMod);
+        const targetParentId = getParentId(targetMod);
+
+        if (parentId !== targetParentId) {
+            toast.error("Modules can only be reordered within the same parent level.");
+            setDraggedId(null);
+            setDragOverId(null);
+            return;
+        }
+
+        const siblings = modules.filter(m => getParentId(m) === parentId);
+
+        siblings.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const filteredSiblings = siblings.filter(s => s._id !== draggedId);
+
+        const targetIndex = filteredSiblings.findIndex(s => s._id === targetMod._id);
+        if (targetIndex === -1) return;
+
+        filteredSiblings.splice(targetIndex, 0, draggedMod);
+
+        // Optimistic: immediately update order in local state
+        const orderMap = new Map<string, number>();
+        filteredSiblings.forEach((sibling, index) => {
+            orderMap.set(sibling._id, index);
+        });
+        setModulesOptimistic(
+            modules.map(m => orderMap.has(m._id) ? { ...m, order: orderMap.get(m._id)! } : m)
+        );
+
+        setSaving(true);
+        try {
+            const promises = filteredSiblings.map((sibling, index) => {
+                return modulesService.updateModule(sibling._id, {
+                    name: sibling.name,
+                    description: sibling.description,
+                    parentId: getParentId(sibling) || undefined,
+                    order: index
+                });
+            });
+
+            await Promise.all(promises);
+            // Refresh from server to get canonical data
+            refreshModules();
+            toast.success("Module order updated successfully!");
+        } catch (err: any) {
+            toast.error("Failed to update module order: " + err.message);
+            // Revert on failure
+            refreshModules();
+        } finally {
+            setSaving(false);
+            setDraggedId(null);
+            setDragOverId(null);
+        }
+    };
 
     return (
         <>
@@ -117,20 +271,66 @@ export default function ModulesPage() {
                             <th>Name</th>
                             <th>Description</th>
                             <th>Parent Module</th>
+                            <th style={{ width: '110px', textAlign: 'center' }}>Order</th>
                             <th style={{ width: '120px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {modules.map((mod) => (
-                            <tr key={mod._id}>
+                        {sortedModules.map((mod) => (
+                            <tr 
+                                key={mod._id}
+                                draggable={true}
+                                onDragStart={(e) => {
+                                    setDraggedId(mod._id);
+                                    e.dataTransfer.effectAllowed = 'move';
+                                }}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    const draggedMod = modules.find(m => m._id === draggedId);
+                                    if (draggedMod && draggedId !== mod._id) {
+                                        const pId = getParentId(draggedMod);
+                                        const targetPId = getParentId(mod);
+                                        if (pId === targetPId) {
+                                            setDragOverId(mod._id);
+                                        }
+                                    }
+                                }}
+                                onDragLeave={() => {
+                                    setDragOverId(null);
+                                }}
+                                onDragEnd={() => {
+                                    setDraggedId(null);
+                                    setDragOverId(null);
+                                }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    handleDrop(mod);
+                                }}
+                                style={{
+                                    cursor: 'grab',
+                                    opacity: draggedId === mod._id ? 0.4 : 1,
+                                    borderTop: dragOverId === mod._id ? '2px solid var(--primary)' : undefined,
+                                    transition: 'all 0.15s ease'
+                                }}
+                            >
                                 <td>
-                                    <div style={{ fontWeight: 500, color: 'var(--text)' }}>
-                                        {mod.parentId ? <span style={{ color: 'var(--separator)', marginRight: '8px' }}>↳</span> : null}
+                                    <div style={{ fontWeight: 500, color: 'var(--text)', paddingLeft: `${((mod as any).depth || 0) * 24}px`, display: 'flex', alignItems: 'center' }}>
+                                        {(mod as any).depth > 0 ? <span style={{ color: 'var(--separator)', marginRight: '8px', opacity: 0.5 }}>{'↳'.repeat(1)}</span> : null}
                                         {mod.name}
                                     </div>
                                 </td>
                                 <td>{mod.description || <span style={{ color: 'var(--muted)' }}>No description</span>}</td>
-                                <td>{getParentName(mod.parentId)}</td>
+                                <td>{getAncestryPath(mod)}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                    <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+                                        <span style={{ color: 'var(--muted)', fontSize: '14px', marginRight: '4px', userSelect: 'none' }} title="Drag row to reorder">
+                                            ☰
+                                        </span>
+                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', minWidth: '20px', textAlign: 'center' }}>
+                                            {mod.order || 0}
+                                        </span>
+                                    </div>
+                                </td>
                                 <td>
                                     <div className={s.actions}>
                                         <button className={s.actionBtn} onClick={() => openEdit(mod)} title="Edit">
@@ -138,7 +338,7 @@ export default function ModulesPage() {
                                                 <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         </button>
-                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete">
+                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete" disabled={!canDeleteModule}>
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                 <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
@@ -149,7 +349,7 @@ export default function ModulesPage() {
                         ))}
                         {modules.length === 0 && (
                             <tr>
-                                <td colSpan={4} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
+                                <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
                                     No modules found. Create one to get started.
                                 </td>
                             </tr>
@@ -199,15 +399,21 @@ export default function ModulesPage() {
                                 onChange={(e) => setFormData((p) => ({ ...p, parentId: e.target.value }))}
                             >
                                 <option value="">-- None (Root Module) --</option>
-                                {parentModules.map((m) => {
-                                    if (editingModule && m._id === editingModule._id) return null; // Can't be parent of itself
-                                    return (
-                                        <option key={m._id} value={m._id}>
-                                            {m.name}
-                                        </option>
-                                    );
-                                })}
+                                {parentDropdownOptions.map((opt) => (
+                                    <option key={opt.id} value={opt.id}>
+                                        {'\u00A0\u00A0'.repeat(opt.depth)}{opt.depth > 0 ? '↳ ' : ''}{opt.label}
+                                    </option>
+                                ))}
                             </select>
+
+                            <label className="form-label" style={{ marginTop: '12px' }}>Display Order</label>
+                            <input
+                                className="form-input"
+                                type="number"
+                                placeholder="0"
+                                value={formData.order}
+                                onChange={(e) => setFormData((p) => ({ ...p, order: Number(e.target.value) }))}
+                            />
                         </div>
 
                         <div className={s.modalFooter}>

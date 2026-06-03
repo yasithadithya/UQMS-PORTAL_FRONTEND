@@ -5,13 +5,13 @@ export const modulesService = {
   getModules: () => {
     return request<{ success: boolean; count: number; data: ApiModule[] }>('/modules');
   },
-  createModule: (payload: { name: string; description?: string; parentId?: string }) => {
+  createModule: (payload: { name: string; description?: string; parentId?: string; order?: number }) => {
     return request<{ success: boolean; message: string; data: ApiModule }>('/modules', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   },
-  updateModule: (id: string, payload: { name: string; description?: string; parentId?: string }) => {
+  updateModule: (id: string, payload: { name: string; description?: string; parentId?: string; order?: number }) => {
     return request<{ success: boolean; message: string; data: ApiModule }>(`/modules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),

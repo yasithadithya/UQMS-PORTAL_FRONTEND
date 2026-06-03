@@ -92,6 +92,11 @@ export const firstEntryService = {
       method: 'DELETE',
     });
   },
+  sendScheduleIIEmail: (scheduleId: string) => {
+    return request<{ success: boolean; message: string }>(`/first-entries/schedule2/${scheduleId}/send-email`, {
+      method: 'POST',
+    });
+  },
 
   // File Upload Helper to upload schedule 2 documents to R2
   uploadScheduleIIDocument: (file: File) => {

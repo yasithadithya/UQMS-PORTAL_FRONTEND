@@ -3,7 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import s from './UserManagement.module.css';
 
 export default function RolesPage() {
-    const { roles, modules, addRole, updateRole, deleteRole } = useAuth();
+    const { roles, modules, addRole, updateRole, deleteRole, hasPermission } = useAuth();
+    const canDeleteRole = hasPermission('Admin', 'delete') || hasPermission('Role Management', 'delete') || hasPermission(null, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingRole, setEditingRole] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -144,7 +145,7 @@ export default function RolesPage() {
                                             </svg>
                                         </button>
                                         {role.roleName.toLowerCase() !== 'admin' && (
-                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(role._id)} title="Delete">
+                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(role._id)} title="Delete" disabled={!canDeleteRole}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>

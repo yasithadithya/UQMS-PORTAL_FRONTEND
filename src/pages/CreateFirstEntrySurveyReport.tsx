@@ -6,7 +6,8 @@ import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyRe
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>(); // Report ID if editing
+  const { id, module } = useParams<{ id?: string; module?: string }>(); // Report ID if editing
+  const activeModule = module || 'reporting';
   const isEdit = !!id;
 
   // Bookings List (only needed for creating a new report)
@@ -193,7 +194,7 @@ export default function CreateFirstEntrySurveyReport() {
 
       if (res.success) {
         toast.success(isEdit ? 'Survey Report updated successfully!' : 'Survey Report created successfully!');
-        navigate('/reporting/marine');
+        navigate(`/${activeModule}/marine`);
       } else {
         toast.error(res.message || 'Failed to save Survey Report.');
       }
@@ -218,7 +219,7 @@ export default function CreateFirstEntrySurveyReport() {
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border)', paddingBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to="/reporting/marine" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
+          <Link to={`/${activeModule}/marine`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
@@ -522,7 +523,7 @@ export default function CreateFirstEntrySurveyReport() {
             >
               {loading ? 'Saving...' : 'Save Survey Report'}
             </button>
-            <Link to="/reporting/marine" style={{ textDecoration: 'none' }}>
+            <Link to={`/${activeModule}/marine`} style={{ textDecoration: 'none' }}>
               <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
                 Cancel
               </button>

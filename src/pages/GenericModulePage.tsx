@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import NewRequestPage from './NewRequest';
 import CreateRequestPage from './CreateRequest';
@@ -6,7 +6,8 @@ import RequestDetailsPage from './RequestDetails';
 import MarineModulePage from './MarineModulePage';
 
 export default function GenericModulePage() {
-    const { module, submodule } = useParams();
+    const { module } = useParams();
+    const location = useLocation();
     const { modules, user } = useAuth();
 
     const formatName = (name: string | undefined) => {
@@ -14,28 +15,64 @@ export default function GenericModulePage() {
         return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
+    // --- Helper to get parentId consistently ---
+    const getParentId = (mod: any): string | null => {
+        if (!mod.parentId) return null;
+        return typeof mod.parentId === 'object' ? mod.parentId._id : mod.parentId;
+    };
+
+    // Parse all path segments after the first /
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    // e.g. /reporting/marine/inspections => ['reporting', 'marine', 'inspections']
+
     const normalizedModule = module?.toLowerCase() || '';
-    const normalizedSubmodule = submodule?.toLowerCase() || '';
 
-    if (normalizedModule === 'reporting' && normalizedSubmodule === 'marine') {
-        return <MarineModulePage />;
-    }
-
-    if (normalizedModule === 'new-request' && normalizedSubmodule === 'create') {
-        return <CreateRequestPage />;
-    }
-
-    // If submodule exists and is not 'create', treat it as a request id and show details
-    if (normalizedModule === 'new-request' && normalizedSubmodule && normalizedSubmodule !== 'create') {
-        return <RequestDetailsPage />;
-    }
-
-    if (normalizedModule === 'new-request' || normalizedSubmodule === 'new-request') {
+    // --- Special case: New Request routes ---
+    if (normalizedModule === 'new-request') {
+        if (pathSegments.length >= 2 && pathSegments[1] === 'create') {
+            return <CreateRequestPage />;
+        }
+        if (pathSegments.length >= 2 && pathSegments[1] !== 'create') {
+            return <RequestDetailsPage />;
+        }
         return <NewRequestPage />;
     }
 
-    const displayTitle = submodule ? `${formatName(module)} / ${formatName(submodule)}` : formatName(module);
+    // --- Walk the module tree based on path segments ---
+    // Start by finding the root module matching the first segment
+    let currentModule = modules.find(m => {
+        return !getParentId(m) && m.name.toLowerCase().replace(/\s+/g, '-') === pathSegments[0]?.toLowerCase();
+    });
 
+    // Walk deeper for each subsequent path segment
+    const breadcrumbs: { name: string; href: string }[] = [];
+    if (currentModule) {
+        breadcrumbs.push({ name: currentModule.name, href: `/${pathSegments[0]}` });
+
+        for (let i = 1; i < pathSegments.length; i++) {
+            const segment = pathSegments[i].toLowerCase();
+            const childModule = modules.find(m => {
+                return getParentId(m) === currentModule!._id && m.name.toLowerCase().replace(/\s+/g, '-') === segment;
+            });
+            if (childModule) {
+                currentModule = childModule;
+                breadcrumbs.push({
+                    name: childModule.name,
+                    href: '/' + pathSegments.slice(0, i + 1).join('/')
+                });
+            } else {
+                // Segment doesn't match any child module — could be a special route
+                break;
+            }
+        }
+    }
+
+    // --- Special case: First Entry sub-sub-module (under Marine) renders the tab-based page ---
+    if (currentModule && currentModule.name.toLowerCase() === 'first entry') {
+        return <MarineModulePage />;
+    }
+
+    // --- Access control ---
     const hasAccess = (moduleName: string) => {
         if (!user || !user.role || typeof user.role !== 'object') return false;
         if (user.role.roleName.toLowerCase() === 'admin') return true;
@@ -48,47 +85,65 @@ export default function GenericModulePage() {
         return !!(perm && perm.actions && perm.actions.includes('read'));
     };
 
-    // Find submodules for the current top-level module
+    // --- Find children of the current module ---
     let subModulesToDisplay: { name: string, href: string, desc?: string }[] = [];
     
-    if (!submodule && module) {
-        const currentMod = modules.find(m => m.name.toLowerCase() === module.replace(/-/g, ' ').toLowerCase());
-        
-        if (currentMod) {
-            const dbSubModules = modules.filter(m => {
-                const parentId = m.parentId && typeof m.parentId === 'object' ? (m.parentId as any)._id : m.parentId;
-                return parentId === currentMod._id;
-            });
+    if (currentModule) {
+        const children = modules.filter(m => getParentId(m) === currentModule!._id);
+        children.sort((a, b) => (a.order || 0) - (b.order || 0));
 
-            dbSubModules.forEach(sub => {
-                if (hasAccess(sub.name)) {
-                    subModulesToDisplay.push({
-                        name: sub.name,
-                        href: `/${module}/${sub.name.toLowerCase().replace(/\s+/g, '-')}`,
-                        desc: sub.description || `Access the ${sub.name} features`
-                    });
-                }
-            });
-        }
-
-        // Handle Admin static sub-pages
-        if (module.toLowerCase() === 'admin' && user?.role && (user.role as any).roleName?.toLowerCase() === 'admin') {
-            subModulesToDisplay.push(
-                { name: 'User Management', href: '/users', desc: 'Manage system users and assignments' },
-                { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions' },
-                { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules' }
-            );
-        }
+        children.forEach(child => {
+            if (hasAccess(child.name)) {
+                const childSlug = child.name.toLowerCase().replace(/\s+/g, '-');
+                const currentPath = breadcrumbs[breadcrumbs.length - 1]?.href || `/${normalizedModule}`;
+                subModulesToDisplay.push({
+                    name: child.name,
+                    href: `${currentPath}/${childSlug}`,
+                    desc: child.description || `Access the ${child.name} features`
+                });
+            }
+        });
     }
+
+    // Handle Admin static sub-pages
+    if (normalizedModule === 'admin' && user?.role && (user.role as any).roleName?.toLowerCase() === 'admin' && pathSegments.length === 1) {
+        subModulesToDisplay.push(
+            { name: 'User Management', href: '/users', desc: 'Manage system users and assignments' },
+            { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions' },
+            { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules' }
+        );
+    }
+
+    const displayTitle = breadcrumbs.map(b => b.name).join(' / ') || formatName(module);
 
     return (
         <div className="animate-in">
+            {/* Breadcrumb navigation */}
+            {breadcrumbs.length > 1 && (
+                <nav style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                    {breadcrumbs.map((crumb, i) => (
+                        <span key={crumb.href} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {i > 0 && <span style={{ color: 'var(--muted)', opacity: 0.5 }}>›</span>}
+                            {i < breadcrumbs.length - 1 ? (
+                                <Link to={crumb.href} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 500 }}>
+                                    {crumb.name}
+                                </Link>
+                            ) : (
+                                <span style={{ color: 'var(--text)', fontWeight: 600 }}>{crumb.name}</span>
+                            )}
+                        </span>
+                    ))}
+                </nav>
+            )}
+
             <h2 className="section-header" style={{ marginBottom: '8px' }}>{displayTitle}</h2>
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '24px' }}>
-                {submodule ? `This is a dynamically generated page for the ${displayTitle} module.` : `Select a sub-module below to access ${displayTitle} features.`}
+                {subModulesToDisplay.length > 0
+                    ? `Select a sub-module below to access ${currentModule?.name || formatName(module)} features.`
+                    : `This is a dynamically generated page for the ${displayTitle} module.`}
             </p>
 
-            {!submodule && subModulesToDisplay.length > 0 ? (
+            {subModulesToDisplay.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {subModulesToDisplay.map(sub => (
                         <Link key={sub.href} to={sub.href} style={{ textDecoration: 'none' }}>
@@ -131,3 +186,4 @@ export default function GenericModulePage() {
         </div>
     );
 }
+

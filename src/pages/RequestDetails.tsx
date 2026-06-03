@@ -13,6 +13,7 @@ import {
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import SearchableSelect from '@/components/SearchableSelect';
 import { formatDate } from '@/utils/date';
+import { useAuth } from '@/context/AuthContext';
 import s from './NewRequest.module.css';
 
 const getId = (value: unknown): string => {
@@ -96,7 +97,10 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 }
 
 export default function RequestDetailsPage() {
-  const { submodule: id } = useParams();
+  const { hasPermission } = useAuth();
+  const canDelete = hasPermission('Admin', 'delete') || hasPermission('New Request', 'delete') || hasPermission(null, 'delete');
+  const params = useParams();
+  const id = params.submodule || (params['*'] ? params['*'].split('/')[0] : undefined);
   const navigate = useNavigate();
   const [request, setRequest] = useState<ApiRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -408,6 +412,7 @@ export default function RequestDetailsPage() {
                             className={`${s.actionBtn} ${s.deleteBtn}`}
                             type="button"
                             onClick={() => handleDeleteDocument(doc)}
+                            disabled={!canDelete}
                           >
                             Delete
                           </button>

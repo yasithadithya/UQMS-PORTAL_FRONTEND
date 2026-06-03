@@ -5,7 +5,8 @@
 
 .label {
   display: block;
-  font-size: 12px;
+  font-family: var(--font-title);
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--secondary);
   margin-bottom: 6px;
@@ -41,7 +42,7 @@
 }
 
 .controlText {
-  font-size: 14px;
+  font-size: 15px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -52,7 +53,7 @@
 }
 
 .caret {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -94,7 +95,7 @@
   color: var(--label);
   padding: 10px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14.5px;
   margin-bottom: 10px;
 }
 
@@ -120,7 +121,7 @@
   border-radius: 8px;
   text-align: left;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14.5px;
   transition: background .2s, color .2s;
 }
 
@@ -134,7 +135,7 @@
 }
 
 .empty {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--muted);
   padding: 8px 4px;
 }

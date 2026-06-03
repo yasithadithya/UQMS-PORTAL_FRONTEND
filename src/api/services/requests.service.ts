@@ -32,8 +32,9 @@ const buildDocumentsFormData = (
 };
 
 export const requestsService = {
-  getRequests: () => {
-    return request<{ success: boolean; count: number; data: ApiRequest[] }>('/requests');
+  getRequests: (search?: string) => {
+    const query = search ? `?search=${encodeURIComponent(search)}` : '';
+    return request<{ success: boolean; count: number; data: ApiRequest[] }>(`/requests${query}`);
   },
   createRequest: (payload: RequestPayload) => {
     return request<{ success: boolean; message: string; data: ApiRequest }>('/requests', {

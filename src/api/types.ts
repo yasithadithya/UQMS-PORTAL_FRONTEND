@@ -10,6 +10,7 @@ export interface ApiModule {
   name: string;
   description?: string;
   parentId?: string | ApiModule;
+  order?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -169,6 +170,7 @@ export interface ApiScheduleII {
   firstEntry: string;
   documents: ApiScheduleIIDocument[];
   status: string;
+  emailSent?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -3,7 +3,8 @@ import { useAuth } from '@/context/AuthContext';
 import s from './UserManagement.module.css';
 
 export default function UsersPage() {
-    const { users, roles, addUser, updateUser, deleteUser } = useAuth();
+    const { users, roles, addUser, updateUser, deleteUser, hasPermission } = useAuth();
+    const canDeleteUser = hasPermission('Admin', 'delete') || hasPermission('User Management', 'delete') || hasPermission(null, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -184,7 +185,7 @@ export default function UsersPage() {
                                                     <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
                                             </button>
-                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} title="Delete">
+                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} title="Delete" disabled={!canDeleteUser}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
@@ -228,7 +229,7 @@ export default function UsersPage() {
                                 </span>
                                 <div className={s.actions}>
                                     <button className={s.actionBtn} onClick={() => openEdit(user)}>Edit</button>
-                                    <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)}>Delete</button>
+                                    <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} disabled={!canDeleteUser}>Delete</button>
                                 </div>
                             </div>
                         </div>

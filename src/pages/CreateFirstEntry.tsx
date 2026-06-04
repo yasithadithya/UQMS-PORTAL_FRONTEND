@@ -564,7 +564,7 @@ export default function CreateFirstEntry() {
             >
               <option value="">-- Choose an Approved Request --</option>
               {requests
-                .filter(r => (r.status === 'print' && r.uqmsNumber === '') || r._id === selectedRequestId)
+                .filter(r => (r.status === 'print' && !r.uqmsNumber) || r._id === selectedRequestId)
                 .map(r => (
                   <option key={r._id} value={r._id}>
                     {r.requestNumber} - {r.vesselName} ({r.companyName})

@@ -8,3 +8,4 @@ export * from './services/operations.service';
 export * from './services/requests.service';
 export * from './services/vessels.service';
 export * from './services/firstEntry.service';
+export * from './services/checklistQuestions.service';

@@ -276,3 +276,17 @@ export interface ApiFirstEntrySurveyReport {
   updatedAt?: string;
 }
 
+export interface ApiChecklistQuestion {
+  _id?: string;
+  id?: string;
+  question: string;
+  surveyCategories: Array<ApiSurveyType | string>;
+  lengths: string[];
+  areaOfOperations: Array<ApiAreaOfOperation | string>;
+  boatTypes: Array<ApiVesselType | string>;
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

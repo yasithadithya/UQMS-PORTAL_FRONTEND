@@ -60,3 +60,29 @@ export async function requestFormData<T>(
 
   return data;
 }
+
+export async function requestBlob(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Something went wrong while fetching PDF preview');
+  }
+
+  return res.blob();
+}

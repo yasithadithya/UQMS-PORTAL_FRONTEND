@@ -1,4 +1,4 @@
-import { request, requestFormData } from '../client';
+import { request, requestFormData, requestBlob } from '../client';
 import type { ApiRequest, ApiSurveyType } from '../types';
 
 export type RequestPayload = {
@@ -93,6 +93,15 @@ export const requestsService = {
       method: 'POST',
     });
 
+    return generated.data.url;
+  },
+  getRequestSurveyPreview: async (id: string) => {
+    return requestBlob(`/requests/${id}/survey-preview`);
+  },
+  printAndSendRequestSurveyPdf: async (id: string) => {
+    const generated = await request<{ success: boolean; data: { url: string } }>(`/requests/${id}/survey-print-send`, {
+      method: 'POST',
+    });
     return generated.data.url;
   },
   getRequestSurveys: (id: string) => {

@@ -149,10 +149,13 @@ export default function ChecklistManagement() {
   const [filterAreaOperations, setFilterAreaOperations] = useState<string[]>([]);
   const [filterBoatTypes, setFilterBoatTypes] = useState<string[]>([]);
   const [filterLengths, setFilterLengths] = useState<string[]>([]);
+  const [filterVesselCode, setFilterVesselCode] = useState('');
+  const [filterQCategory, setFilterQCategory] = useState('');
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<ApiChecklistQuestion | null>(null);
+  const [viewingQuestion, setViewingQuestion] = useState<ApiChecklistQuestion | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -163,6 +166,8 @@ export default function ChecklistManagement() {
   const [formLengths, setFormLengths] = useState<string[]>([]);
   const [formAreaOperations, setFormAreaOperations] = useState<string[]>([]);
   const [formBoatTypes, setFormBoatTypes] = useState<string[]>([]);
+  const [formVesselCode, setFormVesselCode] = useState('');
+  const [formQCategory, setFormQCategory] = useState('');
 
   // Load lookup criteria options from backend
   useEffect(() => {
@@ -193,6 +198,8 @@ export default function ChecklistManagement() {
         areaOfOperation: filterAreaOperations.length > 0 ? filterAreaOperations.join(',') : undefined,
         boatType: filterBoatTypes.length > 0 ? filterBoatTypes.join(',') : undefined,
         length: filterLengths.length > 0 ? filterLengths.join(',') : undefined,
+        vesselCode: filterVesselCode.trim() || undefined,
+        qCategory: filterQCategory.trim() || undefined,
       };
       const res = await checklistQuestionsService.getQuestions(params);
       if (res.success) {
@@ -207,7 +214,7 @@ export default function ChecklistManagement() {
 
   useEffect(() => {
     fetchQuestions();
-  }, [search, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterLengths]);
+  }, [search, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterLengths, filterVesselCode, filterQCategory]);
 
   const openAddModal = () => {
     setEditingQuestion(null);
@@ -216,6 +223,8 @@ export default function ChecklistManagement() {
     setFormLengths([]);
     setFormAreaOperations([]);
     setFormBoatTypes([]);
+    setFormVesselCode('');
+    setFormQCategory('');
     setShowModal(true);
   };
 
@@ -232,6 +241,8 @@ export default function ChecklistManagement() {
     setFormLengths(q.lengths || []);
     setFormAreaOperations(areaIds);
     setFormBoatTypes(boatIds);
+    setFormVesselCode(q.vesselCode || '');
+    setFormQCategory(q.qCategory || '');
     setShowModal(true);
   };
 
@@ -254,6 +265,8 @@ export default function ChecklistManagement() {
         lengths: formLengths,
         areaOfOperations: formAreaOperations,
         boatTypes: formBoatTypes,
+        vesselCode: formVesselCode.trim() || null,
+        qCategory: formQCategory.trim() || null,
       };
 
       if (editingQuestion?._id) {
@@ -426,6 +439,28 @@ export default function ChecklistManagement() {
             placeholder="Select Lengths..."
           />
         </div>
+
+        <div className={s.filterField}>
+          <label className={s.filterLabel}>Vessel Code</label>
+          <input
+            className="form-input"
+            style={{ marginBottom: 0 }}
+            placeholder="VC-01..."
+            value={filterVesselCode}
+            onChange={(e) => setFilterVesselCode(e.target.value)}
+          />
+        </div>
+
+        <div className={s.filterField}>
+          <label className={s.filterLabel}>Q Category</label>
+          <input
+            className="form-input"
+            style={{ marginBottom: 0 }}
+            placeholder="HULL..."
+            value={filterQCategory}
+            onChange={(e) => setFilterQCategory(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* List Table */}
@@ -459,33 +494,36 @@ export default function ChecklistManagement() {
             <thead>
               <tr>
                 <th>Question</th>
-                <th>Survey Categories</th>
-                <th>Boat Types</th>
-                <th>Areas</th>
-                <th>Lengths</th>
-                <th style={{ width: '120px' }}>Actions</th>
+                <th>Question Category</th>
+                <th style={{ width: '150px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {questions.map((q) => (
-                <tr key={q._id}>
+                <tr key={q._id} className={s.clickableRow} onClick={() => setViewingQuestion(q)}>
                   <td>
                     <div className={s.questionText}>{q.question}</div>
+                    {q.vesselCode && (
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '11px', flexWrap: 'wrap' }}>
+                        <span style={{ color: 'var(--muted)', background: 'rgba(148,163,184,.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>
+                          Vessel Code: <strong style={{ color: 'var(--label)' }}>{q.vesselCode}</strong>
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td>
-                    <div className={s.badgeContainer}>{getSurveyLabels(q)}</div>
+                    <span className={q.qCategory ? s.categoryTag : s.categoryTagEmpty}>
+                      {q.qCategory || 'General'}
+                    </span>
                   </td>
-                  <td>
-                    <div className={s.badgeContainer}>{getBoatLabels(q)}</div>
-                  </td>
-                  <td>
-                    <div className={s.badgeContainer}>{getAreaLabels(q)}</div>
-                  </td>
-                  <td>
-                    <div className={s.badgeContainer}>{getLengthLabels(q)}</div>
-                  </td>
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
                     <div className={s.actions}>
+                      <button className={s.actionBtn} onClick={() => setViewingQuestion(q)} title="View Details">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </button>
                       <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Question">
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                           <path
@@ -546,6 +584,31 @@ export default function ChecklistManagement() {
                   required
                 />
 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label className="form-label">Vessel Code (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ marginBottom: 0 }}
+                      placeholder="e.g. VC-10"
+                      value={formVesselCode}
+                      onChange={(e) => setFormVesselCode(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Q Category (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ marginBottom: 0 }}
+                      placeholder="e.g. Hull"
+                      value={formQCategory}
+                      onChange={(e) => setFormQCategory(e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 <label className="form-label">Survey Categories *</label>
                 <MultiSelectDropdown
                   label="Category"
@@ -600,6 +663,94 @@ export default function ChecklistManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
+      {viewingQuestion && (
+        <div className={s.overlay} onClick={() => setViewingQuestion(null)}>
+          <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
+            <div className={s.modalHeader}>
+              <h3 className={s.modalTitle}>Checklist Question Details</h3>
+              <button type="button" className={s.closeBtn} onClick={() => setViewingQuestion(null)}>
+                ✕
+              </button>
+            </div>
+
+            <div className={s.modalBody}>
+              <div className={s.detailSection}>
+                <div className={s.detailLabel}>Question Text</div>
+                <div className={s.detailValueQuestion}>{viewingQuestion.question}</div>
+              </div>
+
+              <div className={s.detailGrid}>
+                <div className={s.detailItem}>
+                  <div className={s.detailLabel}>Question Category</div>
+                  <div className={s.detailValue}>
+                    <span className={viewingQuestion.qCategory ? s.categoryTag : s.categoryTagEmpty}>
+                      {viewingQuestion.qCategory || 'General'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={s.detailItem}>
+                  <div className={s.detailLabel}>Vessel Code</div>
+                  <div className={s.detailValue}>
+                    {viewingQuestion.vesselCode ? (
+                      <span className={s.vesselCodeBadge}>{viewingQuestion.vesselCode}</span>
+                    ) : (
+                      <span className={s.badgeEmpty}>Applies to all vessel codes</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailLabel}>Survey Categories</div>
+                <div className={s.badgeList}>
+                  {getSurveyLabels(viewingQuestion)}
+                </div>
+              </div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailLabel}>Boat Types</div>
+                <div className={s.badgeList}>
+                  {getBoatLabels(viewingQuestion)}
+                </div>
+              </div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailLabel}>Area of Operations</div>
+                <div className={s.badgeList}>
+                  {getAreaLabels(viewingQuestion)}
+                </div>
+              </div>
+
+              <div className={s.detailSection}>
+                <div className={s.detailLabel}>Lengths</div>
+                <div className={s.badgeList}>
+                  {getLengthLabels(viewingQuestion)}
+                </div>
+              </div>
+            </div>
+
+            <div className={s.modalFooter}>
+              <button type="button" className="btn-secondary" onClick={() => setViewingQuestion(null)}>
+                Close
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  const q = viewingQuestion;
+                  setViewingQuestion(null);
+                  openEditModal(q);
+                }}
+              >
+                Edit Question
+              </button>
+            </div>
           </div>
         </div>
       )}

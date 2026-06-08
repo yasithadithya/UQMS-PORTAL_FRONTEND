@@ -2,7 +2,7 @@ import { request } from '../client';
 import type { ApiChecklistQuestion } from '../types';
 
 export const checklistQuestionsService = {
-  getQuestions: (params?: { search?: string; surveyCategory?: string; areaOfOperation?: string; boatType?: string; length?: string }) => {
+  getQuestions: (params?: { search?: string; surveyCategory?: string; areaOfOperation?: string; boatType?: string; length?: string; vesselCode?: string; qCategory?: string }) => {
     let url = '/checklist-questions';
     if (params) {
       const searchParams = new URLSearchParams();

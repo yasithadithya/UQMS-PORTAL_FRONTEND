@@ -416,3 +416,97 @@
         padding: 7px 12px;
     }
 }
+
+.clickableRow {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickableRow:hover td {
+    background: rgba(148, 163, 184, 0.08) !important;
+}
+
+.categoryTag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    white-space: nowrap;
+}
+
+.categoryTagEmpty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.vesselCodeBadge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--label);
+    border: 1px solid var(--border);
+}
+
+/* Details modal styles */
+.detailSection {
+    margin-bottom: 20px;
+}
+
+.detailGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.detailItem {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detailLabel {
+    font-family: var(--font-title);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 4px;
+}
+
+.detailValueQuestion {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--label);
+    line-height: 1.6;
+    background: var(--bg-subtle);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.detailValue {
+    font-size: 14px;
+    color: var(--label);
+}
+
+.badgeList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--bg-subtle);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    min-height: 44px;
+    align-items: center;
+}

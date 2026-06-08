@@ -284,6 +284,8 @@ export interface ApiChecklistQuestion {
   lengths: string[];
   areaOfOperations: Array<ApiAreaOfOperation | string>;
   boatTypes: Array<ApiVesselType | string>;
+  vesselCode?: string | null;
+  qCategory?: string | null;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt?: string;

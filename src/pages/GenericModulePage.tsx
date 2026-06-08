@@ -110,7 +110,8 @@ export default function GenericModulePage() {
         subModulesToDisplay.push(
             { name: 'User Management', href: '/users', desc: 'Manage system users and assignments' },
             { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions' },
-            { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules' }
+            { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules' },
+            { name: 'Checklist Management', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria' }
         );
     }
 

@@ -1,0 +1,512 @@
+.topBar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.addBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-title);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s, transform .1s;
+    white-space: nowrap;
+}
+
+.addBtn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 0 16px rgba(59,130,246,.2);
+}
+
+.addBtn:active {
+    transform: scale(.98);
+}
+
+.filterSection {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    box-shadow: var(--shadow);
+}
+
+.filterField {
+    display: flex;
+    flex-direction: column;
+}
+
+.filterLabel {
+    font-family: var(--font-title);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 6px;
+}
+
+.tableWrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.table th {
+    text-align: left;
+    font-family: var(--font-title);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(148,163,184,.03);
+}
+
+.table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--separator);
+    vertical-align: middle;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table tr:hover td {
+    background: rgba(148,163,184,.03);
+}
+
+.questionText {
+    font-weight: 500;
+    color: var(--label);
+    line-height: 1.5;
+    max-width: 400px;
+}
+
+.badgeContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+.badgeCategory {
+    background: var(--primary-glow);
+    color: var(--primary);
+    border: 1px solid rgba(59,130,246,.2);
+}
+
+.badgeArea {
+    background: var(--green-subtle);
+    color: var(--green);
+    border: 1px solid rgba(16,185,129,.2);
+}
+
+.badgeBoat {
+    background: rgba(139,92,246,.1);
+    color: var(--accent);
+    border: 1px solid rgba(139,92,246,.2);
+}
+
+.badgeLength {
+    background: var(--orange-subtle);
+    color: var(--orange);
+    border: 1px solid rgba(245,158,11,.2);
+}
+
+.badgeEmpty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+}
+
+.actions {
+    display: flex;
+    gap: 6px;
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: var(--surface);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: background .2s, color .2s;
+}
+
+.actionBtn:hover {
+    background: rgba(148,163,184,.12);
+    color: var(--label);
+}
+
+.deleteBtn:hover {
+    background: var(--red-subtle);
+    color: var(--red);
+}
+
+/* Custom MultiSelect Dropdown styles */
+.multiSelectContainer {
+    position: relative;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.filterSection .multiSelectContainer {
+    margin-bottom: 0;
+}
+
+.multiSelectTrigger {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    background: var(--bg-subtle);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14.5px;
+    color: var(--label);
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.multiSelectTrigger:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.triggerText {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 8px;
+}
+
+.triggerPlaceholder {
+    color: var(--muted);
+}
+
+.arrow {
+    width: 10px;
+    height: 6px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform .2s ease;
+}
+
+.arrowOpen {
+    transform: rotate(180deg);
+}
+
+.dropdownPanel {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 150;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    margin-top: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dropdownActions {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 6px 8px;
+    border-bottom: 1px solid var(--separator);
+    margin-bottom: 6px;
+}
+
+.dropdownActionLink {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.dropdownActionLink:hover {
+    text-decoration: underline;
+}
+
+.optionItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--secondary);
+    transition: background .15s ease, color .15s ease;
+}
+
+.optionItem:hover {
+    background: rgba(148,163,184,.08);
+    color: var(--label);
+}
+
+.checkboxInput {
+    accent-color: var(--primary);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.optionLabel {
+    flex: 1;
+    cursor: pointer;
+    user-select: none;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn .2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    width: 100%;
+    max-width: 550px;
+    animation: modalSlide .3s cubic-bezier(.4,0,.2,1);
+    overflow: hidden;
+}
+
+@keyframes modalSlide {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+}
+
+.modalTitle {
+    font-family: var(--font-title);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--label);
+}
+
+.closeBtn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: var(--surface);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s, color .2s;
+}
+
+.closeBtn:hover {
+    background: rgba(148,163,184,.15);
+    color: var(--label);
+}
+
+.modalBody {
+    padding: 20px 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.modalFooter {
+    display: flex;
+    gap: 10px;
+    padding: 0 24px 24px;
+}
+
+.modalFooter button {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 60px 40px;
+    color: var(--muted);
+    font-size: 14.5px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+}
+
+@media (min-width: 768px) {
+    .actionBtn {
+        width: auto;
+        height: auto;
+        padding: 7px 12px;
+    }
+}
+
+.clickableRow {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickableRow:hover td {
+    background: rgba(148, 163, 184, 0.08) !important;
+}
+
+.categoryTag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(139, 92, 246, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    white-space: nowrap;
+}
+
+.categoryTagEmpty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.vesselCodeBadge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--label);
+    border: 1px solid var(--border);
+}
+
+/* Details modal styles */
+.detailSection {
+    margin-bottom: 20px;
+}
+
+.detailGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.detailItem {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.detailLabel {
+    font-family: var(--font-title);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 4px;
+}
+
+.detailValueQuestion {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--label);
+    line-height: 1.6;
+    background: var(--bg-subtle);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.detailValue {
+    font-size: 14px;
+    color: var(--label);
+}
+
+.badgeList {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--bg-subtle);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    min-height: 44px;
+    align-items: center;
+}

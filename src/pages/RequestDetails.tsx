@@ -112,6 +112,10 @@ export default function RequestDetailsPage() {
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [saving, setSaving] = useState(false);
   const [printingPdf, setPrintingPdf] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const loadRequest = async () => {
     if (!id) return;
@@ -266,6 +270,163 @@ export default function RequestDetailsPage() {
     }
   };
 
+  const handlePreviewPdfAction = async () => {
+    if (!request || previewLoading) return;
+    setPreviewLoading(true);
+    try {
+      const blob = await requestsService.getRequestSurveyPreview(request._id);
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setShowPreviewModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to load PDF preview.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setShowPreviewModal(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleFinalizePrint = async () => {
+    if (!request || printingPdf) return;
+    setPrintingPdf(true);
+    const printWindow = window.open('', '_blank');
+    try {
+      const pdfUrl = await requestsService.printRequestSurveyPdf(request._id);
+      
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <title>Print ${request.requestNumber}</title>
+              <style>
+                html, body {
+                  margin: 0;
+                  width: 100%;
+                  height: 100%;
+                  background: #f3f4f6;
+                }
+                .viewer {
+                  width: 100vw;
+                  height: 100vh;
+                  border: 0;
+                  display: block;
+                }
+              </style>
+            </head>
+            <body>
+              <iframe class="viewer" src="${pdfUrl}"></iframe>
+              <script>
+                const frame = document.querySelector('iframe');
+                frame.addEventListener('load', () => {
+                  window.focus();
+                  window.print();
+                });
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+      } else {
+        const fallbackWindow = window.open(pdfUrl, '_blank');
+        fallbackWindow?.focus();
+      }
+      
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      
+      const res = await requestsService.getRequestById(request._id);
+      setRequest(res.data);
+      setForm(requestToForm(res.data));
+      handleClosePreview();
+    } catch (err: any) {
+      if (printWindow) printWindow.close();
+      alert(err.message || 'Failed to print PDF.');
+    } finally {
+      setPrintingPdf(false);
+    }
+  };
+
+  const handlePrintAndSend = async () => {
+    if (!request || sendingEmail) return;
+    setSendingEmail(true);
+    const printWindow = window.open('', '_blank');
+    try {
+      const pdfUrl = await requestsService.printAndSendRequestSurveyPdf(request._id);
+      
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(`
+          <!doctype html>
+          <html>
+            <head>
+              <title>Print ${request.requestNumber}</title>
+              <style>
+                html, body {
+                  margin: 0;
+                  width: 100%;
+                  height: 100%;
+                  background: #f3f4f6;
+                }
+                .viewer {
+                  width: 100vw;
+                  height: 100vh;
+                  border: 0;
+                  display: block;
+                }
+              </style>
+            </head>
+            <body>
+              <iframe class="viewer" src="${pdfUrl}"></iframe>
+              <script>
+                const frame = document.querySelector('iframe');
+                frame.addEventListener('load', () => {
+                  window.focus();
+                  window.print();
+                });
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+      } else {
+        const fallbackWindow = window.open(pdfUrl, '_blank');
+        fallbackWindow?.focus();
+      }
+      
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      
+      alert(`Request PDF has been printed & sent to client email (${request.companyEmail}) successfully.`);
+      
+      const res = await requestsService.getRequestById(request._id);
+      setRequest(res.data);
+      setForm(requestToForm(res.data));
+      handleClosePreview();
+    } catch (err: any) {
+      if (printWindow) printWindow.close();
+      alert(err.message || 'Failed to print and send PDF.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   if (!id) {
     return <div className={s.emptyState}>Request id missing.</div>;
   }
@@ -290,9 +451,15 @@ export default function RequestDetailsPage() {
             Back
           </button>
           {request && (
-            <button className="btn-secondary" type="button" onClick={handleSurveyPdfAction} disabled={printingPdf}>
-              {printingPdf ? 'Preparing PDF...' : request.status === 'print' ? 'View Pdf' : 'Print PDF'}
-            </button>
+            request.status === 'print' ? (
+              <button className="btn-secondary" type="button" onClick={handleSurveyPdfAction} disabled={printingPdf}>
+                {printingPdf ? 'Preparing PDF...' : 'View Pdf'}
+              </button>
+            ) : (
+              <button className="btn-secondary" type="button" onClick={handlePreviewPdfAction} disabled={previewLoading}>
+                {previewLoading ? 'Loading Preview...' : 'Preview PDF'}
+              </button>
+            )
           )}
           {request && !editing && (
             <button className="btn-primary" type="button" onClick={handleEdit} disabled={request.status === 'print'}>
@@ -511,6 +678,44 @@ export default function RequestDetailsPage() {
             </div>
           )}
         </>
+      )}
+      
+      {showPreviewModal && previewUrl && request && (
+        <div className={s.overlay} style={{ padding: 0 }}>
+          <div className={s.modal} style={{ maxWidth: '100%', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }}>
+            <div className={s.modalHeader}>
+              <h3 className={s.modalTitle}>Request for Survey PDF Preview ({request.requestNumber})</h3>
+              <button className={s.closeBtn} type="button" onClick={handleClosePreview}>
+                &times;
+              </button>
+            </div>
+            
+            <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
+              <iframe
+                src={previewUrl}
+                title="Survey PDF Preview"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                }}
+              />
+            </div>
+            
+            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
+              <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
+                Cancel
+              </button>
+              <button className="btn-primary" type="button" onClick={handleFinalizePrint} disabled={printingPdf || sendingEmail}>
+                {printingPdf ? 'Printing...' : 'Print PDF'}
+              </button>
+              <button className="btn-primary" type="button" onClick={handlePrintAndSend} disabled={printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
+                {sendingEmail ? 'Sending...' : 'Print & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

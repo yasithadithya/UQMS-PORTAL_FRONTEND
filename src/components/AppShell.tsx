@@ -54,10 +54,6 @@ const iconMap: Record<string, React.ReactNode> = {
     )
 };
 
-const formatName = (name: string) => {
-    return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-};
-
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const { pathname } = useLocation();
     const { user, logout, modules } = useAuth();
@@ -125,8 +121,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const visibleTabs = buildSidebar();
 
-    const currentTitle = pathname === '/' ? 'Dashboard' : formatName(pathname.split('/').pop() || '');
-
     return (
         <div className={s.shell}>
             {/* ===== SIDEBAR (visible on desktop) ===== */}
@@ -186,17 +180,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* ===== MAIN CONTENT ===== */}
             <div className={s.main}>
-                {/* Top Header */}
-                <header className={s.header}>
-                    <div className={s.headerContent}>
-                        <img src="/logo.png" alt="UQMS Logo" className={s.headerLogo} />
-                        <div className={s.headerText}>
-                            <div className={s.headerTitle}>{currentTitle}</div>
-                            <div className={s.headerSub}>UQMS Management System</div>
-                        </div>
-                    </div>
-                </header>
-
                 {/* Page Content */}
                 <main className={s.content}>
                     {children}

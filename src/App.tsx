@@ -13,6 +13,7 @@ import GenericModulePage from '@/pages/GenericModulePage';
 import CreateFirstEntry from '@/pages/CreateFirstEntry';
 import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking';
 import CreateFirstEntrySurveyReport from '@/pages/CreateFirstEntrySurveyReport';
+import ChecklistManagement from '@/pages/ChecklistManagement';
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ function App() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/modules" element={<AdminGate><ModulesPage /></AdminGate>} />
             <Route path="/roles" element={<AdminGate><RolesPage /></AdminGate>} />
+            <Route path="/checklist-management" element={<AdminGate><ChecklistManagement /></AdminGate>} />
             
             {/* First Entry Sub-Sub-Module Custom Routes (under Marine) */}
             <Route path="/:module/marine/first-entry/create" element={<CreateFirstEntry />} />

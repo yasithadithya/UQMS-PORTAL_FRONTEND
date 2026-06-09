@@ -37,6 +37,7 @@ export default function CreateFirstEntry() {
   const [uqmsNumber, setUqmsNumber] = useState('');
   const [vesselName, setVesselName] = useState('');
   const [imoNumber, setImoNumber] = useState('');
+  const [vesselCode, setVesselCode] = useState('');
   const [vesselType, setVesselType] = useState('');
   const [areaOfOperation, setAreaOfOperation] = useState('');
   const [description, setDescription] = useState('');
@@ -184,6 +185,7 @@ export default function CreateFirstEntry() {
     setUqmsNumber(vessel.uqmsNumber || '');
     setVesselName(vessel.vesselName);
     setImoNumber(vessel.imoNumber || '');
+    setVesselCode(vessel.vesselCode || '');
     setVesselType(typeof vessel.vesselType === 'object' ? vessel.vesselType?._id || '' : vessel.vesselType || '');
     setAreaOfOperation(typeof vessel.areaOfOperation === 'object' ? vessel.areaOfOperation?._id || '' : vessel.areaOfOperation || '');
     setDescription(vessel.description || '');
@@ -323,6 +325,7 @@ export default function CreateFirstEntry() {
       const vesselPayload: Partial<ApiVessel> = {
         vesselName,
         imoNumber: imoNumber.trim() || undefined,
+        vesselCode: vesselCode.trim() || undefined,
         vesselType: vesselType || undefined,
         areaOfOperation: areaOfOperation || undefined,
         description: description.trim() || undefined,
@@ -621,6 +624,17 @@ export default function CreateFirstEntry() {
                 placeholder="e.g. 9134543"
                 value={imoNumber}
                 onChange={e => setImoNumber(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="vesselCode">Vessel Code</label>
+              <input
+                id="vesselCode"
+                type="text"
+                className="form-input"
+                placeholder="e.g. VS-102"
+                value={vesselCode}
+                onChange={e => setVesselCode(e.target.value)}
               />
             </div>
             <div>

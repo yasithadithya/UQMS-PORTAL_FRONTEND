@@ -99,6 +99,7 @@ export interface ApiVessel {
   _id: string;
   uqmsNumber?: string;
   imoNumber?: string;
+  vesselCode?: string;
   vesselName: string;
   vesselType?: ApiVesselType | string;
   areaOfOperation?: ApiAreaOfOperation | string;
@@ -286,6 +287,42 @@ export interface ApiChecklistQuestion {
   boatTypes: Array<ApiVesselType | string>;
   vesselCode?: string | null;
   qCategory?: string | null;
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiChecklistItemFile {
+  _id?: string;
+  filename: string;
+  key: string;
+  url?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+export interface ApiChecklistItem {
+  _id?: string;
+  checklistQuestionId: ApiChecklistQuestion | string;
+  status: 'satisfied' | 'unsatisfied' | 'N/A';
+  visitNumber?: string;
+  surveyNames?: string[];
+  surveyDate?: string;
+  updatedDate?: string;
+  remarks?: string;
+  files?: ApiChecklistItemFile[];
+  surveyorId?: string;
+  surveyorName?: string;
+}
+
+export interface ApiFirstEntryFullReport {
+  _id: string;
+  firstEntrySurveyReportId: ApiFirstEntrySurveyReport | string;
+  bookingId: ApiFirstEntrySurveyBooking | string;
+  vesselId: ApiVessel | string;
+  uqmsNo?: string;
+  checklist: ApiChecklistItem[];
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt?: string;

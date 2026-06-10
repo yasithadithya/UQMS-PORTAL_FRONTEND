@@ -280,9 +280,10 @@ export interface ApiFirstEntrySurveyReport {
 export interface ApiChecklistQuestion {
   _id?: string;
   id?: string;
-  question: string;
+  item: string;
+  description?: string | null;
+  additionalFields?: string[];
   surveyCategories: Array<ApiSurveyType | string>;
-  lengths: string[];
   areaOfOperations: Array<ApiAreaOfOperation | string>;
   boatTypes: Array<ApiVesselType | string>;
   vesselCode?: string | null;
@@ -305,12 +306,14 @@ export interface ApiChecklistItemFile {
 export interface ApiChecklistItem {
   _id?: string;
   checklistQuestionId: ApiChecklistQuestion | string;
-  status: 'satisfied' | 'unsatisfied' | 'N/A';
+  isChecked?: boolean;
+  comment?: 'Satisfactory' | 'Unsatisfactory' | 'N/A' | '';
   visitNumber?: string;
   surveyNames?: string[];
   surveyDate?: string;
   updatedDate?: string;
   remarks?: string;
+  additionalFields?: { name: string; value: string }[];
   files?: ApiChecklistItemFile[];
   surveyorId?: string;
   surveyorName?: string;

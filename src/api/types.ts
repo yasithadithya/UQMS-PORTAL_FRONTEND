@@ -323,6 +323,13 @@ export interface ApiFirstEntryFullReport {
   vesselId: ApiVessel | string;
   uqmsNo?: string;
   checklist: ApiChecklistItem[];
+  dailyReportPdfKey?: string;
+  dailyReportPdfUrl?: string;
+  dailyReportPdfBucket?: string;
+  dailyReportPdfFilename?: string;
+  dailyReportPdfSize?: number;
+  dailyReportPdfEtag?: string;
+  dailyReportPdfGeneratedAt?: string;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt?: string;

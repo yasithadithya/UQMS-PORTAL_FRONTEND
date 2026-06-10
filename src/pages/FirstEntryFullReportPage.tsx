@@ -33,6 +33,19 @@ export default function FirstEntryFullReportPage() {
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   // Fetch the full report details
   const fetchFullReport = async () => {
     try {
@@ -296,6 +309,55 @@ export default function FirstEntryFullReportPage() {
     }
   };
 
+  const handlePreviewDailyReport = async () => {
+    if (!report || previewLoading) return;
+    if (hasChanges) {
+      toast.warn('Please save your changes before generating the daily report preview.');
+      return;
+    }
+
+    try {
+      setPreviewLoading(true);
+      const blob = await firstEntryService.getDailyReportPdfPreview(report._id);
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setShowPreviewModal(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load daily report PDF preview.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleGenerateDailyReport = async () => {
+    if (!report || generatingPdf) return;
+    try {
+      setGeneratingPdf(true);
+      const res = await firstEntryService.generateDailyReportPdf(report._id);
+      if (res.success) {
+        toast.success('Daily Visit Report PDF generated successfully.');
+        setReport(res.data);
+        setOriginalChecklist(res.data.checklist || []);
+        setChecklist(res.data.checklist || []);
+        handleClosePreview();
+      } else {
+        toast.error(res.message || 'Failed to generate PDF.');
+      }
+    } catch (err: any) {
+      toast.error('Error generating daily visit report PDF: ' + err.message);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setShowPreviewModal(false);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '80px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -386,6 +448,32 @@ export default function FirstEntryFullReportPage() {
             </span>
           </div>
         </div>
+        <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--separator)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+          <div>
+            {report.dailyReportPdfGeneratedAt ? (
+              <span style={{ fontSize: '13.5px', color: 'var(--secondary)', fontWeight: 500 }}>
+                📄 Daily Report PDF: <a href={report.dailyReportPdfUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
+                <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
+                  (Generated: {new Date(report.dailyReportPdfGeneratedAt).toLocaleString()})
+                </span>
+              </span>
+            ) : (
+              <span style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
+                No daily report PDF generated yet.
+              </span>
+            )}
+          </div>
+          <div>
+            <button
+              className="btn-primary"
+              onClick={handlePreviewDailyReport}
+              disabled={previewLoading || generatingPdf}
+              style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px', width: 'auto', minWidth: 'unset' }}
+            >
+              {previewLoading ? 'Loading Preview...' : 'Preview & Generate Daily Report'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Checklist Sections grouped by Question Category */}
@@ -437,9 +525,11 @@ export default function FirstEntryFullReportPage() {
                       const question = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
                       const itemKey = item._id || String(item.originalIndex);
                       const isUploadingThis = uploadingQuestionId === itemKey;
+                      const isLocked = originalChecklist[item.originalIndex]?.status === 'satisfied';
+                      const rowClass = `${s.questionRow} ${item.status === 'unsatisfied' ? s.questionRowUnsatisfied : ''}`;
 
                       return (
-                        <div key={itemKey} className={s.questionRow}>
+                        <div key={itemKey} className={rowClass}>
                           <div className={s.questionTop}>
                             <div className={s.questionText}>
                               {question?.question || 'Unknown Question'}
@@ -465,6 +555,7 @@ export default function FirstEntryFullReportPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.originalIndex, 'satisfied')}
                                 className={`${s.statusPill} ${item.status === 'satisfied' ? s.pillSatisfiedActive : ''}`}
+                                disabled={isLocked}
                               >
                                 Satisfied
                               </button>
@@ -472,6 +563,7 @@ export default function FirstEntryFullReportPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.originalIndex, 'unsatisfied')}
                                 className={`${s.statusPill} ${item.status === 'unsatisfied' ? s.pillUnsatisfiedActive : ''}`}
+                                disabled={isLocked}
                               >
                                 Unsatisfied
                               </button>
@@ -479,6 +571,7 @@ export default function FirstEntryFullReportPage() {
                                 type="button"
                                 onClick={() => handleStatusChange(item.originalIndex, 'N/A')}
                                 className={`${s.statusPill} ${item.status === 'N/A' ? s.pillNaActive : ''}`}
+                                disabled={isLocked}
                               >
                                 N/A
                               </button>
@@ -493,6 +586,7 @@ export default function FirstEntryFullReportPage() {
                                 value={item.visitNumber || ''}
                                 onChange={(e) => handleVisitChange(item.originalIndex, e.target.value)}
                                 className={s.visitSelect}
+                                disabled={isLocked}
                               >
                                 <option value="">Select Visit...</option>
                                 {report.bookingId && typeof report.bookingId === 'object' && (report.bookingId as any).visitDetails
@@ -528,6 +622,7 @@ export default function FirstEntryFullReportPage() {
                                 placeholder="Enter survey findings or remarks..."
                                 value={item.remarks || ''}
                                 onChange={(e) => handleRemarksChange(item.originalIndex, e.target.value)}
+                                disabled={isLocked}
                               />
                             </div>
 
@@ -536,7 +631,8 @@ export default function FirstEntryFullReportPage() {
                               <span className={s.inputLabel}>Attachments (PDF, Word, Image)</span>
                               <div
                                 className={s.uploadTrigger}
-                                onClick={() => triggerFileInput(itemKey)}
+                                onClick={() => !isLocked && triggerFileInput(itemKey)}
+                                style={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                               >
                                 {isUploadingThis ? (
                                   <>
@@ -562,6 +658,7 @@ export default function FirstEntryFullReportPage() {
                                 style={{ display: 'none' }}
                                 accept=".pdf,.doc,.docx,image/*"
                                 onChange={(e) => handleFileUpload(item.originalIndex, e)}
+                                disabled={isLocked}
                               />
 
                               {/* List of uploaded files */}
@@ -583,6 +680,7 @@ export default function FirstEntryFullReportPage() {
                                         onClick={() => handleRemoveFile(item.originalIndex, file.key)}
                                         className={s.removeFileBtn}
                                         title="Delete Attachment"
+                                        disabled={isLocked}
                                       >
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -656,6 +754,41 @@ export default function FirstEntryFullReportPage() {
         onCancel={() => setShowRegenerateConfirm(false)}
         isDestructive={true}
       />
+
+      {showPreviewModal && previewUrl && (
+        <div className={s.overlay} style={{ padding: 0 }}>
+          <div className={s.modal} style={{ maxWidth: '100%', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }}>
+            <div className={s.modalHeader}>
+              <h3 className={s.modalTitle}>Daily Visit Report PDF Preview</h3>
+              <button className={s.closeBtn} type="button" onClick={handleClosePreview}>
+                &times;
+              </button>
+            </div>
+            
+            <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
+              <iframe
+                src={previewUrl}
+                title="Daily Visit Report PDF Preview"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                }}
+              />
+            </div>
+            
+            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
+              <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={generatingPdf}>
+                Cancel
+              </button>
+              <button className="btn-primary" type="button" onClick={handleGenerateDailyReport} disabled={generatingPdf}>
+                {generatingPdf ? 'Generating...' : 'Generate Daily Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

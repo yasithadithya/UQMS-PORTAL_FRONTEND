@@ -1,4 +1,4 @@
-import { request, requestFormData } from '../client';
+import { request, requestFormData, requestBlob } from '../client';
 import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiFirstEntryFullReport } from '../types';
 
 export const firstEntryService = {
@@ -181,5 +181,13 @@ export const firstEntryService = {
     }>('/uploads?prefix=checklist', formData, {
       method: 'POST',
     });
+  },
+  generateDailyReportPdf: (id: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${id}/daily-report`, {
+      method: 'POST',
+    });
+  },
+  getDailyReportPdfPreview: (id: string) => {
+    return requestBlob(`/first-entry-full-reports/${id}/daily-report-preview`);
   },
 };

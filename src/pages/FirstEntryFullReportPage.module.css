@@ -1,0 +1,600 @@
+.container {
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 20px;
+  transition: color var(--transition);
+}
+
+.backLink:hover {
+  color: var(--primary);
+}
+
+.headerCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+  border-bottom: 1px solid var(--separator);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--label);
+  margin: 0 0 6px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.progressText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--label);
+}
+
+.progressBarBg {
+  width: 100%;
+  height: 8px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.4s ease-out;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.infoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.infoValue {
+  font-size: 14px;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.badgeUqms {
+  background: var(--green-subtle);
+  color: var(--green);
+}
+
+.surveyGroup {
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: rgba(148, 163, 184, 0.03);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.groupHeader:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.groupTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--label);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.groupCount {
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--border);
+  color: var(--secondary);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.chevron {
+  transition: transform var(--transition);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.groupBody {
+  padding: 0 20px 20px 20px;
+  border-top: 1px solid var(--separator);
+}
+
+.qCategorySection {
+  margin-top: 20px;
+}
+
+.qCategoryTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--primary);
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 6px;
+}
+
+.questionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.questionRow {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.questionTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.questionText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--label);
+  flex: 1;
+  line-height: 1.5;
+}
+
+.statusPills {
+  display: inline-flex;
+  background: var(--border);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 2px;
+}
+
+.statusPill {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusPill:hover {
+  color: var(--label);
+}
+
+.pillSatisfiedActive {
+  background: var(--green);
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.pillUnsatisfiedActive {
+  background: var(--red);
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.pillNaActive {
+  background: var(--secondary);
+  color: #fff !important;
+}
+
+.rowInputs {
+  display: grid;
+  grid-template-columns: 180px 1fr 1.2fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .rowInputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.visitArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.visitSelect {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--label);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.visitSelect:focus {
+  border-color: var(--primary);
+}
+
+.surveyBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.badgeSurveyName {
+  background: var(--primary-subtle);
+  color: var(--primary);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.remarksArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.remarksInput {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--label);
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.remarksInput:focus {
+  border-color: var(--primary);
+}
+
+.uploadsArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uploadTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-subtle);
+  border: 1px dashed var(--primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: fit-content;
+  transition: all var(--transition);
+}
+
+.uploadTrigger:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.fileList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fileBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 200px;
+}
+
+.fileName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--label);
+  text-decoration: none;
+}
+
+.fileName:hover {
+  text-decoration: underline;
+  color: var(--primary);
+}
+
+.removeFileBtn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition);
+}
+
+.removeFileBtn:hover {
+  color: var(--red);
+}
+
+.footerBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: slideUp 0.3s ease;
+}
+
+.footerText {
+  font-size: 14px;
+  color: var(--label);
+  font-weight: 600;
+}
+
+.footerButtons {
+  display: flex;
+  gap: 12px;
+}
+
+.regenerateBtn {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: 1px solid var(--primary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.regenerateBtn:hover {
+  background: var(--primary-subtle);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.surveyorBadge {
+  background: var(--green-subtle);
+  color: var(--green);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Red Highlight style for Unsatisfied Questions */
+.questionRowUnsatisfied {
+  background: var(--red-subtle) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Modal and PDF Preview Styles */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  width: 100%;
+  max-width: 860px;
+  animation: modalSlide 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+@keyframes modalSlide {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.modalTitle {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--surface);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--secondary);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+
+.closeBtn:hover {
+  background: var(--border);
+  color: var(--label);
+}
+
+.modalBody {
+  padding: 20px 24px 10px;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 24px 24px;
+  border-top: 1px solid var(--separator);
+  margin-top: 10px;
+}
+
+.modalFooter button {
+  margin-bottom: 0 !important;
+}
+
+/* Locked items disabled styling */
+button:disabled,
+select:disabled,
+input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

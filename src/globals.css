@@ -20,6 +20,8 @@
   --primary: #3B82F6;
   --primary-hover: #2563EB;
   --primary-glow: rgba(59, 130, 246, .15);
+  --primary-subtle: rgba(59, 130, 246, .1);
+  --card-bg: var(--card);
   --accent: #8B5CF6;
   --red: #EF4444;
   --red-subtle: rgba(239, 68, 68, .12);
@@ -54,6 +56,8 @@
   --primary: #2563EB;
   --primary-hover: #1D4ED8;
   --primary-glow: rgba(37, 99, 235, .15);
+  --primary-subtle: rgba(37, 99, 235, .1);
+  --card-bg: var(--card);
   --accent: #7C3AED;
   --red: #DC2626;
   --red-subtle: rgba(220, 38, 38, .1);

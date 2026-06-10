@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { firstEntryService } from '@/api';
-import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory } from '@/api';
+import { firstEntryService, operationsService } from '@/api';
+import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory, ApiSurveyType } from '@/api';
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
@@ -13,6 +13,7 @@ export default function CreateFirstEntrySurveyReport() {
   // Bookings List (only needed for creating a new report)
   const [bookings, setBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
+  const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
 
   // Loading & Action States
   const [loading, setLoading] = useState(false);
@@ -40,6 +41,12 @@ export default function CreateFirstEntrySurveyReport() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
+        // Fetch survey types for category display names
+        const sTypesRes = await operationsService.getSurveyTypes();
+        if (sTypesRes.success) {
+          setSurveyTypes(sTypesRes.data);
+        }
+
         if (isEdit && id) {
           // Editing existing report
           const reportRes = await firstEntryService.getFirstEntrySurveyReportById(id);
@@ -118,6 +125,12 @@ export default function CreateFirstEntrySurveyReport() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Resolve survey name from survey code (category)
+  const getSurveyName = (code: string) => {
+    const match = surveyTypes.find(t => t.code === code);
+    return match ? match.name : code;
   };
 
   const clearForm = () => {
@@ -382,7 +395,7 @@ export default function CreateFirstEntrySurveyReport() {
         {/* Survey Categories Grid */}
         {selectedBookingId && (
           <div className="card animate-in" style={{ marginBottom: '32px' }}>
-            <div className="card-header" style={{ marginBottom: '14px' }}>Survey Category Details Grid</div>
+            <div className="card-header" style={{ marginBottom: '14px' }}>Survey Name Details Grid</div>
             
             {surveys.length === 0 ? (
               <div style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-subtle)', borderRadius: '10px', color: 'var(--muted)', fontSize: '13px' }}>
@@ -393,7 +406,7 @@ export default function CreateFirstEntrySurveyReport() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1100px' }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '12px 20px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '150px' }}>Category</th>
+                      <th style={{ padding: '12px 20px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '250px' }}>Survey Name</th>
                       <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '150px' }}>Status</th>
                       <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '100px' }}>Postponed?</th>
                       <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '140px' }}>Postpone Date</th>
@@ -409,7 +422,7 @@ export default function CreateFirstEntrySurveyReport() {
                         {/* Category Name */}
                         <td style={{ padding: '14px 20px', fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
                           <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: '4px', background: 'var(--primary-subtle)', color: 'var(--primary)', fontWeight: 700 }}>
-                            {survey.surveyCategory}
+                            {getSurveyName(survey.surveyCategory)}
                           </span>
                         </td>
 

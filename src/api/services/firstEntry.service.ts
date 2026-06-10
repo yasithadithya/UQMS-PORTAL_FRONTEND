@@ -1,5 +1,5 @@
-import { request, requestFormData } from '../client';
-import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '../types';
+import { request, requestFormData, requestBlob } from '../client';
+import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiFirstEntryFullReport } from '../types';
 
 export const firstEntryService = {
   // First Entry endpoints
@@ -144,5 +144,50 @@ export const firstEntryService = {
     return request<{ success: boolean; message: string }>(`/first-entry-survey-reports/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  // First Entry Full Report endpoints
+  getFirstEntryFullReportById: (id: string) => {
+    return request<{ success: boolean; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${id}`);
+  },
+  getFirstEntryFullReportBySurveyReportId: (surveyReportId: string) => {
+    return request<{ success: boolean; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/survey-report/${surveyReportId}`);
+  },
+  updateFirstEntryFullReport: (id: string, payload: Partial<ApiFirstEntryFullReport>) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+  triggerFullReportGeneration: (surveyReportId: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/generate/${surveyReportId}`, {
+      method: 'POST',
+    });
+  },
+  uploadChecklistDocument: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return requestFormData<{
+      success: boolean;
+      message: string;
+      data: {
+        key: string;
+        bucket: string;
+        url: string;
+        etag: string;
+        contentType: string;
+        size: number;
+      };
+    }>('/uploads?prefix=checklist', formData, {
+      method: 'POST',
+    });
+  },
+  generateDailyReportPdf: (id: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${id}/daily-report`, {
+      method: 'POST',
+    });
+  },
+  getDailyReportPdfPreview: (id: string) => {
+    return requestBlob(`/first-entry-full-reports/${id}/daily-report-preview`);
   },
 };

@@ -646,6 +646,11 @@ export default function MarineModulePage() {
                         </td>
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
+                            <Link to={`${basePath}/survey-report/full/${report._id}`} style={{ textDecoration: 'none' }}>
+                              <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0, color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}>
+                                Full Report
+                              </button>
+                            </Link>
                             <Link to={`${basePath}/survey-report/edit/${report._id}`} style={{ textDecoration: 'none' }}>
                               <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
                                 Edit

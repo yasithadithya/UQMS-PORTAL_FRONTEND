@@ -598,3 +598,18 @@ input:disabled {
   cursor: not-allowed;
 }
 
+.additionalFieldsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  border-top: 1px dashed var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.additionalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+

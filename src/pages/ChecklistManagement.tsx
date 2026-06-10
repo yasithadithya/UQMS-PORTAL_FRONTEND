@@ -10,8 +10,7 @@ import {
 } from '@/api';
 import s from './ChecklistManagement.module.css';
 
-// Predefined length options requested by user
-const LENGTH_OPTIONS = ['0-10m', '10-20m', '20-30m', '30-40m', '40m+'];
+// Predefined options requested by user
 
 // Premium click outside hook to close dropdowns
 function useOutsideClick(ref: React.RefObject<HTMLElement>, callback: () => void) {
@@ -148,7 +147,6 @@ export default function ChecklistManagement() {
   const [filterSurveyCategories, setFilterSurveyCategories] = useState<string[]>([]);
   const [filterAreaOperations, setFilterAreaOperations] = useState<string[]>([]);
   const [filterBoatTypes, setFilterBoatTypes] = useState<string[]>([]);
-  const [filterLengths, setFilterLengths] = useState<string[]>([]);
   const [filterVesselCode, setFilterVesselCode] = useState('');
   const [filterQCategory, setFilterQCategory] = useState('');
 
@@ -161,9 +159,10 @@ export default function ChecklistManagement() {
   const [loading, setLoading] = useState(true);
 
   // Form payload states (using array states for all select dropdowns)
-  const [formQuestionText, setFormQuestionText] = useState('');
+  const [formItemText, setFormItemText] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formAdditionalFields, setFormAdditionalFields] = useState<string[]>([]);
   const [formSurveyCategories, setFormSurveyCategories] = useState<string[]>([]);
-  const [formLengths, setFormLengths] = useState<string[]>([]);
   const [formAreaOperations, setFormAreaOperations] = useState<string[]>([]);
   const [formBoatTypes, setFormBoatTypes] = useState<string[]>([]);
   const [formVesselCode, setFormVesselCode] = useState('');
@@ -197,7 +196,6 @@ export default function ChecklistManagement() {
         surveyCategory: filterSurveyCategories.length > 0 ? filterSurveyCategories.join(',') : undefined,
         areaOfOperation: filterAreaOperations.length > 0 ? filterAreaOperations.join(',') : undefined,
         boatType: filterBoatTypes.length > 0 ? filterBoatTypes.join(',') : undefined,
-        length: filterLengths.length > 0 ? filterLengths.join(',') : undefined,
         vesselCode: filterVesselCode.trim() || undefined,
         qCategory: filterQCategory.trim() || undefined,
       };
@@ -214,13 +212,14 @@ export default function ChecklistManagement() {
 
   useEffect(() => {
     fetchQuestions();
-  }, [search, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterLengths, filterVesselCode, filterQCategory]);
+  }, [search, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterVesselCode, filterQCategory]);
 
   const openAddModal = () => {
     setEditingQuestion(null);
-    setFormQuestionText('');
+    setFormItemText('');
+    setFormDescription('');
+    setFormAdditionalFields([]);
     setFormSurveyCategories([]);
-    setFormLengths([]);
     setFormAreaOperations([]);
     setFormBoatTypes([]);
     setFormVesselCode('');
@@ -230,7 +229,9 @@ export default function ChecklistManagement() {
 
   const openEditModal = (q: ApiChecklistQuestion) => {
     setEditingQuestion(q);
-    setFormQuestionText(q.question);
+    setFormItemText(q.item);
+    setFormDescription(q.description || '');
+    setFormAdditionalFields(q.additionalFields || []);
     
     // Map populated categories/objects to string arrays
     const categoryIds = (q.surveyCategories || []).map((c: any) => (typeof c === 'object' ? c._id : c));
@@ -238,7 +239,6 @@ export default function ChecklistManagement() {
     const boatIds = (q.boatTypes || []).map((b: any) => (typeof b === 'object' ? b._id : b));
     
     setFormSurveyCategories(categoryIds);
-    setFormLengths(q.lengths || []);
     setFormAreaOperations(areaIds);
     setFormBoatTypes(boatIds);
     setFormVesselCode(q.vesselCode || '');
@@ -248,8 +248,8 @@ export default function ChecklistManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formQuestionText.trim()) {
-      toast.error('Question text is required.');
+    if (!formItemText.trim()) {
+      toast.error('Item text is required.');
       return;
     }
     if (formSurveyCategories.length === 0) {
@@ -260,9 +260,10 @@ export default function ChecklistManagement() {
     try {
       setSaving(true);
       const payload: Partial<ApiChecklistQuestion> = {
-        question: formQuestionText.trim(),
+        item: formItemText.trim(),
+        description: formDescription.trim() || null,
+        additionalFields: formAdditionalFields,
         surveyCategories: formSurveyCategories,
-        lengths: formLengths,
         areaOfOperations: formAreaOperations,
         boatTypes: formBoatTypes,
         vesselCode: formVesselCode.trim() || null,
@@ -272,24 +273,24 @@ export default function ChecklistManagement() {
       if (editingQuestion?._id) {
         const res = await checklistQuestionsService.updateQuestion(editingQuestion._id, payload);
         if (res.success) {
-          toast.success('Checklist question updated successfully.');
+          toast.success('Checklist item updated successfully.');
           fetchQuestions();
           setShowModal(false);
         } else {
-          toast.error(res.message || 'Failed to update question.');
+          toast.error(res.message || 'Failed to update item.');
         }
       } else {
         const res = await checklistQuestionsService.createQuestion(payload);
         if (res.success) {
-          toast.success('Checklist question created successfully.');
+          toast.success('Checklist item created successfully.');
           fetchQuestions();
           setShowModal(false);
         } else {
-          toast.error(res.message || 'Failed to create question.');
+          toast.error(res.message || 'Failed to create item.');
         }
       }
     } catch (err: any) {
-      toast.error('Error saving checklist question: ' + err.message);
+      toast.error('Error saving checklist item: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -315,10 +316,10 @@ export default function ChecklistManagement() {
   const getSurveyLabels = (q: ApiChecklistQuestion) => {
     if (!q.surveyCategories || q.surveyCategories.length === 0) return <span className={s.badgeEmpty}>All</span>;
     return q.surveyCategories.map((c: any) => {
-      const code = typeof c === 'object' ? c.code : c;
+      const name = typeof c === 'object' ? c.name : c;
       return (
-        <span key={code} className={`${s.badge} ${s.badgeCategory}`}>
-          {code}
+        <span key={name} className={`${s.badge} ${s.badgeCategory}`}>
+          {name}
         </span>
       );
     });
@@ -348,37 +349,28 @@ export default function ChecklistManagement() {
     });
   };
 
-  const getLengthLabels = (q: ApiChecklistQuestion) => {
-    if (!q.lengths || q.lengths.length === 0) return <span className={s.badgeEmpty}>All Lengths</span>;
-    return q.lengths.map((l) => (
-      <span key={l} className={`${s.badge} ${s.badgeLength}`}>
-        {l}
-      </span>
-    ));
-  };
-
   return (
     <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Top Banner Bar */}
       <div className={s.topBar}>
         <div>
-          <h2 className="section-header" style={{ marginBottom: '4px' }}>Checklist Questions</h2>
+          <h2 className="section-header" style={{ marginBottom: '4px' }}>Checklist Items</h2>
           <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-            Manage questions and filter criteria mapping for survey check sheets.
+            Manage checklist items and filter criteria mapping for survey check sheets.
           </p>
         </div>
         <button className={s.addBtn} onClick={openAddModal}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
-          Add Question
+          Add Item
         </button>
       </div>
 
       {/* Filter Section (Multiple Selection Dropdowns) */}
       <div className={s.filterSection}>
         <div className={s.filterField}>
-          <label className={s.filterLabel}>Search Question text</label>
+          <label className={s.filterLabel}>Search Item text</label>
           <input
             className="form-input"
             style={{ marginBottom: 0 }}
@@ -428,19 +420,6 @@ export default function ChecklistManagement() {
         </div>
 
         <div className={s.filterField}>
-          <label className={s.filterLabel}>Vessel Length</label>
-          <MultiSelectDropdown
-            label="Length"
-            options={LENGTH_OPTIONS}
-            selectedValues={filterLengths}
-            onChange={setFilterLengths}
-            getOptionId={(opt) => opt}
-            getOptionLabel={(opt) => opt}
-            placeholder="Select Lengths..."
-          />
-        </div>
-
-        <div className={s.filterField}>
           <label className={s.filterLabel}>Vessel Code</label>
           <input
             className="form-input"
@@ -483,9 +462,9 @@ export default function ChecklistManagement() {
       ) : questions.length === 0 ? (
         <div className={s.emptyState}>
           <div style={{ fontSize: '48px', marginBottom: '12px' }}>📝</div>
-          <h3>No Checklist Questions Found</h3>
+          <h3>No Checklist Items Found</h3>
           <p style={{ marginTop: '8px' }}>
-            No checklist items match the current query criteria. Click "Add Question" to construct one.
+            No checklist items match the current query criteria. Click "Add Item" to construct one.
           </p>
         </div>
       ) : (
@@ -493,8 +472,8 @@ export default function ChecklistManagement() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Question</th>
-                <th>Question Category</th>
+                <th>Item</th>
+                <th>Item Category</th>
                 <th style={{ width: '150px' }}>Actions</th>
               </tr>
             </thead>
@@ -502,7 +481,7 @@ export default function ChecklistManagement() {
               {questions.map((q) => (
                 <tr key={q._id} className={s.clickableRow} onClick={() => setViewingQuestion(q)}>
                   <td>
-                    <div className={s.questionText}>{q.question}</div>
+                    <div className={s.questionText}>{q.item}</div>
                     {q.vesselCode && (
                       <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '11px', flexWrap: 'wrap' }}>
                         <span style={{ color: 'var(--muted)', background: 'rgba(148,163,184,.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>
@@ -524,7 +503,7 @@ export default function ChecklistManagement() {
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
-                      <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Question">
+                      <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Item">
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                           <path
                             d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z"
@@ -538,7 +517,7 @@ export default function ChecklistManagement() {
                       <button
                         className={`${s.actionBtn} ${s.deleteBtn}`}
                         onClick={() => setDeleteConfirmId(q._id || null)}
-                        title="Delete Question"
+                        title="Delete Item"
                       >
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                           <path
@@ -566,7 +545,7 @@ export default function ChecklistManagement() {
             <form onSubmit={handleSave}>
               <div className={s.modalHeader}>
                 <h3 className={s.modalTitle}>
-                  {editingQuestion ? 'Edit Checklist Question' : 'Add Checklist Question'}
+                  {editingQuestion ? 'Edit Checklist Item' : 'Add Checklist Item'}
                 </h3>
                 <button type="button" className={s.closeBtn} onClick={() => setShowModal(false)}>
                   ✕
@@ -574,15 +553,45 @@ export default function ChecklistManagement() {
               </div>
 
               <div className={s.modalBody}>
-                <label className="form-label">Question text *</label>
+                <label className="form-label">Item text *</label>
                 <textarea
                   className="form-input form-textarea"
-                  placeholder="e.g. Ensure emergency batteries are fully charged."
-                  value={formQuestionText}
-                  onChange={(e) => setFormQuestionText(e.target.value)}
-                  rows={3}
+                  placeholder="e.g. Lifeboats functional"
+                  value={formItemText}
+                  onChange={(e) => setFormItemText(e.target.value)}
+                  rows={2}
                   required
                 />
+
+                <label className="form-label">Description (Optional)</label>
+                <textarea
+                  className="form-input form-textarea"
+                  placeholder="e.g. Ensure emergency batteries are fully charged and systems operational."
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  rows={2}
+                />
+
+                <label className="form-label">Additional Fields Required</label>
+                <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  {['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'].map((field) => (
+                    <label key={field} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--label)' }}>
+                      <input
+                        type="checkbox"
+                        checked={formAdditionalFields.includes(field)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormAdditionalFields([...formAdditionalFields, field]);
+                          } else {
+                            setFormAdditionalFields(formAdditionalFields.filter((f) => f !== field));
+                          }
+                        }}
+                        className={s.checkboxInput}
+                      />
+                      {field}
+                    </label>
+                  ))}
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
@@ -642,16 +651,7 @@ export default function ChecklistManagement() {
                   placeholder="Applies to all areas if empty"
                 />
 
-                <label className="form-label">Lengths (Optional)</label>
-                <MultiSelectDropdown
-                  label="Length"
-                  options={LENGTH_OPTIONS}
-                  selectedValues={formLengths}
-                  onChange={setFormLengths}
-                  getOptionId={(opt) => opt}
-                  getOptionLabel={(opt) => opt}
-                  placeholder="Applies to all lengths if empty"
-                />
+
               </div>
 
               <div className={s.modalFooter}>
@@ -672,7 +672,7 @@ export default function ChecklistManagement() {
         <div className={s.overlay} onClick={() => setViewingQuestion(null)}>
           <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
             <div className={s.modalHeader}>
-              <h3 className={s.modalTitle}>Checklist Question Details</h3>
+              <h3 className={s.modalTitle}>Checklist Item Details</h3>
               <button type="button" className={s.closeBtn} onClick={() => setViewingQuestion(null)}>
                 ✕
               </button>
@@ -680,13 +680,35 @@ export default function ChecklistManagement() {
 
             <div className={s.modalBody}>
               <div className={s.detailSection}>
-                <div className={s.detailLabel}>Question Text</div>
-                <div className={s.detailValueQuestion}>{viewingQuestion.question}</div>
+                <div className={s.detailLabel}>Item Text</div>
+                <div className={s.detailValueQuestion}>{viewingQuestion.item}</div>
               </div>
+
+              {viewingQuestion.description && (
+                <div className={s.detailSection}>
+                  <div className={s.detailLabel}>Description</div>
+                  <div className={s.detailValueQuestion} style={{ fontSize: '13.5px', whiteSpace: 'pre-wrap' }}>
+                    {viewingQuestion.description}
+                  </div>
+                </div>
+              )}
+
+              {viewingQuestion.additionalFields && viewingQuestion.additionalFields.length > 0 && (
+                <div className={s.detailSection}>
+                  <div className={s.detailLabel}>Additional Fields Required</div>
+                  <div className={s.badgeList}>
+                    {viewingQuestion.additionalFields.map((field) => (
+                      <span key={field} className={`${s.badge} ${s.badgeField}`}>
+                        {field}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className={s.detailGrid}>
                 <div className={s.detailItem}>
-                  <div className={s.detailLabel}>Question Category</div>
+                  <div className={s.detailLabel}>Item Category</div>
                   <div className={s.detailValue}>
                     <span className={viewingQuestion.qCategory ? s.categoryTag : s.categoryTagEmpty}>
                       {viewingQuestion.qCategory || 'General'}
@@ -727,12 +749,7 @@ export default function ChecklistManagement() {
                 </div>
               </div>
 
-              <div className={s.detailSection}>
-                <div className={s.detailLabel}>Lengths</div>
-                <div className={s.badgeList}>
-                  {getLengthLabels(viewingQuestion)}
-                </div>
-              </div>
+
             </div>
 
             <div className={s.modalFooter}>
@@ -748,7 +765,7 @@ export default function ChecklistManagement() {
                   openEditModal(q);
                 }}
               >
-                Edit Question
+                Edit Item
               </button>
             </div>
           </div>
@@ -762,10 +779,10 @@ export default function ChecklistManagement() {
             <div className={s.modalBody} style={{ textAlign: 'center', padding: '28px 24px' }}>
               <div style={{ fontSize: '42px', marginBottom: '14px' }}>⚠️</div>
               <h3 className={s.modalTitle} style={{ marginBottom: '8px' }}>
-                Delete Question?
+                Delete Item?
               </h3>
               <p style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
-                This checklist question will be removed permanently.
+                This checklist item will be removed permanently.
               </p>
             </div>
             <div className={s.modalFooter}>

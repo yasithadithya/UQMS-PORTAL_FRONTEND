@@ -142,7 +142,7 @@ export default function FirstEntryFullReportPage() {
   // Calculate check progress
   const progressStats = useMemo(() => {
     const total = checklist.length;
-    const completed = checklist.filter((item) => item.status !== 'N/A').length;
+    const completed = checklist.filter((item) => item.isChecked).length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { total, completed, percentage };
   }, [checklist]);
@@ -156,12 +156,26 @@ export default function FirstEntryFullReportPage() {
   };
 
   // Checklist actions
-  const handleStatusChange = (originalIndex: number, status: 'satisfied' | 'unsatisfied' | 'N/A') => {
+  const handleCheckedChange = (originalIndex: number, isChecked: boolean) => {
     setChecklist((prev) => {
       const next = [...prev];
       next[originalIndex] = {
         ...next[originalIndex],
-        status,
+        isChecked,
+        surveyorName: currentUser?.username,
+        surveyorId: currentUser?.id,
+        updatedDate: new Date().toISOString(),
+      };
+      return next;
+    });
+  };
+
+  const handleCommentChange = (originalIndex: number, comment: 'Satisfactory' | 'Unsatisfactory' | 'N/A' | '') => {
+    setChecklist((prev) => {
+      const next = [...prev];
+      next[originalIndex] = {
+        ...next[originalIndex],
+        comment,
         surveyorName: currentUser?.username,
         surveyorId: currentUser?.id,
         updatedDate: new Date().toISOString(),
@@ -176,6 +190,29 @@ export default function FirstEntryFullReportPage() {
       next[originalIndex] = {
         ...next[originalIndex],
         remarks,
+        surveyorName: currentUser?.username,
+        surveyorId: currentUser?.id,
+      };
+      return next;
+    });
+  };
+
+  const handleAdditionalFieldChange = (originalIndex: number, fieldName: string, value: string) => {
+    setChecklist((prev) => {
+      const next = [...prev];
+      const item = next[originalIndex];
+      const newAdditionalFields = [...(item.additionalFields || [])];
+      
+      const fieldIdx = newAdditionalFields.findIndex(f => f.name === fieldName);
+      if (fieldIdx >= 0) {
+        newAdditionalFields[fieldIdx] = { ...newAdditionalFields[fieldIdx], value };
+      } else {
+        newAdditionalFields.push({ name: fieldName, value });
+      }
+
+      next[originalIndex] = {
+        ...item,
+        additionalFields: newAdditionalFields,
         surveyorName: currentUser?.username,
         surveyorId: currentUser?.id,
       };
@@ -525,14 +562,19 @@ export default function FirstEntryFullReportPage() {
                       const question = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
                       const itemKey = item._id || String(item.originalIndex);
                       const isUploadingThis = uploadingQuestionId === itemKey;
-                      const isLocked = originalChecklist[item.originalIndex]?.status === 'satisfied';
-                      const rowClass = `${s.questionRow} ${item.status === 'unsatisfied' ? s.questionRowUnsatisfied : ''}`;
+                      const isLocked = originalChecklist[item.originalIndex]?.comment === 'Satisfactory';
+                      const rowClass = `${s.questionRow} ${item.comment === 'Unsatisfactory' ? s.questionRowUnsatisfied : ''}`;
 
                       return (
                         <div key={itemKey} className={rowClass}>
                           <div className={s.questionTop}>
                             <div className={s.questionText}>
-                              {question?.question || 'Unknown Question'}
+                              {question?.item || (question as any)?.question || 'Unknown Item'}
+                              {question?.description && (
+                                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px', fontWeight: 'normal' }}>
+                                  {question.description}
+                                </div>
+                              )}
                               {((item.surveyNames && item.surveyNames.length > 0) || item.surveyorName) && (
                                 <div className={s.surveyBadges}>
                                   {item.surveyNames?.map((name, idx) => (
@@ -549,36 +591,37 @@ export default function FirstEntryFullReportPage() {
                               )}
                             </div>
                             
-                            {/* Status Toggle Pills */}
+                            {/* Checked Checkbox */}
                             <div className={s.statusPills}>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(item.originalIndex, 'satisfied')}
-                                className={`${s.statusPill} ${item.status === 'satisfied' ? s.pillSatisfiedActive : ''}`}
-                                disabled={isLocked}
-                              >
-                                Satisfied
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(item.originalIndex, 'unsatisfied')}
-                                className={`${s.statusPill} ${item.status === 'unsatisfied' ? s.pillUnsatisfiedActive : ''}`}
-                                disabled={isLocked}
-                              >
-                                Unsatisfied
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStatusChange(item.originalIndex, 'N/A')}
-                                className={`${s.statusPill} ${item.status === 'N/A' ? s.pillNaActive : ''}`}
-                                disabled={isLocked}
-                              >
-                                N/A
-                              </button>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isLocked ? 'not-allowed' : 'pointer' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={item.isChecked || false}
+                                  onChange={(e) => handleCheckedChange(item.originalIndex, e.target.checked)}
+                                  disabled={isLocked}
+                                  style={{ width: '18px', height: '18px' }}
+                                />
+                                <span style={{ fontWeight: '500', fontSize: '14px' }}>Checked</span>
+                              </label>
                             </div>
                           </div>
 
                           <div className={s.rowInputs}>
+                            {/* Comment Dropdown */}
+                            <div className={s.visitArea}>
+                              <span className={s.inputLabel}>Comment</span>
+                              <select
+                                value={item.comment || ''}
+                                onChange={(e) => handleCommentChange(item.originalIndex, e.target.value as any)}
+                                className={s.visitSelect}
+                                disabled={isLocked}
+                              >
+                                <option value="">Select Comment...</option>
+                                <option value="Satisfactory">Satisfactory</option>
+                                <option value="Unsatisfactory">Unsatisfactory</option>
+                                <option value="N/A">N/A</option>
+                              </select>
+                            </div>
                             {/* Visit Selector Dropdown */}
                             <div className={s.visitArea}>
                               <span className={s.inputLabel}>Visit</span>
@@ -693,6 +736,25 @@ export default function FirstEntryFullReportPage() {
                               )}
                             </div>
                           </div>
+
+                          {/* Additional Fields Block */}
+                          {item.additionalFields && item.additionalFields.length > 0 && (
+                            <div className={s.additionalFieldsRow}>
+                              {item.additionalFields.map((field: any, idx: number) => (
+                                <div key={idx} className={s.additionalField}>
+                                  <span className={s.inputLabel}>{field.name}</span>
+                                  <input
+                                    type="text"
+                                    className={s.remarksInput}
+                                    placeholder={`Enter ${field.name}...`}
+                                    value={field.value || ''}
+                                    onChange={(e) => handleAdditionalFieldChange(item.originalIndex, field.name, e.target.value)}
+                                    disabled={isLocked}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '@/api';
 import { useAuth } from '@/context/AuthContext';
+import { formatDate } from '@/utils/date';
 
 export default function MarineModulePage() {
   const { hasPermission } = useAuth();
@@ -457,7 +458,7 @@ export default function MarineModulePage() {
                 </thead>
                 <tbody>
                   {surveyBookings.map((booking) => {
-                    const reqDate = booking.requestedDate ? new Date(booking.requestedDate).toLocaleDateString() : 'N/A';
+                    const reqDate = booking.requestedDate ? formatDate(booking.requestedDate) : 'N/A';
                     return (
                       <tr key={booking._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
                         <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
@@ -502,7 +503,7 @@ export default function MarineModulePage() {
                               </span>
                               {(booking.lastVisitDate || booking.lastVisit) && (
                                 <span style={{ display: 'block', fontSize: '11px', color: 'var(--primary)', fontWeight: 600, marginTop: '4px' }}>
-                                  Last: {new Date(booking.lastVisitDate || booking.lastVisit!).toLocaleDateString()}
+                                  Last: {formatDate(booking.lastVisitDate || booking.lastVisit)}
                                 </span>
                               )}
                             </div>
@@ -598,8 +599,8 @@ export default function MarineModulePage() {
                 </thead>
                 <tbody>
                   {reports.map((report) => {
-                    const firstDate = report.firstSurveyDate ? new Date(report.firstSurveyDate).toLocaleDateString() : 'N/A';
-                    const lastDate = report.lastSurveyDate ? new Date(report.lastSurveyDate).toLocaleDateString() : 'N/A';
+                    const firstDate = report.firstSurveyDate ? formatDate(report.firstSurveyDate) : 'N/A';
+                    const lastDate = report.lastSurveyDate ? formatDate(report.lastSurveyDate) : 'N/A';
                     return (
                       <tr key={report._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
                         <td style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--primary)', fontSize: '13px', fontFamily: 'monospace' }}>

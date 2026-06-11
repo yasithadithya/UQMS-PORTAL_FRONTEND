@@ -6,6 +6,7 @@ import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import s from './FirstEntryFullReportPage.module.css';
+import { formatDate, formatDateTime } from '@/utils/date';
 
 export default function FirstEntryFullReportPage() {
   const { id, module } = useParams<{ id: string; module?: string }>();
@@ -37,6 +38,127 @@ export default function FirstEntryFullReportPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  // Remarks section states
+  const [newRemarkText, setNewRemarkText] = useState('');
+  const [postingRemark, setPostingRemark] = useState(false);
+  const [editingRemarkId, setEditingRemarkId] = useState<string | null>(null);
+  const [editingRemarkText, setEditingRemarkText] = useState('');
+  const [updatingRemark, setUpdatingRemark] = useState(false);
+  const [newCommentTexts, setNewCommentTexts] = useState<Record<string, string>>({});
+  const [postingCommentId, setPostingCommentId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [updatingComment, setUpdatingComment] = useState(false);
+
+  const getCreatorId = (createdBy: any): string => {
+    if (!createdBy) return '';
+    if (typeof createdBy === 'object') {
+      return (createdBy._id || createdBy.id || '').toString();
+    }
+    return createdBy.toString();
+  };
+
+  const handleAddRemark = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!report || !newRemarkText.trim() || postingRemark) return;
+
+    try {
+      setPostingRemark(true);
+      const res = await firstEntryService.addGeneralRemark(report._id, newRemarkText);
+      if (res.success) {
+        setReport(res.data);
+        setNewRemarkText('');
+        toast.success('Remark added successfully.');
+      } else {
+        toast.error(res.message || 'Failed to add remark.');
+      }
+    } catch (err: any) {
+      toast.error('Error adding remark: ' + err.message);
+    } finally {
+      setPostingRemark(false);
+    }
+  };
+
+  const handleEditRemark = async (remarkId: string) => {
+    if (!report || !editingRemarkText.trim() || updatingRemark) return;
+
+    try {
+      setUpdatingRemark(true);
+      const res = await firstEntryService.editGeneralRemark(report._id, remarkId, editingRemarkText);
+      if (res.success) {
+        setReport(res.data);
+        setEditingRemarkId(null);
+        setEditingRemarkText('');
+        toast.success('Remark updated successfully.');
+      } else {
+        toast.error(res.message || 'Failed to update remark.');
+      }
+    } catch (err: any) {
+      toast.error('Error updating remark: ' + err.message);
+    } finally {
+      setUpdatingRemark(false);
+    }
+  };
+
+  const handleToggleCloseRemark = async (remarkId: string) => {
+    if (!report) return;
+
+    try {
+      const res = await firstEntryService.toggleCloseGeneralRemark(report._id, remarkId);
+      if (res.success) {
+        setReport(res.data);
+        toast.success(res.message || 'Remark status updated.');
+      } else {
+        toast.error(res.message || 'Failed to update remark status.');
+      }
+    } catch (err: any) {
+      toast.error('Error updating remark status: ' + err.message);
+    }
+  };
+
+  const handleAddComment = async (remarkId: string, e: React.FormEvent) => {
+    e.preventDefault();
+    const commentText = newCommentTexts[remarkId] || '';
+    if (!report || !commentText.trim() || postingCommentId) return;
+
+    try {
+      setPostingCommentId(remarkId);
+      const res = await firstEntryService.addRemarkComment(report._id, remarkId, commentText);
+      if (res.success) {
+        setReport(res.data);
+        setNewCommentTexts((prev) => ({ ...prev, [remarkId]: '' }));
+        toast.success('Comment added successfully.');
+      } else {
+        toast.error(res.message || 'Failed to add comment.');
+      }
+    } catch (err: any) {
+      toast.error('Error adding comment: ' + err.message);
+    } finally {
+      setPostingCommentId(null);
+    }
+  };
+
+  const handleEditComment = async (remarkId: string, commentId: string) => {
+    if (!report || !editingCommentText.trim() || updatingComment) return;
+
+    try {
+      setUpdatingComment(true);
+      const res = await firstEntryService.editRemarkComment(report._id, remarkId, commentId, editingCommentText);
+      if (res.success) {
+        setReport(res.data);
+        setEditingCommentId(null);
+        setEditingCommentText('');
+        toast.success('Comment updated successfully.');
+      } else {
+        toast.error(res.message || 'Failed to update comment.');
+      }
+    } catch (err: any) {
+      toast.error('Error updating comment: ' + err.message);
+    } finally {
+      setUpdatingComment(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -481,7 +603,7 @@ export default function FirstEntryFullReportPage() {
           <div className={s.infoItem}>
             <span className={s.infoLabel}>Anniversary Date</span>
             <span className={s.infoValue}>
-              {surveyReport?.anniversaryDate ? new Date(surveyReport.anniversaryDate).toLocaleDateString() : 'N/A'}
+              {surveyReport?.anniversaryDate ? formatDate(surveyReport.anniversaryDate) : 'N/A'}
             </span>
           </div>
         </div>
@@ -491,7 +613,7 @@ export default function FirstEntryFullReportPage() {
               <span style={{ fontSize: '13.5px', color: 'var(--secondary)', fontWeight: 500 }}>
                 📄 Daily Report PDF: <a href={report.dailyReportPdfUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
                 <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
-                  (Generated: {new Date(report.dailyReportPdfGeneratedAt).toLocaleString()})
+                  (Generated: {formatDateTime(report.dailyReportPdfGeneratedAt)})
                 </span>
               </span>
             ) : (
@@ -645,8 +767,8 @@ export default function FirstEntryFullReportPage() {
                                   ?.map((visit: any, idx: number) => {
                                     const visitVal = visit.visitNo || `Visit ${idx + 1}`;
                                     const visitLabel = visit.visitNo 
-                                      ? `${visit.visitNo} (${new Date(visit.visitDate).toLocaleDateString()})`
-                                      : `Visit ${idx + 1} (${new Date(visit.visitDate).toLocaleDateString()})`;
+                                      ? `${visit.visitNo} (${formatDate(visit.visitDate)})`
+                                      : `Visit ${idx + 1} (${formatDate(visit.visitDate)})`;
                                     return (
                                       <option key={idx} value={visitVal}>
                                         {visitLabel}
@@ -765,6 +887,241 @@ export default function FirstEntryFullReportPage() {
           );
         })
       )}
+
+      {/* Discussion & Remarks Section */}
+      <div className={s.discussionCard}>
+        <div className={s.discussionHeader}>
+          <h2 className={s.discussionTitle}>
+            💬 General Remarks & Discussion
+          </h2>
+          <p className={s.discussionSubtitle}>
+            A general remark must be added before generating the Daily Visit Report PDF. Closed remarks are omitted from the PDF.
+          </p>
+        </div>
+
+        <div className={s.remarksContainer}>
+          {!report.remarks || report.remarks.length === 0 ? (
+            <div className={s.emptyRemarks}>
+              <p>No general remarks added yet.</p>
+              <span>Please add at least one remark below to generate the daily report PDF.</span>
+            </div>
+          ) : (
+            <div className={s.remarksList}>
+              {report.remarks.map((rem) => {
+                const isRemarkCreator = getCreatorId(rem.createdBy) === currentUser?.id;
+                const remarkInitials = rem.createdByName ? rem.createdByName.trim().charAt(0).toUpperCase() : 'U';
+
+                return (
+                  <div key={rem._id} className={`${s.remarkItem} ${rem.isClosed ? s.remarkItemClosed : ''}`}>
+                    {/* Remark Body */}
+                    <div className={s.remarkMain}>
+                      <div className={s.avatar} title={rem.createdByName}>
+                        {remarkInitials}
+                      </div>
+                      
+                      <div className={s.remarkContent}>
+                        <div className={s.remarkMeta}>
+                          <span className={s.remarkAuthor}>{rem.createdByName}</span>
+                          <span className={s.remarkDate}>
+                            {formatDateTime(rem.createdAt)}
+                          </span>
+                          {rem.isClosed ? (
+                            <span className={`${s.badge} ${s.badgeClosed}`}>Closed (Omitted from PDF)</span>
+                          ) : (
+                            <span className={`${s.badge} ${s.badgeOpen}`}>Open (Visible in PDF)</span>
+                          )}
+                        </div>
+
+                        {editingRemarkId === rem._id ? (
+                          <div className={s.editBox}>
+                            <textarea
+                              value={editingRemarkText}
+                              onChange={(e) => setEditingRemarkText(e.target.value)}
+                              className={s.editTextarea}
+                              rows={3}
+                              disabled={updatingRemark}
+                            />
+                            <div className={s.editActions}>
+                              <button
+                                className="btn-secondary"
+                                onClick={() => {
+                                  setEditingRemarkId(null);
+                                  setEditingRemarkText('');
+                                }}
+                                disabled={updatingRemark}
+                                style={{ padding: '4px 12px', fontSize: '12px', height: 'auto', marginBottom: 0 }}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                className="btn-primary"
+                                onClick={() => handleEditRemark(rem._id)}
+                                disabled={updatingRemark || !editingRemarkText.trim()}
+                                style={{ padding: '4px 12px', fontSize: '12px', height: 'auto', marginBottom: 0 }}
+                              >
+                                {updatingRemark ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={s.remarkText}>{rem.text}</div>
+                        )}
+
+                        {/* Remark Action Buttons */}
+                        <div className={s.remarkActions}>
+                          <button
+                            type="button"
+                            className={s.actionBtn}
+                            onClick={() => handleToggleCloseRemark(rem._id)}
+                          >
+                            {rem.isClosed ? '🔓 Reopen Remark' : '🔒 Close Remark'}
+                          </button>
+
+                          {isRemarkCreator && editingRemarkId !== rem._id && (
+                            <button
+                              type="button"
+                              className={s.actionBtn}
+                              onClick={() => {
+                                setEditingRemarkId(rem._id);
+                                setEditingRemarkText(rem.text);
+                              }}
+                            >
+                              ✏️ Edit
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comments (Indented Sub-Thread) */}
+                    <div className={s.commentsSection}>
+                      {rem.comments && rem.comments.length > 0 && (
+                        <div className={s.commentsList}>
+                          {rem.comments.map((comment) => {
+                            const isCommentCreator = getCreatorId(comment.createdBy) === currentUser?.id;
+                            const commentInitials = comment.createdByName ? comment.createdByName.trim().charAt(0).toUpperCase() : 'U';
+
+                            return (
+                              <div key={comment._id} className={s.commentItem}>
+                                <div className={`${s.avatar} ${s.avatarComment}`} title={comment.createdByName}>
+                                  {commentInitials}
+                                </div>
+                                <div className={s.commentContent}>
+                                  <div className={s.commentMeta}>
+                                    <span className={s.commentAuthor}>{comment.createdByName}</span>
+                                    <span className={s.commentDate}>
+                                      {formatDateTime(comment.createdAt)}
+                                    </span>
+                                  </div>
+
+                                  {editingCommentId === comment._id ? (
+                                    <div className={s.editBox}>
+                                      <textarea
+                                        value={editingCommentText}
+                                        onChange={(e) => setEditingCommentText(e.target.value)}
+                                        className={s.editTextarea}
+                                        rows={2}
+                                        disabled={updatingComment}
+                                      />
+                                      <div className={s.editActions}>
+                                        <button
+                                          className="btn-secondary"
+                                          onClick={() => {
+                                            setEditingCommentId(null);
+                                            setEditingCommentText('');
+                                          }}
+                                          disabled={updatingComment}
+                                          style={{ padding: '3px 10px', fontSize: '11px', height: 'auto', marginBottom: 0 }}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          className="btn-primary"
+                                          onClick={() => handleEditComment(rem._id, comment._id)}
+                                          disabled={updatingComment || !editingCommentText.trim()}
+                                          style={{ padding: '3px 10px', fontSize: '11px', height: 'auto', marginBottom: 0 }}
+                                        >
+                                          {updatingComment ? 'Saving...' : 'Save'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className={s.commentText}>{comment.text}</div>
+                                  )}
+
+                                  {isCommentCreator && editingCommentId !== comment._id && (
+                                    <div className={s.commentActions}>
+                                      <button
+                                        type="button"
+                                        className={s.actionBtn}
+                                        onClick={() => {
+                                          setEditingCommentId(comment._id);
+                                          setEditingCommentText(comment.text);
+                                        }}
+                                      >
+                                        Edit
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Add Comment Input Form */}
+                      <form onSubmit={(e) => handleAddComment(rem._id, e)} className={s.commentForm}>
+                        <input
+                          type="text"
+                          placeholder="Write a comment..."
+                          value={newCommentTexts[rem._id] || ''}
+                          onChange={(e) =>
+                            setNewCommentTexts((prev) => ({
+                              ...prev,
+                              [rem._id]: e.target.value,
+                            }))
+                          }
+                          className={s.commentInput}
+                          disabled={postingCommentId === rem._id}
+                        />
+                        <button
+                          type="submit"
+                          className={s.commentSubmitBtn}
+                          disabled={postingCommentId === rem._id || !(newCommentTexts[rem._id] || '').trim()}
+                        >
+                          {postingCommentId === rem._id ? '...' : 'Post'}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Add Remark Input Form */}
+        <form onSubmit={handleAddRemark} className={s.remarkForm}>
+          <h3 className={s.formTitle}>Add General Remark</h3>
+          <textarea
+            placeholder="Type your general remark here... (This remark will be printable in the Daily Visit Report PDF)"
+            value={newRemarkText}
+            onChange={(e) => setNewRemarkText(e.target.value)}
+            className={s.remarkTextarea}
+            rows={4}
+            disabled={postingRemark}
+          />
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={postingRemark || !newRemarkText.trim()}
+            style={{ width: 'auto', alignSelf: 'flex-end', padding: '10px 24px', marginBottom: 0 }}
+          >
+            {postingRemark ? 'Posting...' : 'Post General Remark'}
+          </button>
+        </form>
+      </div>
 
       {/* Floating Bottom Unsaved Changes Banner */}
       {hasChanges && (

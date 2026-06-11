@@ -319,6 +319,26 @@ export interface ApiChecklistItem {
   surveyorName?: string;
 }
 
+export interface ApiRemarkComment {
+  _id: string;
+  text: string;
+  createdBy: ApiUser | string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiGeneralRemark {
+  _id: string;
+  text: string;
+  isClosed: boolean;
+  createdBy: ApiUser | string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+  comments: ApiRemarkComment[];
+}
+
 export interface ApiFirstEntryFullReport {
   _id: string;
   firstEntrySurveyReportId: ApiFirstEntrySurveyReport | string;
@@ -326,6 +346,7 @@ export interface ApiFirstEntryFullReport {
   vesselId: ApiVessel | string;
   uqmsNo?: string;
   checklist: ApiChecklistItem[];
+  remarks?: ApiGeneralRemark[];
   dailyReportPdfKey?: string;
   dailyReportPdfUrl?: string;
   dailyReportPdfBucket?: string;
@@ -335,6 +356,14 @@ export interface ApiFirstEntryFullReport {
   dailyReportPdfGeneratedAt?: string;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiVesselCode {
+  _id: string;
+  code: string;
+  description: string;
   createdAt?: string;
   updatedAt?: string;
 }

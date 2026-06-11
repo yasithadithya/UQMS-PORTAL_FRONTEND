@@ -3,10 +3,12 @@ import { toast } from 'react-toastify';
 import {
   checklistQuestionsService,
   operationsService,
+  vesselCodesService,
   type ApiChecklistQuestion,
   type ApiSurveyType,
   type ApiAreaOfOperation,
   type ApiVesselType,
+  type ApiVesselCode,
 } from '@/api';
 import s from './ChecklistManagement.module.css';
 
@@ -141,6 +143,7 @@ export default function ChecklistManagement() {
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
   const [boatTypes, setBoatTypes] = useState<ApiVesselType[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
 
   // Filtering criteria states (Arrays for multi-select dropdowns)
   const [search, setSearch] = useState('');
@@ -172,14 +175,16 @@ export default function ChecklistManagement() {
   useEffect(() => {
     const loadLookups = async () => {
       try {
-        const [vTypesRes, sTypesRes, areasRes] = await Promise.all([
+        const [vTypesRes, sTypesRes, areasRes, vCodesRes] = await Promise.all([
           operationsService.getVesselTypes(),
           operationsService.getSurveyTypes(),
           operationsService.getAreaOperations(),
+          vesselCodesService.getVesselCodes(),
         ]);
         if (vTypesRes.success) setBoatTypes(vTypesRes.data);
         if (sTypesRes.success) setSurveyTypes(sTypesRes.data);
         if (areasRes.success) setAreaOperations(areasRes.data);
+        if (vCodesRes.success) setVesselCodes(vCodesRes.data);
       } catch (err: any) {
         toast.error('Failed to load filter dropdown criteria: ' + err.message);
       }
@@ -421,13 +426,19 @@ export default function ChecklistManagement() {
 
         <div className={s.filterField}>
           <label className={s.filterLabel}>Vessel Code</label>
-          <input
+          <select
             className="form-input"
-            style={{ marginBottom: 0 }}
-            placeholder="VC-01..."
+            style={{ marginBottom: 0, cursor: 'pointer' }}
             value={filterVesselCode}
             onChange={(e) => setFilterVesselCode(e.target.value)}
-          />
+          >
+            <option value="">All Vessel Codes</option>
+            {vesselCodes.map((vc) => (
+              <option key={vc._id} value={vc.code}>
+                {vc.code}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className={s.filterField}>
@@ -596,14 +607,19 @@ export default function ChecklistManagement() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                   <div>
                     <label className="form-label">Vessel Code (Optional)</label>
-                    <input
-                      type="text"
+                    <select
                       className="form-input"
-                      style={{ marginBottom: 0 }}
-                      placeholder="e.g. VC-10"
+                      style={{ marginBottom: 0, cursor: 'pointer' }}
                       value={formVesselCode}
                       onChange={(e) => setFormVesselCode(e.target.value)}
-                    />
+                    >
+                      <option value="">-- Applies to all --</option>
+                      {vesselCodes.map((vc) => (
+                        <option key={vc._id} value={vc.code}>
+                          {vc.code} - {vc.description}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="form-label">Q Category (Optional)</label>

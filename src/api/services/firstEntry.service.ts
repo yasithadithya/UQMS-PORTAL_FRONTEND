@@ -190,4 +190,33 @@ export const firstEntryService = {
   getDailyReportPdfPreview: (id: string) => {
     return requestBlob(`/first-entry-full-reports/${id}/daily-report-preview`);
   },
+  addGeneralRemark: (reportId: string, text: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+  editGeneralRemark: (reportId: string, remarkId: string, text: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks/${remarkId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ text }),
+    });
+  },
+  toggleCloseGeneralRemark: (reportId: string, remarkId: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks/${remarkId}/toggle-close`, {
+      method: 'PUT',
+    });
+  },
+  addRemarkComment: (reportId: string, remarkId: string, text: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks/${remarkId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+  editRemarkComment: (reportId: string, remarkId: string, commentId: string, text: string) => {
+    return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks/${remarkId}/comments/${commentId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ text }),
+    });
+  },
 };

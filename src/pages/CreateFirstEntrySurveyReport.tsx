@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory, ApiSurveyType } from '@/api';
+import { formatDate } from '@/utils/date';
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
@@ -331,15 +332,15 @@ export default function CreateFirstEntrySurveyReport() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px 24px' }}>
               <div>
                 <label className="form-label">Survey Requested Date</label>
-                <input type="text" className="form-input" value={surveyRequestedDate ? new Date(surveyRequestedDate).toLocaleDateString() : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
+                <input type="text" className="form-input" value={surveyRequestedDate ? formatDate(surveyRequestedDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
               </div>
               <div>
                 <label className="form-label">First Survey Visit Date (1st Survey Date)</label>
-                <input type="text" className="form-input" value={firstSurveyDate ? new Date(firstSurveyDate).toLocaleDateString() : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
+                <input type="text" className="form-input" value={firstSurveyDate ? formatDate(firstSurveyDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
               </div>
               <div>
                 <label className="form-label">Last Survey Visit Date (Last Survey Date)</label>
-                <input type="text" className="form-input" value={lastSurveyDate ? new Date(lastSurveyDate).toLocaleDateString() : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
+                <input type="text" className="form-input" value={lastSurveyDate ? formatDate(lastSurveyDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
               </div>
             </div>
           </div>

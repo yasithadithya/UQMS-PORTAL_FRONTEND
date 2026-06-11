@@ -339,3 +339,11 @@ export interface ApiFirstEntryFullReport {
   updatedAt?: string;
 }
 
+export interface ApiVesselCode {
+  _id: string;
+  code: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

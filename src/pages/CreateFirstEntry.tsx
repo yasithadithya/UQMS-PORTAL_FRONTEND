@@ -6,14 +6,16 @@ import {
   requestsService,
   vesselsService,
   operationsService,
-  firstEntryService
+  firstEntryService,
+  vesselCodesService
 } from '@/api';
 import type {
   ApiRequest,
   ApiVessel,
   ApiVesselType,
   ApiAreaOfOperation,
-  ApiScheduleIIDocument
+  ApiScheduleIIDocument,
+  ApiVesselCode
 } from '@/api';
 
 export default function CreateFirstEntry() {
@@ -27,6 +29,7 @@ export default function CreateFirstEntry() {
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
   const [allVessels, setAllVessels] = useState<ApiVessel[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
 
   // Loading States
   const [loading, setLoading] = useState(false);
@@ -123,17 +126,19 @@ export default function CreateFirstEntry() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [reqsRes, vTypesRes, areasRes, vesselsRes] = await Promise.all([
+        const [reqsRes, vTypesRes, areasRes, vesselsRes, vCodesRes] = await Promise.all([
           requestsService.getRequests(),
           operationsService.getVesselTypes(),
           operationsService.getAreaOperations(),
           vesselsService.getVessels(),
+          vesselCodesService.getVesselCodes(),
         ]);
 
         if (reqsRes.success) setRequests(reqsRes.data);
         if (vTypesRes.success) setVesselTypes(vTypesRes.data);
         if (areasRes.success) setAreaOperations(areasRes.data);
         if (vesselsRes.success) setAllVessels(vesselsRes.data);
+        if (vCodesRes.success) setVesselCodes(vCodesRes.data);
 
         if (isEdit && id) {
           const entryRes = await firstEntryService.getFirstEntryById(id);
@@ -278,6 +283,11 @@ export default function CreateFirstEntry() {
 
     if (!vesselName.trim()) {
       toast.error('Vessel Name is required.');
+      return;
+    }
+
+    if (!vesselCode.trim()) {
+      toast.error('Vessel Code is required.');
       return;
     }
 
@@ -627,15 +637,20 @@ export default function CreateFirstEntry() {
               />
             </div>
             <div>
-              <label className="form-label" htmlFor="vesselCode">Vessel Code</label>
-              <input
+              <label className="form-label" htmlFor="vesselCode">Vessel Code *</label>
+              <select
                 id="vesselCode"
-                type="text"
                 className="form-input"
-                placeholder="e.g. VS-102"
                 value={vesselCode}
                 onChange={e => setVesselCode(e.target.value)}
-              />
+                required
+                style={{ width: '100%', cursor: 'pointer' }}
+              >
+                <option value="">-- Select Vessel Code --</option>
+                {vesselCodes.map(vc => (
+                  <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="form-label" htmlFor="vType">Vessel Type</label>

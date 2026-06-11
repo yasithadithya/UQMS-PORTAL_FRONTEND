@@ -6,6 +6,7 @@ import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import s from './FirstEntryFullReportPage.module.css';
+import { formatDate, formatDateTime } from '@/utils/date';
 
 export default function FirstEntryFullReportPage() {
   const { id, module } = useParams<{ id: string; module?: string }>();
@@ -481,7 +482,7 @@ export default function FirstEntryFullReportPage() {
           <div className={s.infoItem}>
             <span className={s.infoLabel}>Anniversary Date</span>
             <span className={s.infoValue}>
-              {surveyReport?.anniversaryDate ? new Date(surveyReport.anniversaryDate).toLocaleDateString() : 'N/A'}
+              {surveyReport?.anniversaryDate ? formatDate(surveyReport.anniversaryDate) : 'N/A'}
             </span>
           </div>
         </div>
@@ -491,7 +492,7 @@ export default function FirstEntryFullReportPage() {
               <span style={{ fontSize: '13.5px', color: 'var(--secondary)', fontWeight: 500 }}>
                 📄 Daily Report PDF: <a href={report.dailyReportPdfUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
                 <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
-                  (Generated: {new Date(report.dailyReportPdfGeneratedAt).toLocaleString()})
+                  (Generated: {formatDateTime(report.dailyReportPdfGeneratedAt)})
                 </span>
               </span>
             ) : (
@@ -645,8 +646,8 @@ export default function FirstEntryFullReportPage() {
                                   ?.map((visit: any, idx: number) => {
                                     const visitVal = visit.visitNo || `Visit ${idx + 1}`;
                                     const visitLabel = visit.visitNo 
-                                      ? `${visit.visitNo} (${new Date(visit.visitDate).toLocaleDateString()})`
-                                      : `Visit ${idx + 1} (${new Date(visit.visitDate).toLocaleDateString()})`;
+                                      ? `${visit.visitNo} (${formatDate(visit.visitDate)})`
+                                      : `Visit ${idx + 1} (${formatDate(visit.visitDate)})`;
                                     return (
                                       <option key={idx} value={visitVal}>
                                         {visitLabel}

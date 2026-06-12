@@ -10,3 +10,4 @@ export * from './services/vessels.service';
 export * from './services/firstEntry.service';
 export * from './services/checklistQuestions.service';
 export * from './services/vesselCodes.service';
+export * from './services/notes.service';

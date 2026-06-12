@@ -1,5 +1,5 @@
 import { request, requestFormData, requestBlob } from '../client';
-import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiFirstEntryFullReport } from '../types';
+import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiFirstEntryFullReport, ApiSCCCOS } from '../types';
 
 export const firstEntryService = {
   // First Entry endpoints
@@ -217,6 +217,37 @@ export const firstEntryService = {
     return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks/${remarkId}/comments/${commentId}`, {
       method: 'PUT',
       body: JSON.stringify({ text }),
+    });
+  },
+
+  // SCCCOS Certificate endpoints
+  getScccosCertificates: () => {
+    return request<{ success: boolean; count: number; data: ApiSCCCOS[] }>('/scccos');
+  },
+  getScccosCertificateBySurveyReportId: (surveyReportId: string) => {
+    return request<{ success: boolean; data: ApiSCCCOS }>(`/scccos/report/${surveyReportId}`);
+  },
+  createScccosCertificate: (payload: any) => {
+    return request<{ success: boolean; message: string; data: ApiSCCCOS }>('/scccos', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  getScccosPreviewBlob: (payload: any) => {
+    return requestBlob('/scccos/preview', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+  getScccosFinalBlob: (id: string) => {
+    return requestBlob(`/scccos/pdf/${id}`);
+  },
+  deleteScccosCertificate: (id: string) => {
+    return request<{ success: boolean; message: string }>(`/scccos/${id}`, {
+      method: 'DELETE',
     });
   },
 };

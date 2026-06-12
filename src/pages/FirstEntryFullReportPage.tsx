@@ -5,6 +5,7 @@ import { firstEntryService } from '@/api';
 import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
+import ScccosModal from '@/components/ScccosModal';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime } from '@/utils/date';
 
@@ -38,6 +39,7 @@ export default function FirstEntryFullReportPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
 
   // Remarks section states
   const [newRemarkText, setNewRemarkText] = useState('');
@@ -50,6 +52,23 @@ export default function FirstEntryFullReportPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [updatingComment, setUpdatingComment] = useState(false);
+
+  const vessel = report && typeof report.vesselId === 'object' && report.vesselId ? report.vesselId : null;
+  const surveyReport = report && typeof report.firstEntrySurveyReportId === 'object' && report.firstEntrySurveyReportId ? report.firstEntrySurveyReportId : null;
+  const booking = report && typeof report.bookingId === 'object' && report.bookingId ? report.bookingId : null;
+
+  const isScccosEligible = useMemo(() => {
+    if (!vessel || vessel.vesselCode !== 'SSC') return false;
+    if (!booking) return false;
+
+    // Has a last visit date or any visit detail marked as last visit
+    const hasLastVisit = !!(
+      booking.lastVisitDate ||
+      booking.lastVisit ||
+      booking.visitDetails?.some((v: any) => v.isLastVist || v.isLastVisitDate)
+    );
+    return hasLastVisit;
+  }, [vessel, booking]);
 
   const getCreatorId = (createdBy: any): string => {
     if (!createdBy) return '';
@@ -216,7 +235,7 @@ export default function FirstEntryFullReportPage() {
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
-        
+
         const uniqueCategories = Array.from(
           new Set(
             (res.data.checklist || []).map((item) => {
@@ -324,7 +343,7 @@ export default function FirstEntryFullReportPage() {
       const next = [...prev];
       const item = next[originalIndex];
       const newAdditionalFields = [...(item.additionalFields || [])];
-      
+
       const fieldIdx = newAdditionalFields.findIndex(f => f.name === fieldName);
       if (fieldIdx >= 0) {
         newAdditionalFields[fieldIdx] = { ...newAdditionalFields[fieldIdx], value };
@@ -517,6 +536,28 @@ export default function FirstEntryFullReportPage() {
     }
   };
 
+  const handleViewCos = async () => {
+    if (!surveyReport?._id) return;
+    try {
+      const res = await firstEntryService.getScccosCertificateBySurveyReportId(surveyReport._id);
+      if (res.success && res.data) {
+        const pdfBlob = await firstEntryService.getScccosFinalBlob(res.data._id);
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        toast.error('Could not find the certificate record.');
+      }
+    } catch (err: any) {
+      toast.error('Failed to retrieve certificate: ' + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '80px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -553,8 +594,6 @@ export default function FirstEntryFullReportPage() {
     );
   }
 
-  const vessel = typeof report.vesselId === 'object' && report.vesselId ? report.vesselId : null;
-  const surveyReport = typeof report.firstEntrySurveyReportId === 'object' && report.firstEntrySurveyReportId ? report.firstEntrySurveyReportId : null;
 
   return (
     <div className={s.container}>
@@ -622,7 +661,7 @@ export default function FirstEntryFullReportPage() {
               </span>
             )}
           </div>
-          <div>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <button
               className="btn-primary"
               onClick={handlePreviewDailyReport}
@@ -631,6 +670,41 @@ export default function FirstEntryFullReportPage() {
             >
               {previewLoading ? 'Loading Preview...' : 'Preview & Generate Daily Report'}
             </button>
+            {isScccosEligible && booking && (
+              surveyReport?.status === 'COS Generated' ? (
+                <button
+                  className="btn-primary"
+                  onClick={handleViewCos}
+                  style={{
+                    marginBottom: 0,
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    width: 'auto',
+                    minWidth: 'unset',
+                    background: 'var(--primary)',
+                    borderColor: 'var(--primary)'
+                  }}
+                >
+                  View COS
+                </button>
+              ) : (
+                <button
+                  className="btn-primary"
+                  onClick={() => setIsScccosModalOpen(true)}
+                  style={{
+                    marginBottom: 0,
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    width: 'auto',
+                    minWidth: 'unset',
+                    background: 'var(--green)',
+                    borderColor: 'var(--green)'
+                  }}
+                >
+                  Generate SSC COS Certificate
+                </button>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -712,7 +786,7 @@ export default function FirstEntryFullReportPage() {
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Checked Checkbox */}
                             <div className={s.statusPills}>
                               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isLocked ? 'not-allowed' : 'pointer' }}>
@@ -766,7 +840,7 @@ export default function FirstEntryFullReportPage() {
                                   })
                                   ?.map((visit: any, idx: number) => {
                                     const visitVal = visit.visitNo || `Visit ${idx + 1}`;
-                                    const visitLabel = visit.visitNo 
+                                    const visitLabel = visit.visitNo
                                       ? `${visit.visitNo} (${formatDate(visit.visitDate)})`
                                       : `Visit ${idx + 1} (${formatDate(visit.visitDate)})`;
                                     return (
@@ -918,7 +992,7 @@ export default function FirstEntryFullReportPage() {
                       <div className={s.avatar} title={rem.createdByName}>
                         {remarkInitials}
                       </div>
-                      
+
                       <div className={s.remarkContent}>
                         <div className={s.remarkMeta}>
                           <span className={s.remarkAuthor}>{rem.createdByName}</span>
@@ -1123,6 +1197,57 @@ export default function FirstEntryFullReportPage() {
         </form>
       </div>
 
+      {isScccosEligible && booking && (
+        <div className="card animate-in" style={{ marginTop: '24px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--label)' }}>Small Craft Code Certificate of Survey</h3>
+            <p style={{ fontSize: '12.5px', color: 'var(--muted)', margin: '4px 0 0 0' }}>
+              {surveyReport?.status === 'COS Generated'
+                ? 'The statutory survey certificate has been generated for this Survey Report.'
+                : 'The survey visit is completed. Configure survey findings and generate the statutory SSC Certificate of Survey PDF.'
+              }
+            </p>
+          </div>
+          {surveyReport?.status === 'COS Generated' ? (
+            <button
+              className="btn-primary"
+              onClick={handleViewCos}
+              style={{
+                marginBottom: 0,
+                padding: '10px 20px',
+                fontSize: '13px',
+                borderRadius: '8px',
+                background: 'var(--primary)',
+                borderColor: 'var(--primary)',
+                fontWeight: 600,
+                width: 'auto',
+                minWidth: 'unset'
+              }}
+            >
+              View COS
+            </button>
+          ) : (
+            <button
+              className="btn-primary"
+              onClick={() => setIsScccosModalOpen(true)}
+              style={{
+                marginBottom: 0,
+                padding: '10px 20px',
+                fontSize: '13px',
+                borderRadius: '8px',
+                background: 'var(--green)',
+                borderColor: 'var(--green)',
+                fontWeight: 600,
+                width: 'auto',
+                minWidth: 'unset'
+              }}
+            >
+              Generate SSC COS Certificate
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Floating Bottom Unsaved Changes Banner */}
       {hasChanges && (
         <div className={s.footerBar}>
@@ -1183,7 +1308,7 @@ export default function FirstEntryFullReportPage() {
                 &times;
               </button>
             </div>
-            
+
             <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
               <iframe
                 src={previewUrl}
@@ -1196,7 +1321,7 @@ export default function FirstEntryFullReportPage() {
                 }}
               />
             </div>
-            
+
             <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
               <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={generatingPdf}>
                 Cancel
@@ -1207,6 +1332,18 @@ export default function FirstEntryFullReportPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isScccosModalOpen && booking && (
+        <ScccosModal
+          isOpen={isScccosModalOpen}
+          onClose={() => setIsScccosModalOpen(false)}
+          booking={booking as any}
+          surveyReportId={surveyReport?._id || ''}
+          onSuccess={() => {
+            toast.success('SCCCOS Certificate generated successfully.');
+          }}
+        />
       )}
     </div>
   );

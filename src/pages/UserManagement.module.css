@@ -227,7 +227,7 @@
     border-radius: var(--radius-lg);
     box-shadow: 0 24px 64px rgba(0,0,0,.5);
     width: 100%;
-    max-width: 440px;
+    max-width: 580px;
     animation: modalSlide .3s cubic-bezier(.4,0,.2,1);
     overflow: hidden;
 }
@@ -311,4 +311,34 @@
         height: auto;
         padding: 7px 12px;
     }
+}
+
+.modalGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+@media (min-width: 560px) {
+    .modalGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 16px;
+    }
+}
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+}
+
+.fieldGroup :global(.form-label) {
+    margin-bottom: 6px;
+}
+
+.fieldGroup :global(.form-input) {
+    margin-bottom: 0;
+}
+
+.fullWidth {
+    grid-column: 1 / -1;
 }

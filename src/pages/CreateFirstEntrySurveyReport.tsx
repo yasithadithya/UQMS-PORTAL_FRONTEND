@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import ScccosModal from '@/components/ScccosModal';
+import VesselNotesModal from '@/components/VesselNotesModal';
 import { toast } from 'react-toastify';
 import { firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory, ApiSurveyType } from '@/api';
@@ -38,6 +40,25 @@ export default function CreateFirstEntrySurveyReport() {
   // Form Fields - Editable Surveys Grid
   const [surveys, setSurveys] = useState<ApiSurveyReportCategory[]>([]);
 
+  // SCCCOS certificate states
+  const [booking, setBooking] = useState<ApiFirstEntrySurveyBooking | null>(null);
+  const [vessel, setVessel] = useState<any | null>(null);
+  const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+
+  const isScccosEligible = useMemo(() => {
+    if (!isEdit || !vessel || vessel.vesselCode !== 'SSC') return false;
+    if (!booking) return false;
+
+    // Has a last visit date or any visit detail marked as last visit
+    const hasLastVisit = !!(
+      booking.lastVisitDate ||
+      booking.lastVisit ||
+      booking.visitDetails?.some((v: any) => v.isLastVist || v.isLastVisitDate)
+    );
+    return hasLastVisit;
+  }, [isEdit, vessel, booking]);
+
   // Fetch initial lookups and data
   useEffect(() => {
     const loadInitialData = async () => {
@@ -65,6 +86,13 @@ export default function CreateFirstEntrySurveyReport() {
             setAnniversaryDate(report.anniversaryDate ? report.anniversaryDate.split('T')[0] : '');
             setReportRemarks(report.reportRemarks || '');
             setStatus(report.status || 'Draft');
+
+            if (typeof report.bookingId === 'object') {
+              setBooking(report.bookingId as any);
+            }
+            if (typeof report.vesselId === 'object') {
+              setVessel(report.vesselId as any);
+            }
 
             // Format dates inside surveys array
             const formattedSurveys = (report.surveys || []).map(s => ({
@@ -219,6 +247,27 @@ export default function CreateFirstEntrySurveyReport() {
     }
   };
 
+  const handleViewCos = async (reportId: string) => {
+    try {
+      const res = await firstEntryService.getScccosCertificateBySurveyReportId(reportId);
+      if (res.success && res.data) {
+        const blob = await firstEntryService.getScccosFinalBlob(res.data._id);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        toast.error('Could not find the certificate record for this Survey Report.');
+      }
+    } catch (err: any) {
+      toast.error('Failed to retrieve certificate: ' + err.message);
+    }
+  };
+
   if (initialLoading) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -307,7 +356,7 @@ export default function CreateFirstEntrySurveyReport() {
             <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
               Vessel Details & Survey Timeline
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px 24px', marginBottom: '20px' }}>
               <div>
                 <label className="form-label">Ship Name</label>
@@ -352,7 +401,7 @@ export default function CreateFirstEntrySurveyReport() {
             <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
               Report Customization
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', marginBottom: '20px' }}>
               <div>
                 <label className="form-label" htmlFor="anniversaryDate">Anniversary Date</label>
@@ -397,7 +446,7 @@ export default function CreateFirstEntrySurveyReport() {
         {selectedBookingId && (
           <div className="card animate-in" style={{ marginBottom: '32px' }}>
             <div className="card-header" style={{ marginBottom: '14px' }}>Survey Name Details Grid</div>
-            
+
             {surveys.length === 0 ? (
               <div style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-subtle)', borderRadius: '10px', color: 'var(--muted)', fontSize: '13px' }}>
                 No surveys requested in this booking.
@@ -537,6 +586,55 @@ export default function CreateFirstEntrySurveyReport() {
             >
               {loading ? 'Saving...' : 'Save Survey Report'}
             </button>
+
+            {isEdit && vessel && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setIsNotesModalOpen(true)}
+                style={{
+                  minWidth: '180px',
+                  marginBottom: 0,
+                  background: 'var(--primary)',
+                  borderColor: 'var(--primary)'
+                }}
+              >
+                Manage Vessel Notes
+              </button>
+            )}
+
+            {isScccosEligible && booking && (
+              status === 'COS Generated' ? (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => handleViewCos(id || '')}
+                  style={{
+                    minWidth: '180px',
+                    marginBottom: 0,
+                    background: 'var(--primary)',
+                    borderColor: 'var(--primary)'
+                  }}
+                >
+                  View COS
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setIsScccosModalOpen(true)}
+                  style={{
+                    minWidth: '180px',
+                    marginBottom: 0,
+                    background: 'var(--green)',
+                    borderColor: 'var(--green)'
+                  }}
+                >
+                  Generate SSC COS Certificate
+                </button>
+              )
+            )}
+
             <Link to={`/${activeModule}/marine`} style={{ textDecoration: 'none' }}>
               <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
                 Cancel
@@ -545,6 +643,24 @@ export default function CreateFirstEntrySurveyReport() {
           </div>
         )}
       </form>
+
+      {isScccosModalOpen && booking && (
+        <ScccosModal
+          isOpen={isScccosModalOpen}
+          onClose={() => setIsScccosModalOpen(false)}
+          booking={booking}
+          surveyReportId={id || ''}
+        />
+      )}
+
+      {isNotesModalOpen && vessel && (
+        <VesselNotesModal
+          isOpen={isNotesModalOpen}
+          onClose={() => setIsNotesModalOpen(false)}
+          vesselId={typeof vessel === 'object' ? vessel._id : String(vessel)}
+          vesselName={typeof vessel === 'object' ? vessel.vesselName : 'Vessel'}
+        />
+      )}
     </div>
   );
 }

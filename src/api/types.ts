@@ -368,3 +368,45 @@ export interface ApiVesselCode {
   updatedAt?: string;
 }
 
+export interface ApiSurveyFindingItem {
+  category: string;
+  status: 'Satisfactory' | 'Not Satisfactory' | 'N/A';
+}
+
+export interface ApiSCCCOS {
+  _id: string;
+  certificateNumber: string;
+  vesselId: ApiVessel | string;
+  surveyReportId: ApiFirstEntrySurveyReport | string;
+  surveyBookingId: ApiFirstEntrySurveyBooking | string;
+  surveyFindings: ApiSurveyFindingItem[];
+  typeOfSurvey?: string;
+  nominatedDeparturePoint?: string;
+  dateOfIssue: string;
+  issuedBy: ApiUser | string;
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiNoteItem {
+  _id?: string;
+  noteCategory: 'Additional Information' | 'Statutory Conditions' | string;
+  noteCode: string;
+  description: string;
+  type: 'Hull' | 'Machinery' | 'Equipment';
+  status: 'new' | 'modified' | 'deleted' | 'retained';
+  dueDate?: string;
+}
+
+export interface ApiNote {
+  _id?: string;
+  vesselId: string;
+  notes: ApiNoteItem[];
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

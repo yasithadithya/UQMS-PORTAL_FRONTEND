@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { firstEntryService } from '@/api';
-import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport } from '@/api';
+import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSCCCOS } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { formatDate } from '@/utils/date';
+import ScccosModal from '@/components/ScccosModal';
 
 export default function MarineModulePage() {
   const { hasPermission } = useAuth();
@@ -23,13 +24,24 @@ export default function MarineModulePage() {
   const [entries, setEntries] = useState<ApiFirstEntry[]>([]);
   const [surveyBookings, setSurveyBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
   const [reports, setReports] = useState<ApiFirstEntrySurveyReport[]>([]);
+  const [certificates, setCertificates] = useState<ApiSCCCOS[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [surveyLoading, setSurveyLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [certificatesLoading, setCertificatesLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [surveyError, setSurveyError] = useState<string | null>(null);
   const [reportsError, setReportsError] = useState<string | null>(null);
+  const [certificatesError, setCertificatesError] = useState<string | null>(null);
+
   const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'reports' | 'certificates'>('first-entry');
+
+  // Scccos Modal States
+  const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
+  const [selectedBookingForScccos, setSelectedBookingForScccos] = useState<ApiFirstEntrySurveyBooking | null>(null);
+  const [selectedReportIdForScccos, setSelectedReportIdForScccos] = useState<string>('');
 
   useEffect(() => {
     if (activeTab === 'first-entry') {
@@ -38,6 +50,8 @@ export default function MarineModulePage() {
       fetchSurveyBookings();
     } else if (activeTab === 'reports') {
       fetchReports();
+    } else if (activeTab === 'certificates') {
+      fetchCertificates();
     }
   }, [activeTab]);
 
@@ -140,6 +154,74 @@ export default function MarineModulePage() {
     }
   };
 
+  const fetchCertificates = async () => {
+    try {
+      setCertificatesLoading(true);
+      setCertificatesError(null);
+      const res = await firstEntryService.getScccosCertificates();
+      if (res.success) {
+        setCertificates(res.data);
+      } else {
+        setCertificatesError('Failed to fetch certificates');
+      }
+    } catch (err: any) {
+      setCertificatesError(err.message || 'An error occurred fetching certificates');
+    } finally {
+      setCertificatesLoading(false);
+    }
+  };
+
+  const handleDownloadCertificate = async (id: string, certificateNumber: string) => {
+    try {
+      const blob = await firstEntryService.getScccosFinalBlob(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `scc_certificate_${certificateNumber.replace(/\s+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Failed to download certificate: ' + err.message);
+    }
+  };
+
+  const handleViewCos = async (reportId: string) => {
+    try {
+      const res = await firstEntryService.getScccosCertificateBySurveyReportId(reportId);
+      if (res.success && res.data) {
+        handleDownloadCertificate(res.data._id, res.data.certificateNumber);
+      } else {
+        alert('Could not find the certificate record for this Survey Report.');
+      }
+    } catch (err: any) {
+      alert('Failed to retrieve certificate: ' + err.message);
+    }
+  };
+
+  const handleDeleteCertificate = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this SCCCOS Certificate?')) {
+      return;
+    }
+    try {
+      const res = await firstEntryService.deleteScccosCertificate(id);
+      if (res.success) {
+        setCertificates(prev => prev.filter(c => c._id !== id));
+      } else {
+        alert('Failed to delete certificate');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting certificate');
+    }
+  };
+
+  const handleOpenScccosModal = (booking: ApiFirstEntrySurveyBooking, reportId: string) => {
+    setSelectedBookingForScccos(booking);
+    setSelectedReportIdForScccos(reportId);
+    setIsScccosModalOpen(true);
+  };
+
   return (
     <div className="animate-in" style={{ padding: '4px' }}>
       {/* Header Info */}
@@ -187,7 +269,7 @@ export default function MarineModulePage() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--separator)', marginBottom: '24px', gap: '20px' }}>
-        <button 
+        <button
           onClick={() => setActiveTab('first-entry')}
           style={{
             background: 'none',
@@ -203,7 +285,7 @@ export default function MarineModulePage() {
         >
           First Entry
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('survey')}
           style={{
             background: 'none',
@@ -219,7 +301,7 @@ export default function MarineModulePage() {
         >
           Surveys
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('reports')}
           style={{
             background: 'none',
@@ -235,7 +317,7 @@ export default function MarineModulePage() {
         >
           Survey Reports
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('certificates')}
           style={{
             background: 'none',
@@ -246,12 +328,10 @@ export default function MarineModulePage() {
             fontWeight: 600,
             padding: '12px 4px',
             cursor: 'pointer',
-            opacity: 0.6
+            transition: 'all var(--transition)'
           }}
-          disabled
-          title="Module under construction"
         >
-          Certificates (Upcoming)
+          Certificates
         </button>
       </div>
 
@@ -262,7 +342,7 @@ export default function MarineModulePage() {
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
               <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
               <p style={{ fontSize: '14px' }}>Loading First Entries...</p>
-              <style dangerouslySetInnerHTML={{__html: `@keyframes spin { to { transform: rotate(360deg); } }`}} />
+              <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
             </div>
           ) : error ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
@@ -378,16 +458,16 @@ export default function MarineModulePage() {
                                 Edit
                               </button>
                             </Link>
-                            <button 
+                            <button
                               onClick={() => handleDelete(entry._id)}
-                              className="btn-secondary" 
+                              className="btn-secondary"
                               disabled={!canDelete}
-                              style={{ 
-                                padding: '6px 12px', 
-                                fontSize: '12px', 
-                                borderRadius: '8px', 
-                                minWidth: '60px', 
-                                color: 'var(--red)', 
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                borderRadius: '8px',
+                                minWidth: '60px',
+                                color: 'var(--red)',
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
@@ -518,16 +598,16 @@ export default function MarineModulePage() {
                                 Edit
                               </button>
                             </Link>
-                            <button 
+                            <button
                               onClick={() => handleDeleteSurveyBooking(booking._id)}
-                              className="btn-secondary" 
+                              className="btn-secondary"
                               disabled={!canDelete}
-                              style={{ 
-                                padding: '6px 12px', 
-                                fontSize: '12px', 
-                                borderRadius: '8px', 
-                                minWidth: '60px', 
-                                color: 'var(--red)', 
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                borderRadius: '8px',
+                                minWidth: '60px',
+                                color: 'var(--red)',
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
@@ -652,21 +732,54 @@ export default function MarineModulePage() {
                                 Full Report
                               </button>
                             </Link>
+                            {(() => {
+                              const vessel = typeof report.vesselId === 'object' && report.vesselId ? report.vesselId : null;
+                              const booking = typeof report.bookingId === 'object' && report.bookingId ? report.bookingId : null;
+                              const isScccosEligible = !!(
+                                vessel &&
+                                vessel.vesselCode === 'SSC' &&
+                                booking &&
+                                (booking.lastVisitDate || booking.lastVisit || booking.visitDetails?.some((v: any) => v.isLastVist || v.isLastVisitDate))
+                              );
+                              if (report.status === 'COS Generated') {
+                                return (
+                                  <button
+                                    onClick={() => handleViewCos(report._id)}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0, color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
+                                  >
+                                    View COS
+                                  </button>
+                                );
+                              }
+                              if (isScccosEligible && booking) {
+                                return (
+                                  <button
+                                    onClick={() => handleOpenScccosModal(booking, report._id)}
+                                    className="btn-secondary"
+                                    style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0, color: 'var(--green)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
+                                  >
+                                    SSC COS
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
                             <Link to={`${basePath}/survey-report/edit/${report._id}`} style={{ textDecoration: 'none' }}>
                               <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '60px', marginBottom: 0 }}>
                                 Edit
                               </button>
                             </Link>
-                            <button 
+                            <button
                               onClick={() => handleDeleteReport(report._id)}
-                              className="btn-secondary" 
+                              className="btn-secondary"
                               disabled={!canDelete}
-                              style={{ 
-                                padding: '6px 12px', 
-                                fontSize: '12px', 
-                                borderRadius: '8px', 
-                                minWidth: '60px', 
-                                color: 'var(--red)', 
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                borderRadius: '8px',
+                                minWidth: '60px',
+                                color: 'var(--red)',
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
@@ -690,8 +803,123 @@ export default function MarineModulePage() {
           )}
         </div>
       )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
+
+      {/* Certificates Tab Content */}
+      {activeTab === 'certificates' && (
+        <div>
+          {certificatesLoading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
+              <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
+              <p style={{ fontSize: '14px' }}>Loading Certificates...</p>
+            </div>
+          ) : certificatesError ? (
+            <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
+              <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{certificatesError}</p>
+              <button className="btn-secondary" onClick={fetchCertificates} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+            </div>
+          ) : certificates.length === 0 ? (
+            <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.6 }}>📜</div>
+              <h3 style={{ fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>No Certificates Found</h3>
+              <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
+                There are no Small Craft Code Certificates of Survey generated yet. You can generate a certificate from the Survey Reports tab for eligible SSC vessels.
+              </p>
+            </div>
+          ) : (
+            <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--separator)' }}>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Certificate No.</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Vessel Name</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Date of Issue</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Issued By</th>
+                    <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {certificates.map((cert) => {
+                    const vessel = typeof cert.vesselId === 'object' && cert.vesselId ? cert.vesselId : null;
+                    const issuedBy = typeof cert.issuedBy === 'object' && cert.issuedBy ? cert.issuedBy : null;
+                    return (
+                      <tr key={cert._id} style={{ borderBottom: '1px solid var(--separator)', transition: 'background var(--transition)' }} className="table-row-hover">
+                        <td style={{ padding: '16px 20px', fontWeight: 700, color: 'var(--primary)', fontSize: '13px', fontFamily: 'monospace' }}>
+                          {cert.certificateNumber}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
+                          {vessel?.vesselName || 'Unknown Vessel'}
+                          {vessel?.uqmsNumber && (
+                            <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
+                              UQMS: {vessel.uqmsNumber}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {formatDate(cert.dateOfIssue)}
+                        </td>
+                        <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>
+                          {issuedBy?.username || issuedBy?.email || 'System'}
+                        </td>
+                        <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                          <div style={{ display: 'inline-flex', gap: '8px' }}>
+                            <button
+                              onClick={() => handleDownloadCertificate(cert._id, cert.certificateNumber)}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0, color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
+                            >
+                              Download PDF
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCertificate(cert._id)}
+                              className="btn-secondary"
+                              disabled={!canDelete}
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                borderRadius: '8px',
+                                minWidth: '60px',
+                                color: 'var(--red)',
+                                borderColor: 'rgba(239, 68, 68, .2)',
+                                background: 'transparent',
+                                marginBottom: 0,
+                                opacity: canDelete ? 1 : 0.4,
+                                cursor: canDelete ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDelete ? 'auto' : 'none'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Scccos Modal */}
+      <ScccosModal
+        isOpen={isScccosModalOpen}
+        onClose={() => {
+          setIsScccosModalOpen(false);
+          setSelectedBookingForScccos(null);
+          setSelectedReportIdForScccos('');
+        }}
+        booking={selectedBookingForScccos}
+        surveyReportId={selectedReportIdForScccos}
+        onSuccess={() => {
+          fetchCertificates();
+        }}
+      />
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .table-row-hover:hover {
           background: rgba(148, 163, 184, .02);
         }

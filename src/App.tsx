@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 import DashboardPage from '@/pages/Dashboard';
 import UsersPage from '@/pages/Users';
+import ProfilePage from '@/pages/Profile';
 import ModulesPage from '@/pages/Modules';
 import RolesPage from '@/pages/Roles';
 import GenericModulePage from '@/pages/GenericModulePage';
@@ -48,6 +49,7 @@ function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/modules" element={<AdminGate><ModulesPage /></AdminGate>} />
             <Route path="/roles" element={<AdminGate><RolesPage /></AdminGate>} />
             <Route path="/checklist-management" element={<AdminGate><ChecklistManagement /></AdminGate>} />

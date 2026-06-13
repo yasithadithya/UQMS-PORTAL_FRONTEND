@@ -6,6 +6,10 @@ export const usersService = {
     return request<{ success: boolean; count: number; data: ApiUser[] }>('/users');
   },
 
+  getUserById: (id: string) => {
+    return request<{ success: boolean; data: ApiUser }>(`/users/${id}`);
+  },
+
   createUser: (payload: {
     username: string;
     email: string;

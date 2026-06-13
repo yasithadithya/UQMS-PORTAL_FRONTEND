@@ -145,11 +145,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
                 <div className={s.sidebarFooter}>
                     <div className={s.sidebarUser}>
-                        <div className={s.sidebarAvatar}>{displayInitials}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className={s.sidebarUserName}>{displayName}</div>
-                            <div className={s.sidebarUserRole}>{displayRole}</div>
-                        </div>
+                        <Link to="/profile" className={s.sidebarUserLink} title="View Profile">
+                            <div className={s.sidebarAvatar}>{displayInitials}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className={s.sidebarUserName}>{displayName}</div>
+                                <div className={s.sidebarUserRole}>{displayRole}</div>
+                            </div>
+                        </Link>
                         <button className={s.themeBtn} onClick={toggleTheme} title="Toggle theme">
                             {theme === 'dark' ? (
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -198,6 +200,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <span className={s.tabLabel}>{tab.label}</span>
                     </Link>
                 ))}
+                <Link
+                    to="/profile"
+                    className={`${s.tab} ${pathname === '/profile' ? s.tabActive : ''} ${s.mobileOnlyTab}`}
+                >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span className={s.tabLabel}>Profile</span>
+                </Link>
             </nav>
         </div>
     );

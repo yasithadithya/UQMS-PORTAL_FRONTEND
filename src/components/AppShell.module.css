@@ -288,3 +288,31 @@
 @media (min-width: 1200px) {
     .content { padding: 36px 56px 56px; }
 }
+
+.sidebarUserLink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    transition: background .2s;
+}
+
+.sidebarUserLink:hover {
+    background: rgba(148,163,184,.08);
+}
+
+.mobileOnlyTab {
+    display: flex;
+}
+
+@media (min-width: 768px) {
+    .mobileOnlyTab {
+        display: none;
+    }
+}

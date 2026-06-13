@@ -12,6 +12,12 @@ export default function UsersPage() {
         email: '',
         password: '',
         role: '',
+        fullName: '',
+        nameWithInitials: '',
+        phoneNumber: '',
+        address: '',
+        dob: '',
+        empNumber: '',
     });
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
@@ -24,6 +30,12 @@ export default function UsersPage() {
             email: '',
             password: '',
             role: roles.length > 0 ? roles[0]._id : '',
+            fullName: '',
+            nameWithInitials: '',
+            phoneNumber: '',
+            address: '',
+            dob: '',
+            empNumber: '',
         });
         setFormError('');
         setShowModal(true);
@@ -32,19 +44,33 @@ export default function UsersPage() {
     const openEdit = (user: any) => {
         setEditingUser(user);
         const roleId = typeof user.role === 'object' ? user.role._id : user.role;
+        let dobStr = '';
+        if (user.dob) {
+            try {
+                dobStr = new Date(user.dob).toISOString().split('T')[0];
+            } catch (e) {
+                console.error('Failed to parse dob', e);
+            }
+        }
         setFormData({
-            username: user.username,
-            email: user.email,
+            username: user.username || '',
+            email: user.email || '',
             password: '',
-            role: roleId,
+            role: roleId || '',
+            fullName: user.fullName || '',
+            nameWithInitials: user.nameWithInitials || '',
+            phoneNumber: user.phoneNumber || '',
+            address: user.address || '',
+            dob: dobStr,
+            empNumber: user.empNumber || '',
         });
         setFormError('');
         setShowModal(true);
     };
 
     const handleSave = async () => {
-        if (!formData.username || !formData.email || !formData.role) {
-            setFormError('Username, email, and role are required.');
+        if (!formData.username || !formData.email || !formData.role || !formData.fullName || !formData.phoneNumber) {
+            setFormError('Username, email, role, full name, and phone number are required.');
             return;
         }
         if (!editingUser && !formData.password) {
@@ -61,6 +87,12 @@ export default function UsersPage() {
                     username: formData.username,
                     email: formData.email,
                     role: formData.role,
+                    fullName: formData.fullName,
+                    nameWithInitials: formData.nameWithInitials,
+                    phoneNumber: formData.phoneNumber,
+                    address: formData.address,
+                    dob: formData.dob || '',
+                    empNumber: formData.empNumber,
                 };
                 if (formData.password) {
                     payload.password = formData.password;
@@ -78,6 +110,12 @@ export default function UsersPage() {
                     email: formData.email,
                     password: formData.password,
                     role: formData.role,
+                    fullName: formData.fullName,
+                    nameWithInitials: formData.nameWithInitials,
+                    phoneNumber: formData.phoneNumber,
+                    address: formData.address,
+                    dob: formData.dob || undefined,
+                    empNumber: formData.empNumber,
                 });
                 if (!result.success) {
                     setFormError(result.error || 'Failed to create user');
@@ -144,9 +182,10 @@ export default function UsersPage() {
                 <table className={s.table}>
                     <thead>
                         <tr>
-                            <th>User</th>
-                            <th>Email</th>
+                            <th>User / Name</th>
+                            <th>Contact</th>
                             <th>Role</th>
+                            <th>Emp No</th>
                             <th style={{ width: '120px' }}>Actions</th>
                         </tr>
                     </thead>
@@ -161,12 +200,18 @@ export default function UsersPage() {
                                                 className={s.avatar}
                                                 style={{ background: `linear-gradient(135deg, ${getRoleColor(user)}, #6366F1)` }}
                                             >
-                                                {getInitials(user.username)}
+                                                {getInitials(user.fullName || user.username)}
                                             </div>
-                                            <span className={s.userName}>{user.username}</span>
+                                            <div>
+                                                <div className={s.userName}>{user.username}</div>
+                                                <div style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '2px' }}>{user.fullName}</div>
+                                            </div>
                                         </div>
                                     </td>
-                                    <td className={s.emailCell}>{user.email}</td>
+                                    <td>
+                                        <div className={s.emailCell}>{user.email}</div>
+                                        <div style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '2.5px' }}>{user.phoneNumber}</div>
+                                    </td>
                                     <td>
                                         <span
                                             className={s.roleBadge}
@@ -177,6 +222,9 @@ export default function UsersPage() {
                                         >
                                             {getRoleName(user)}
                                         </span>
+                                    </td>
+                                    <td>
+                                        <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>{user.empNumber || '-'}</span>
                                     </td>
                                     <td>
                                         <div className={s.actions}>
@@ -210,11 +258,14 @@ export default function UsersPage() {
                                     className={s.avatar}
                                     style={{ background: `linear-gradient(135deg, ${getRoleColor(user)}, #6366F1)` }}
                                 >
-                                    {getInitials(user.username)}
+                                    {getInitials(user.fullName || user.username)}
                                 </div>
                                 <div className={s.mobileCardInfo}>
                                     <div className={s.userName}>{user.username}</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)', marginTop: '2px' }}>{user.fullName}</div>
                                     <div className={s.mobileEmail}>{user.email}</div>
+                                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>📞 {user.phoneNumber}</div>
+                                    {user.empNumber && <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>Emp No: {user.empNumber}</div>}
                                 </div>
                             </div>
                             <div className={s.mobileCardBottom}>
@@ -246,7 +297,7 @@ export default function UsersPage() {
                             <button className={s.closeBtn} onClick={() => setShowModal(false)}>✕</button>
                         </div>
 
-                        <div className={s.modalBody}>
+                        <div className={s.modalBody} style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
                             {formError && (
                                 <div
                                     style={{
@@ -265,52 +316,133 @@ export default function UsersPage() {
                                 </div>
                             )}
 
-                            <label className="form-label">Username</label>
-                            <input
-                                className="form-input"
-                                type="text"
-                                placeholder="e.g. johndoe"
-                                value={formData.username}
-                                onChange={(e) => setFormData((p) => ({ ...p, username: e.target.value }))}
-                                id="user-username-input"
-                            />
+                            <div className={s.modalGrid}>
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Username <span style={{ color: 'var(--red)' }}>*</span></label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="e.g. johndoe"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData((p) => ({ ...p, username: e.target.value }))}
+                                        id="user-username-input"
+                                    />
+                                </div>
 
-                            <label className="form-label">Email Address</label>
-                            <input
-                                className="form-input"
-                                type="email"
-                                placeholder="e.g. john@example.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                                id="user-email-input"
-                            />
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Email Address <span style={{ color: 'var(--red)' }}>*</span></label>
+                                    <input
+                                        className="form-input"
+                                        type="email"
+                                        placeholder="e.g. john@example.com"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
+                                        id="user-email-input"
+                                    />
+                                </div>
 
-                            <label className="form-label">
-                                Password {editingUser && <span style={{ fontWeight: 400, color: 'var(--separator)' }}>(leave blank to keep current)</span>}
-                            </label>
-                            <input
-                                className="form-input"
-                                type="password"
-                                placeholder={editingUser ? 'Leave blank to keep current' : 'Min 6 characters'}
-                                value={formData.password}
-                                onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-                                id="user-password-input"
-                            />
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Full Name <span style={{ color: 'var(--red)' }}>*</span></label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="John Doe"
+                                        value={formData.fullName}
+                                        onChange={(e) => setFormData((p) => ({ ...p, fullName: e.target.value }))}
+                                        id="user-fullname-input"
+                                    />
+                                </div>
 
-                            <label className="form-label">Role</label>
-                            <select
-                                className="form-input"
-                                value={formData.role}
-                                onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))}
-                                id="user-role-select"
-                            >
-                                {roles.length === 0 && <option value="">No roles available</option>}
-                                {roles.map((r) => (
-                                    <option key={r._id} value={r._id}>
-                                        {r.roleName}
-                                    </option>
-                                ))}
-                            </select>
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Name with Initials</label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="J. Doe"
+                                        value={formData.nameWithInitials}
+                                        onChange={(e) => setFormData((p) => ({ ...p, nameWithInitials: e.target.value }))}
+                                        id="user-namewithinitials-input"
+                                    />
+                                </div>
+
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Phone Number <span style={{ color: 'var(--red)' }}>*</span></label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="+1234567890"
+                                        value={formData.phoneNumber}
+                                        onChange={(e) => setFormData((p) => ({ ...p, phoneNumber: e.target.value }))}
+                                        id="user-phonenumber-input"
+                                    />
+                                </div>
+
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Employee Number</label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="EMP001"
+                                        value={formData.empNumber}
+                                        onChange={(e) => setFormData((p) => ({ ...p, empNumber: e.target.value }))}
+                                        id="user-empnumber-input"
+                                    />
+                                </div>
+
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Date of Birth</label>
+                                    <input
+                                        className="form-input"
+                                        type="date"
+                                        value={formData.dob}
+                                        onChange={(e) => setFormData((p) => ({ ...p, dob: e.target.value }))}
+                                        id="user-dob-input"
+                                    />
+                                </div>
+
+                                <div className={s.fieldGroup}>
+                                    <label className="form-label">Role <span style={{ color: 'var(--red)' }}>*</span></label>
+                                    <select
+                                        className="form-input"
+                                        value={formData.role}
+                                        onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))}
+                                        id="user-role-select"
+                                    >
+                                        {roles.length === 0 && <option value="">No roles available</option>}
+                                        {roles.map((r) => (
+                                            <option key={r._id} value={r._id}>
+                                                {r.roleName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className={`${s.fieldGroup} ${s.fullWidth}`}>
+                                    <label className="form-label">Address</label>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        placeholder="123 Main St, City, Country"
+                                        value={formData.address}
+                                        onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
+                                        id="user-address-input"
+                                    />
+                                </div>
+
+                                <div className={`${s.fieldGroup} ${s.fullWidth}`}>
+                                    <label className="form-label">
+                                        Password {editingUser && <span style={{ fontWeight: 400, color: 'var(--separator)' }}>(leave blank to keep current)</span>} {!editingUser && <span style={{ color: 'var(--red)' }}>*</span>}
+                                    </label>
+                                    <input
+                                        className="form-input"
+                                        type="password"
+                                        placeholder={editingUser ? 'Leave blank to keep current' : 'Min 6 characters'}
+                                        value={formData.password}
+                                        onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                                        id="user-password-input"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className={s.modalFooter}>

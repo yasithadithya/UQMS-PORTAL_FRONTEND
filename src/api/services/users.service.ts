@@ -11,6 +11,12 @@ export const usersService = {
     email: string;
     password: string;
     role: string;
+    fullName: string;
+    nameWithInitials?: string;
+    phoneNumber: string;
+    address?: string;
+    dob?: string;
+    empNumber?: string;
   }) => {
     return request<{ success: boolean; message: string; data: ApiUser }>('/users', {
       method: 'POST',
@@ -25,6 +31,12 @@ export const usersService = {
       email?: string;
       password?: string;
       role?: string;
+      fullName?: string;
+      nameWithInitials?: string;
+      phoneNumber?: string;
+      address?: string;
+      dob?: string;
+      empNumber?: string;
     }
   ) => {
     return request<{ success: boolean; message: string; data: ApiUser }>(`/users/${id}`, {

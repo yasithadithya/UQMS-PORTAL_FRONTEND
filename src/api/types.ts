@@ -34,6 +34,12 @@ export interface ApiUser {
   username: string;
   email: string;
   role: ApiRole;
+  fullName: string;
+  nameWithInitials?: string;
+  phoneNumber: string;
+  address?: string;
+  dob?: string;
+  empNumber?: string;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -25,8 +25,30 @@ interface AuthContextType {
   loading: boolean;
   login: (login: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  addUser: (payload: { username: string; email: string; password: string; role: string }) => Promise<{ success: boolean; error?: string }>;
-  updateUser: (id: string, payload: { username?: string; email?: string; password?: string; role?: string }) => Promise<{ success: boolean; error?: string }>;
+  addUser: (payload: {
+    username: string;
+    email: string;
+    password: string;
+    role: string;
+    fullName: string;
+    nameWithInitials?: string;
+    phoneNumber: string;
+    address?: string;
+    dob?: string;
+    empNumber?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
+  updateUser: (id: string, payload: {
+    username?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+    fullName?: string;
+    nameWithInitials?: string;
+    phoneNumber?: string;
+    address?: string;
+    dob?: string;
+    empNumber?: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   refreshUsers: () => Promise<void>;
   
@@ -160,7 +182,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addUser = useCallback(
-    async (payload: { username: string; email: string; password: string; role: string }) => {
+    async (payload: {
+      username: string;
+      email: string;
+      password: string;
+      role: string;
+      fullName: string;
+      nameWithInitials?: string;
+      phoneNumber: string;
+      address?: string;
+      dob?: string;
+      empNumber?: string;
+    }) => {
       try {
         await usersService.createUser(payload);
         await refreshUsers();
@@ -173,7 +206,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateUser = useCallback(
-    async (id: string, payload: { username?: string; email?: string; password?: string; role?: string }) => {
+    async (id: string, payload: {
+      username?: string;
+      email?: string;
+      password?: string;
+      role?: string;
+      fullName?: string;
+      nameWithInitials?: string;
+      phoneNumber?: string;
+      address?: string;
+      dob?: string;
+      empNumber?: string;
+    }) => {
       try {
         await usersService.updateUser(id, payload);
         await refreshUsers();

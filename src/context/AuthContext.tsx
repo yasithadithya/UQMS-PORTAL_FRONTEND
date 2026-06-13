@@ -219,14 +219,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       empNumber?: string;
     }) => {
       try {
-        await usersService.updateUser(id, payload);
+        const res = await usersService.updateUser(id, payload);
+        if (user && id === user.id) {
+          const updated = res.data;
+          const authUser: AuthUser = {
+            id: updated.id || updated._id || '',
+            username: updated.username,
+            email: updated.email,
+            role: updated.role,
+            initials: makeInitials(updated.username),
+          };
+          localStorage.setItem('user', JSON.stringify(authUser));
+          setUser(authUser);
+        }
         await refreshUsers();
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message || 'Failed to update user' };
       }
     },
-    [refreshUsers]
+    [user, refreshUsers]
   );
 
   const deleteUser = useCallback(

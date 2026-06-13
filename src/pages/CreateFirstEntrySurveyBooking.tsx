@@ -231,11 +231,11 @@ export default function CreateFirstEntrySurveyBooking() {
           const nameMatch = req.vesselName?.trim().toLowerCase() === vessel.vesselName?.trim().toLowerCase();
           const imoMatch = vessel.imoNumber && req.imoNumber && req.imoNumber.trim() === vessel.imoNumber.trim();
           const uqmsMatch = vessel.uqmsNumber && req.uqmsNumber && req.uqmsNumber.trim() === vessel.uqmsNumber.trim();
-          return nameMatch || imoMatch || uqmsMatch;
+          return (nameMatch || imoMatch || uqmsMatch) && req.status !== 'success';
         });
       }
     } else if (shipName.trim()) {
-      filtered = requests.filter(req => req.vesselName?.trim().toLowerCase() === shipName.trim().toLowerCase());
+      filtered = requests.filter(req => req.vesselName?.trim().toLowerCase() === shipName.trim().toLowerCase() && req.status !== 'success');
     }
 
     // Always include requests that are already selected, even if they don't match the current filter

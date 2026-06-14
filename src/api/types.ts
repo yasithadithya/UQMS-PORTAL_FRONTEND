@@ -82,6 +82,8 @@ export interface ApiRequestDocument {
 export interface ApiRequest {
   _id: string;
   requestNumber: string;
+  rfsDocNo?: string;
+  vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
   vesselName: string;
@@ -415,4 +417,79 @@ export interface ApiNote {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ApiRecEquipQues {
+  _id: string;
+  codeRefNo: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiVesselEquipmentRecordItem {
+  _id?: string;
+  questionId: ApiRecEquipQues;
+  status: 'Provided' | 'Not Provided' | 'Not Applicable';
+  remarks?: string;
+}
+
+export interface ApiVesselEquipmentRecord {
+  _id?: string;
+  vesselId: ApiVessel | string;
+  surveyReportId: ApiFirstEntrySurveyReport | string;
+  equipmentRecords: ApiVesselEquipmentRecordItem[];
+  isNew?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiSurveyReport {
+  _id?: string;
+  vesselId: ApiVessel | string;
+  firstEntrySurveyReportId: ApiFirstEntrySurveyReport | string;
+  vesselEquipmentRecordId: ApiVesselEquipmentRecord | string;
+  stabilityBooklet: {
+    available: boolean;
+    approvedBy: string;
+    approvalDate?: string | null;
+  };
+  dockingSurvey: {
+    harbour: string;
+    date?: string | null;
+  };
+  thicknessMeasurement: {
+    carriedBy: string;
+    harbour: string;
+    date?: string | null;
+    reportNo: string;
+  };
+  tanks: {
+    fuelOilPortFrame: string;
+    fuelOilStarboardFrame: string;
+    freshWaterCenterFrame: string;
+  };
+  toiletCount: number;
+  hasGalley: boolean;
+  galleyRemarks?: string;
+  machinery: {
+    mainEngineFuelType: string;
+    auxEngineCount: number;
+    auxEngineModel: string;
+    auxEngineOutput: string;
+    powerGeneration: string;
+  };
+  signature: {
+    dateOfIssue?: string | null;
+    surveyorName: string;
+    surveyorTitle: string;
+    certifyingBody: string;
+  };
+  status: 'Draft' | 'Approved';
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 

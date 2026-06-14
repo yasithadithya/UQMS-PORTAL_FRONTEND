@@ -4,12 +4,14 @@ import {
   operationsService,
   requestsService,
   vesselsService,
+  vesselCodesService,
   type ApiAreaOfOperation,
   type ApiRequest,
   type ApiSurveyType,
   type ApiVesselType,
   type RequestPayload,
   type ApiVessel,
+  type ApiVesselCode,
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
@@ -18,6 +20,7 @@ import s from './NewRequest.module.css';
 const emptyForm: RequestPayload = {
   uqmsNumber: '',
   imoNumber: '',
+  vesselCode: '',
   vesselName: '',
   companyName: '',
   contactPersonName: '',
@@ -59,6 +62,7 @@ const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
 export default function CreateRequestPage() {
   const navigate = useNavigate();
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,14 +80,16 @@ export default function CreateRequestPage() {
     try {
       setLoading(true);
       setPageError('');
-      const [vesselRes, areaRes, surveyRes] = await Promise.all([
+      const [vesselRes, areaRes, surveyRes, vcRes] = await Promise.all([
         operationsService.getVesselTypes(),
         operationsService.getAreaOperations(),
         operationsService.getSurveyTypes(),
+        vesselCodesService.getVesselCodes(),
       ]);
       setVesselTypes(vesselRes.data);
       setAreaOperations(areaRes.data);
       setSurveyTypes(surveyRes.data);
+      setVesselCodes(vcRes.data);
       setFormData((prev) => ({
         ...prev,
         vesselType: vesselRes.data[0]?._id || '',
@@ -268,6 +274,7 @@ export default function CreateRequestPage() {
                       uqmsNumber: '',
                       vesselName: '',
                       imoNumber: '',
+                      vesselCode: '',
                     }));
                     return;
                   }
@@ -277,6 +284,7 @@ export default function CreateRequestPage() {
                     uqmsNumber: vessel?.uqmsNumber || val,
                     vesselName: vessel?.vesselName || prev.vesselName,
                     imoNumber: vessel?.imoNumber || prev.imoNumber,
+                    vesselCode: vessel?.vesselCode || prev.vesselCode,
                   }));
                 }}
               />
@@ -289,6 +297,20 @@ export default function CreateRequestPage() {
                 value={formData.imoNumber}
                 onChange={(e) => setFormData((prev) => ({ ...prev, imoNumber: e.target.value }))}
               />
+            </div>
+            <div>
+              <label className="form-label">Vessel Code (Optional)</label>
+              <select
+                className="form-input"
+                value={formData.vesselCode || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, vesselCode: e.target.value }))}
+                style={{ width: '100%', cursor: 'pointer' }}
+              >
+                <option value="">-- Select Vessel Code --</option>
+                {vesselCodes.map(vc => (
+                  <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="form-label">Vessel Name</label>

@@ -4,6 +4,67 @@ import { toast } from 'react-toastify';
 import { firstEntryService, vesselEquipmentRecordService } from '@/api';
 import type { ApiFirstEntrySurveyReport, ApiVesselEquipmentRecordItem } from '@/api';
 
+// Parsers and formatters for structured remarks
+const parseLifeRafts = (val: string) => {
+  const count = val.match(/Count:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const capacity = val.match(/Capacity:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const serialNumber = val.match(/Serial Number:\s*([^;]+)/i)?.[1]?.trim() || '';
+  return { count, capacity, serialNumber };
+};
+
+const formatLifeRafts = (count: string, capacity: string, serialNumber: string) => {
+  const parts = [];
+  if (count) parts.push(`Count: ${count}`);
+  if (capacity) parts.push(`Capacity: ${capacity}`);
+  if (serialNumber) parts.push(`Serial Number: ${serialNumber}`);
+  return parts.join('; ');
+};
+
+const parse1110 = (val: string) => {
+  const count = val.match(/Count:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const serialNumber = val.match(/Serial Number:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const expiry = val.match(/Expiry:\s*([^;]+)/i)?.[1]?.trim() || '';
+  return { count, serialNumber, expiry };
+};
+
+const format1110 = (count: string, serialNumber: string, expiry: string) => {
+  const parts = [];
+  if (count) parts.push(`Count: ${count}`);
+  if (serialNumber) parts.push(`Serial Number: ${serialNumber}`);
+  if (expiry) parts.push(`Expiry: ${expiry}`);
+  return parts.join('; ');
+};
+
+const parseExtinguishers = (val: string) => {
+  const count = val.match(/Count:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const type = val.match(/Type:\s*([^;]+)/i)?.[1]?.trim() || '';
+  return { count, type };
+};
+
+const formatExtinguishers = (count: string, type: string) => {
+  const parts = [];
+  if (count) parts.push(`Count: ${count}`);
+  if (type) parts.push(`Type: ${type}`);
+  return parts.join('; ');
+};
+
+const parseHoses = (val: string) => {
+  const count = val.match(/Count:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const material = val.match(/Material:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const width = val.match(/Width:\s*([^;]+)/i)?.[1]?.trim() || '';
+  const length = val.match(/Length:\s*([^;]+)/i)?.[1]?.trim() || '';
+  return { count, material, width, length };
+};
+
+const formatHoses = (count: string, material: string, width: string, length: string) => {
+  const parts = [];
+  if (count) parts.push(`Count: ${count}`);
+  if (material) parts.push(`Material: ${material}`);
+  if (width) parts.push(`Width: ${width}`);
+  if (length) parts.push(`Length: ${length}`);
+  return parts.join('; ');
+};
+
 export default function VesselEquipmentRecordPage() {
   const navigate = useNavigate();
   const { id, module } = useParams<{ id: string; module?: string }>(); // Survey Report ID
@@ -117,6 +178,244 @@ export default function VesselEquipmentRecordPage() {
     }
   };
 
+  const renderRemarksField = (record: ApiVesselEquipmentRecordItem, originalIndex: number) => {
+    const desc = record.questionId?.description || '';
+    const code = record.questionId?.codeRefNo || '';
+    const status = record.status;
+    const value = record.remarks || '';
+
+    // 1. Total number of Life rafts (Total number of persons accommodated) -> Count, Capacity, Serial Number
+    if (desc.includes('Total number of Life rafts')) {
+      const { count, capacity, serialNumber } = parseLifeRafts(value);
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
+              <input
+                type="text"
+                placeholder="Count"
+                className="form-input"
+                value={count}
+                onChange={(e) => {
+                  const val = formatLifeRafts(e.target.value, capacity, serialNumber);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Capacity</label>
+              <input
+                type="text"
+                placeholder="Capacity"
+                className="form-input"
+                value={capacity}
+                onChange={(e) => {
+                  const val = formatLifeRafts(count, e.target.value, serialNumber);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Serial Number</label>
+            <input
+              type="text"
+              placeholder="Serial Number"
+              className="form-input"
+              value={serialNumber}
+              onChange={(e) => {
+                const val = formatLifeRafts(count, capacity, e.target.value);
+                handleRemarksChange(originalIndex, val);
+              }}
+              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 2. Code 11.10 - Count, Serial Number, Expiry (only if status is Provided)
+    if (code === '11.10') {
+      if (status !== 'Provided') {
+        return (
+          <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>
+            Only available if Provided
+          </div>
+        );
+      }
+      const { count, serialNumber, expiry } = parse1110(value);
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
+              <input
+                type="text"
+                placeholder="Count"
+                className="form-input"
+                value={count}
+                onChange={(e) => {
+                  const val = format1110(e.target.value, serialNumber, expiry);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Expiry</label>
+              <input
+                type="text"
+                placeholder="Expiry"
+                className="form-input"
+                value={expiry}
+                onChange={(e) => {
+                  const val = format1110(count, serialNumber, e.target.value);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Serial Number</label>
+            <input
+              type="text"
+              placeholder="Serial Number"
+              className="form-input"
+              value={serialNumber}
+              onChange={(e) => {
+                const val = format1110(count, e.target.value, expiry);
+                handleRemarksChange(originalIndex, val);
+              }}
+              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 3. Number of Portable fire extinguishers & Type -> Count and Type
+    if (desc === 'Number of Portable fire extinguishers & Type') {
+      const { count, type } = parseExtinguishers(value);
+      return (
+        <div style={{ display: 'flex', gap: '8px', minWidth: '280px' }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
+            <input
+              type="text"
+              placeholder="Count"
+              className="form-input"
+              value={count}
+              onChange={(e) => {
+                const val = formatExtinguishers(e.target.value, type);
+                handleRemarksChange(originalIndex, val);
+              }}
+              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Type</label>
+            <input
+              type="text"
+              placeholder="Type"
+              className="form-input"
+              value={type}
+              onChange={(e) => {
+                const val = formatExtinguishers(count, e.target.value);
+                handleRemarksChange(originalIndex, val);
+              }}
+              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // 4. Number of Fire hoses with spray nozzles -> Count, Material, Width and Length
+    if (desc === 'Number of Fire hoses with spray nozzles') {
+      const { count, material, width, length } = parseHoses(value);
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
+              <input
+                type="text"
+                placeholder="Count"
+                className="form-input"
+                value={count}
+                onChange={(e) => {
+                  const val = formatHoses(e.target.value, material, width, length);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Material</label>
+              <input
+                type="text"
+                placeholder="Material"
+                className="form-input"
+                value={material}
+                onChange={(e) => {
+                  const val = formatHoses(count, e.target.value, width, length);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Width</label>
+              <input
+                type="text"
+                placeholder="Width"
+                className="form-input"
+                value={width}
+                onChange={(e) => {
+                  const val = formatHoses(count, material, e.target.value, length);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Length</label>
+              <input
+                type="text"
+                placeholder="Length"
+                className="form-input"
+                value={length}
+                onChange={(e) => {
+                  const val = formatHoses(count, material, width, e.target.value);
+                  handleRemarksChange(originalIndex, val);
+                }}
+                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Default remarks text input
+    return (
+      <input
+        type="text"
+        className="form-input"
+        value={value}
+        onChange={(e) => handleRemarksChange(originalIndex, e.target.value)}
+        placeholder="Optional remarks..."
+        style={{ margin: 0, padding: '8px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '280px' }}
+      />
+    );
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -171,7 +470,7 @@ export default function VesselEquipmentRecordPage() {
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
                       <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Description</th>
                       <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '340px' }}>Status</th>
-                      <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '300px' }}>Remarks</th>
+                      <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '320px' }}>Remarks</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -230,14 +529,7 @@ export default function VesselEquipmentRecordPage() {
 
                         {/* Remarks Input */}
                         <td style={{ padding: '12px' }}>
-                          <input
-                            type="text"
-                            className="form-input"
-                            value={record.remarks || ''}
-                            onChange={(e) => handleRemarksChange(originalIndex, e.target.value)}
-                            placeholder="Optional remarks..."
-                            style={{ margin: 0, padding: '8px 12px', fontSize: '12px', borderRadius: '8px' }}
-                          />
+                          {renderRemarksField(record, originalIndex)}
                         </td>
                       </tr>
                     ))}

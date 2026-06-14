@@ -3,12 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   operationsService,
   requestsService,
+  vesselCodesService,
   type ApiAreaOfOperation,
   type ApiRequest,
   type ApiRequestDocument,
   type ApiSurveyType,
   type ApiVesselType,
   type RequestPayload,
+  type ApiVesselCode,
 } from '@/api';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import SearchableSelect from '@/components/SearchableSelect';
@@ -49,6 +51,7 @@ const requestStatusClass = (status: ApiRequest['status']) => {
 const requestToForm = (request: ApiRequest): RequestPayload => ({
   uqmsNumber: request.uqmsNumber || '',
   imoNumber: request.imoNumber || '',
+  vesselCode: request.vesselCode || '',
   vesselName: request.vesselName || '',
   companyName: request.companyName || '',
   contactPersonName: request.contactPersonName || '',
@@ -108,6 +111,7 @@ export default function RequestDetailsPage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<RequestPayload | null>(null);
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
   const [areaOps, setAreaOps] = useState<ApiAreaOfOperation[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [saving, setSaving] = useState(false);
@@ -123,17 +127,19 @@ export default function RequestDetailsPage() {
     try {
       setLoading(true);
       setPageError('');
-      const [reqRes, vRes, aRes, sRes] = await Promise.all([
+      const [reqRes, vRes, aRes, sRes, vcRes] = await Promise.all([
         requestsService.getRequestById(id),
         operationsService.getVesselTypes(),
         operationsService.getAreaOperations(),
         operationsService.getSurveyTypes(),
+        vesselCodesService.getVesselCodes(),
       ]);
 
       setRequest(reqRes.data);
       setVesselTypes(vRes.data);
       setAreaOps(aRes.data);
       setSurveyTypes(sRes.data);
+      setVesselCodes(vcRes.data);
       setForm(requestToForm(reqRes.data));
     } catch (err: any) {
       setPageError(err.message || 'Failed to load request details.');
@@ -512,6 +518,7 @@ export default function RequestDetailsPage() {
             <div className={s.detailLayout}>
               <DetailSection title="Vessel">
                 <DetailField label="Vessel name" value={request.vesselName} />
+                <DetailField label="Vessel code" value={request.vesselCode} />
                 <DetailField label="Vessel type" value={vesselLabel(request)} />
                 <DetailField label="IMO number" value={request.imoNumber} />
                 <DetailField label="Sector" value={request.sector} />
@@ -610,6 +617,20 @@ export default function RequestDetailsPage() {
                       value={form.imoNumber || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, imoNumber: e.target.value } : prev))}
                     />
+                  </div>
+                  <div>
+                    <label className="form-label">Vessel Code (Optional)</label>
+                    <select
+                      className="form-input"
+                      value={form.vesselCode || ''}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, vesselCode: e.target.value } : prev))}
+                      style={{ width: '100%', cursor: 'pointer' }}
+                    >
+                      <option value="">-- Select Vessel Code --</option>
+                      {vesselCodes.map(vc => (
+                        <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="form-label">Vessel Name</label>

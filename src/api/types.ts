@@ -82,6 +82,8 @@ export interface ApiRequestDocument {
 export interface ApiRequest {
   _id: string;
   requestNumber: string;
+  rfsDocNo?: string;
+  vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
   vesselName: string;
@@ -415,4 +417,30 @@ export interface ApiNote {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface ApiRecEquipQues {
+  _id: string;
+  codeRefNo: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiVesselEquipmentRecordItem {
+  _id?: string;
+  questionId: ApiRecEquipQues;
+  status: 'Provided' | 'Not Provided' | 'Not Applicable';
+  remarks?: string;
+}
+
+export interface ApiVesselEquipmentRecord {
+  _id?: string;
+  vesselId: ApiVessel | string;
+  surveyReportId: ApiFirstEntrySurveyReport | string;
+  equipmentRecords: ApiVesselEquipmentRecordItem[];
+  isNew?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 

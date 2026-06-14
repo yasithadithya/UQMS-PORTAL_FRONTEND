@@ -603,6 +603,22 @@ export default function CreateFirstEntrySurveyReport() {
               </button>
             )}
 
+            {isEdit && id && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => navigate(`/${activeModule}/marine/first-entry/survey-report/equipment-record/${id}`)}
+                style={{
+                  minWidth: '180px',
+                  marginBottom: 0,
+                  background: 'var(--primary)',
+                  borderColor: 'var(--primary)'
+                }}
+              >
+                Record of Equipment
+              </button>
+            )}
+
             {isScccosEligible && booking && (
               status === 'COS Generated' ? (
                 <button

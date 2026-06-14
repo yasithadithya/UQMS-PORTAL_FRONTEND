@@ -545,6 +545,7 @@ export default function CreateFirstEntry() {
                   if (reqObj) {
                     if (reqObj.vesselName) setVesselName(reqObj.vesselName);
                     if (reqObj.imoNumber) setImoNumber(reqObj.imoNumber);
+                    if (reqObj.vesselCode) setVesselCode(reqObj.vesselCode);
 
                     if (reqObj.vesselType) {
                       const vtId = typeof reqObj.vesselType === 'object' ? reqObj.vesselType._id : reqObj.vesselType;

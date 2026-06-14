@@ -16,6 +16,9 @@ import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking
 import CreateFirstEntrySurveyReport from '@/pages/CreateFirstEntrySurveyReport';
 import ChecklistManagement from '@/pages/ChecklistManagement';
 import FirstEntryFullReportPage from '@/pages/FirstEntryFullReportPage';
+import VesselEquipmentRecordPage from '@/pages/VesselEquipmentRecordPage';
+import EditSurveyReport from '@/pages/EditSurveyReport';
+
 
 function AdminGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -61,7 +64,9 @@ function App() {
             <Route path="/:module/marine/first-entry/survey-booking/edit/:id" element={<CreateFirstEntrySurveyBooking />} />
             <Route path="/:module/marine/first-entry/survey-report/create" element={<CreateFirstEntrySurveyReport />} />
             <Route path="/:module/marine/first-entry/survey-report/edit/:id" element={<CreateFirstEntrySurveyReport />} />
+            <Route path="/:module/marine/first-entry/survey-report/equipment-record/:id" element={<VesselEquipmentRecordPage />} />
             <Route path="/:module/marine/first-entry/survey-report/full/:id" element={<FirstEntryFullReportPage />} />
+            <Route path="/:module/marine/first-entry/survey-report/final/:id" element={<EditSurveyReport />} />
 
             {/* Catch-all dynamic route for DB modules (supports unlimited nesting) */}
             <Route path="/:module" element={<GenericModulePage />} />

@@ -4,12 +4,14 @@ import { useAuth } from '@/context/AuthContext';
 import {
   operationsService,
   requestsService,
+  vesselCodesService,
   type ApiAreaOfOperation,
   type ApiRequest,
   type ApiRequestDocument,
   type ApiSurveyType,
   type ApiVesselType,
   type RequestPayload,
+  type ApiVesselCode,
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
@@ -18,6 +20,7 @@ import s from './NewRequest.module.css';
 const emptyForm: RequestPayload = {
   uqmsNumber: '',
   imoNumber: '',
+  vesselCode: '',
   vesselName: '',
   companyName: '',
   contactPersonName: '',
@@ -70,6 +73,7 @@ export default function NewRequestPage() {
   const navigate = useNavigate();
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,16 +100,18 @@ export default function NewRequestPage() {
     try {
       setLoading(true);
       setPageError('');
-      const [vesselRes, areaRes, surveyRes, requestRes] = await Promise.all([
+      const [vesselRes, areaRes, surveyRes, requestRes, vcRes] = await Promise.all([
         operationsService.getVesselTypes(),
         operationsService.getAreaOperations(),
         operationsService.getSurveyTypes(),
         requestsService.getRequests(),
+        vesselCodesService.getVesselCodes(),
       ]);
       setVesselTypes(vesselRes.data);
       setAreaOperations(areaRes.data);
       setSurveyTypes(surveyRes.data);
       setRequests(requestRes.data);
+      setVesselCodes(vcRes.data);
     } catch (err: any) {
       setPageError(err.message || 'Failed to load request data.');
     } finally {
@@ -178,6 +184,7 @@ export default function NewRequestPage() {
     setFormData({
       uqmsNumber: request.uqmsNumber || '',
       imoNumber: request.imoNumber || '',
+      vesselCode: request.vesselCode || '',
       vesselName: request.vesselName || '',
       companyName: request.companyName || '',
       contactPersonName: request.contactPersonName || '',
@@ -523,6 +530,21 @@ export default function NewRequestPage() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, imoNumber: e.target.value }))}
                     disabled={!editingIsActive}
                   />
+                </div>
+                <div>
+                  <label className="form-label">Vessel Code (Optional)</label>
+                  <select
+                    className="form-input"
+                    value={formData.vesselCode || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, vesselCode: e.target.value }))}
+                    disabled={!editingIsActive}
+                    style={{ width: '100%', cursor: 'pointer' }}
+                  >
+                    <option value="">-- Select Vessel Code --</option>
+                    {vesselCodes.map(vc => (
+                      <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="form-label">Vessel Name</label>

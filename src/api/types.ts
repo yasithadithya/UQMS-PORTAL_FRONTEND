@@ -93,6 +93,7 @@ export interface ApiRequest {
   vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
+  mmsiNumber?: string;
   vesselName: string;
   companyName: string;
   contactPersonName: string;
@@ -114,6 +115,7 @@ export interface ApiVessel {
   _id: string;
   uqmsNumber?: string;
   imoNumber?: string;
+  mmsiNumber?: string;
   vesselCode?: string;
   vesselName: string;
   vesselType?: ApiVesselType | string;

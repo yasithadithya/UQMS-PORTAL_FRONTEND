@@ -227,10 +227,21 @@ export default function EditSurveyReport() {
 
   // Form Fields (VesselEquipmentRecord)
   const [equipmentRecords, setEquipmentRecords] = useState<any[]>([]);
-  const [compassRemarks, setCompassRemarks] = useState('Plastimo | OFFSHORE 135 | BV 0062');
-  const [radarRemarks, setRadarRemarks] = useState('Furuno | MFD 12 | 4368-1294');
-  const [vhfRemarks, setVhfRemarks] = useState('Furuno | FM-8800S | 3519-Ala2');
-  const [aisRemarks, setAisRemarks] = useState('Sunhung | SH- 820 | 5H 8201 10917');
+  const [compassMfg, setCompassMfg] = useState('Plastimo');
+  const [compassType, setCompassType] = useState('OFFSHORE 135');
+  const [compassSerial, setCompassSerial] = useState('BV 0062');
+
+  const [radarMfg, setRadarMfg] = useState('Furuno');
+  const [radarType, setRadarType] = useState('MFD 12');
+  const [radarSerial, setRadarSerial] = useState('4368-1294');
+
+  const [vhfMfg, setVhfMfg] = useState('Furuno');
+  const [vhfType, setVhfType] = useState('FM-8800S');
+  const [vhfSerial, setVhfSerial] = useState('3519-Ala2');
+
+  const [aisMfg, setAisMfg] = useState('Sunhung');
+  const [aisType, setAisType] = useState('SH- 820');
+  const [aisSerial, setAisSerial] = useState('5H 8201 10917');
 
   const [fireRows, setFireRows] = useState<IFireRow[]>(defaultFireRows);
   const [lifeRaftDetails, setLifeRaftDetails] = useState<ILifeRaftDetails>(defaultLifeRaft);
@@ -362,10 +373,40 @@ export default function EditSurveyReport() {
           const vhf = records.find(r => r.questionId?.description.toLowerCase().includes('vhf fixed'));
           const ais = records.find(r => r.questionId?.description.toLowerCase().includes('ais'));
 
-          if (compass) setCompassRemarks(compass.remarks || '');
-          if (radar) setRadarRemarks(radar.remarks || '');
-          if (vhf) setVhfRemarks(vhf.remarks || '');
-          if (ais) setAisRemarks(ais.remarks || '');
+          const parseParts = (val: string, defaultVal: string) => {
+            const raw = val && val !== '-' ? val : defaultVal;
+            const parts = raw.split(/\||,/).map(s => s.trim());
+            return {
+              mfg: parts[0] || '',
+              type: parts[1] || '',
+              serial: parts[2] || '',
+            };
+          };
+
+          if (compass) {
+            const p = parseParts(compass.remarks || '', 'Plastimo | OFFSHORE 135 | BV 0062');
+            setCompassMfg(p.mfg);
+            setCompassType(p.type);
+            setCompassSerial(p.serial);
+          }
+          if (radar) {
+            const p = parseParts(radar.remarks || '', 'Furuno | MFD 12 | 4368-1294');
+            setRadarMfg(p.mfg);
+            setRadarType(p.type);
+            setRadarSerial(p.serial);
+          }
+          if (vhf) {
+            const p = parseParts(vhf.remarks || '', 'Furuno | FM-8800S | 3519-Ala2');
+            setVhfMfg(p.mfg);
+            setVhfType(p.type);
+            setVhfSerial(p.serial);
+          }
+          if (ais) {
+            const p = parseParts(ais.remarks || '', 'Sunhung | SH- 820 | 5H 8201 10917');
+            setAisMfg(p.mfg);
+            setAisType(p.type);
+            setAisSerial(p.serial);
+          }
 
           // Fire Fighting Extinguishers
           const fire = records.find(r => r.questionId?.description.toLowerCase().includes('portable fire extinguishers'));
@@ -525,13 +566,13 @@ export default function EditSurveyReport() {
         let itemStatus = rec.status || 'Provided';
 
         if (desc.includes('compass')) {
-          remarks = compassRemarks;
+          remarks = `${compassMfg} | ${compassType} | ${compassSerial}`;
         } else if (desc.includes('radar')) {
-          remarks = radarRemarks;
+          remarks = `${radarMfg} | ${radarType} | ${radarSerial}`;
         } else if (desc.includes('vhf fixed')) {
-          remarks = vhfRemarks;
+          remarks = `${vhfMfg} | ${vhfType} | ${vhfSerial}`;
         } else if (desc.includes('ais')) {
-          remarks = aisRemarks;
+          remarks = `${aisMfg} | ${aisType} | ${aisSerial}`;
         } else if (desc.includes('portable fire extinguishers')) {
           remarks = serializeFireRows(fireRows);
         } else if (desc.includes('life rafts')) {
@@ -1136,33 +1177,59 @@ export default function EditSurveyReport() {
         <table className="paper-table">
           <thead>
             <tr>
-              <th>Equipment</th>
-              <th>Details (Manufacture | Type | Serial Number)</th>
+              <th style={{ width: '25%' }}>Equipment</th>
+              <th style={{ width: '25%' }}>Manufacture</th>
+              <th style={{ width: '25%' }}>Type</th>
+              <th style={{ width: '25%' }}>Serial Number</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>Magnetic Compass</td>
               <td>
-                <input type="text" className="paper-input" value={compassRemarks} onChange={e => setCompassRemarks(e.target.value)} style={{ width: '90%' }} />
+                <input type="text" className="paper-input" value={compassMfg} onChange={e => setCompassMfg(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={compassType} onChange={e => setCompassType(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={compassSerial} onChange={e => setCompassSerial(e.target.value)} style={{ width: '90%' }} />
               </td>
             </tr>
             <tr>
               <td>Radar</td>
               <td>
-                <input type="text" className="paper-input" value={radarRemarks} onChange={e => setRadarRemarks(e.target.value)} style={{ width: '90%' }} />
+                <input type="text" className="paper-input" value={radarMfg} onChange={e => setRadarMfg(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={radarType} onChange={e => setRadarType(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={radarSerial} onChange={e => setRadarSerial(e.target.value)} style={{ width: '90%' }} />
               </td>
             </tr>
             <tr>
               <td>VHF</td>
               <td>
-                <input type="text" className="paper-input" value={vhfRemarks} onChange={e => setVhfRemarks(e.target.value)} style={{ width: '90%' }} />
+                <input type="text" className="paper-input" value={vhfMfg} onChange={e => setVhfMfg(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={vhfType} onChange={e => setVhfType(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={vhfSerial} onChange={e => setVhfSerial(e.target.value)} style={{ width: '90%' }} />
               </td>
             </tr>
             <tr>
               <td>AIS Transponder</td>
               <td>
-                <input type="text" className="paper-input" value={aisRemarks} onChange={e => setAisRemarks(e.target.value)} style={{ width: '90%' }} />
+                <input type="text" className="paper-input" value={aisMfg} onChange={e => setAisMfg(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={aisType} onChange={e => setAisType(e.target.value)} style={{ width: '90%' }} />
+              </td>
+              <td>
+                <input type="text" className="paper-input" value={aisSerial} onChange={e => setAisSerial(e.target.value)} style={{ width: '90%' }} />
               </td>
             </tr>
           </tbody>

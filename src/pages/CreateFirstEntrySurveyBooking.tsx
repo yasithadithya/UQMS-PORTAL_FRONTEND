@@ -230,8 +230,9 @@ export default function CreateFirstEntrySurveyBooking() {
         filtered = requests.filter(req => {
           const nameMatch = req.vesselName?.trim().toLowerCase() === vessel.vesselName?.trim().toLowerCase();
           const imoMatch = vessel.imoNumber && req.imoNumber && req.imoNumber.trim() === vessel.imoNumber.trim();
+          const mmsiMatch = vessel.mmsiNumber && req.mmsiNumber && req.mmsiNumber.trim() === vessel.mmsiNumber.trim();
           const uqmsMatch = vessel.uqmsNumber && req.uqmsNumber && req.uqmsNumber.trim() === vessel.uqmsNumber.trim();
-          return (nameMatch || imoMatch || uqmsMatch);
+          return (nameMatch || imoMatch || mmsiMatch || uqmsMatch);
         });
       }
     } else if (shipName.trim()) {

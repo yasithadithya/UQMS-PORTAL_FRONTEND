@@ -106,10 +106,19 @@ export default function CreateFirstEntrySurveyReport() {
             setSurveys(formattedSurveys);
           }
         } else {
-          // Creating new report - get available bookings
-          const bookingsRes = await firstEntryService.getFirstEntrySurveyBookings();
-          if (bookingsRes.success) {
-            setBookings(bookingsRes.data);
+          // Creating new report - get available bookings that are not already in use
+          const [bookingsRes, reportsRes] = await Promise.all([
+            firstEntryService.getFirstEntrySurveyBookings(),
+            firstEntryService.getFirstEntrySurveyReports()
+          ]);
+          if (bookingsRes.success && reportsRes.success) {
+            const usedBookingIds = new Set(
+              reportsRes.data
+                .map(r => typeof r.bookingId === 'object' && r.bookingId ? r.bookingId._id : r.bookingId)
+                .filter(Boolean)
+            );
+            const filteredBookings = bookingsRes.data.filter(b => !usedBookingIds.has(b._id));
+            setBookings(filteredBookings);
           }
         }
       } catch (err: any) {

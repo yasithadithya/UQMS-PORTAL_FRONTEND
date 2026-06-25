@@ -290,7 +290,7 @@ export default function CreateRequestPage() {
               />
             </div>
             <div>
-              <label className="form-label">IMO Number (Optional)</label>
+              <label className="form-label">IMO/MMSI Number (Optional)</label>
               <input
                 className="form-input"
                 type="text"

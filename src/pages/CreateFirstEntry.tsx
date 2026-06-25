@@ -162,7 +162,7 @@ export default function CreateFirstEntry() {
                   setAttachedDocuments(sched.data.documents || []);
                   setScheduleEmailSent(sched.data.emailSent || false);
                 }
-              } catch (err) {}
+              } catch (err) { }
             }
 
             if (entry.vessel && typeof entry.vessel === 'object') {
@@ -627,7 +627,7 @@ export default function CreateFirstEntry() {
               />
             </div>
             <div>
-              <label className="form-label" htmlFor="imo">IMO Number</label>
+              <label className="form-label" htmlFor="imo">IMO/MMSI Number</label>
               <input
                 id="imo"
                 type="text"

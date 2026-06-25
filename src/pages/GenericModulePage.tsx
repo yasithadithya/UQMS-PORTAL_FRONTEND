@@ -4,6 +4,7 @@ import NewRequestPage from './NewRequest';
 import CreateRequestPage from './CreateRequest';
 import RequestDetailsPage from './RequestDetails';
 import MarineModulePage from './MarineModulePage';
+import HRModulePage from './hr/HRModulePage';
 
 export default function GenericModulePage() {
     const { module } = useParams();
@@ -70,6 +71,11 @@ export default function GenericModulePage() {
     // --- Special case: First Entry sub-sub-module (under Marine) renders the tab-based page ---
     if (currentModule && currentModule.name.toLowerCase() === 'first entry') {
         return <MarineModulePage />;
+    }
+
+    // --- Special case: HR Module renders the custom HR page ---
+    if (currentModule && currentModule.name.toLowerCase() === 'hr') {
+        return <HRModulePage currentModule={currentModule} />;
     }
 
     // --- Access control ---

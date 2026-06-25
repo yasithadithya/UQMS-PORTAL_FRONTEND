@@ -27,6 +27,21 @@ const getId = (value: unknown): string => {
   return '';
 };
 
+type PendingDocument = {
+  id: string;
+  file: File;
+  name: string;
+};
+
+const makeId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
+
 const formatBytes = (value?: number) => {
   if (value === undefined) return '-';
   if (value < 1024) return `${value} B`;
@@ -120,6 +135,21 @@ export default function RequestDetailsPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
+
+  const handleAddFiles = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const nextDocs: PendingDocument[] = Array.from(fileList).map((file) => ({
+      id: makeId(),
+      file,
+      name: getFileBaseName(file.name),
+    }));
+    setPendingDocuments((prev) => [...prev, ...nextDocs]);
+  };
+
+  const handleRemovePending = (id: string) => {
+    setPendingDocuments((prev) => prev.filter((doc) => doc.id !== id));
+  };
 
   const loadRequest = async () => {
     if (!id) return;
@@ -175,6 +205,7 @@ export default function RequestDetailsPage() {
 
   const handleCancel = () => {
     if (request) setForm(requestToForm(request));
+    setPendingDocuments([]);
     setEditing(false);
   };
 
@@ -189,9 +220,21 @@ export default function RequestDetailsPage() {
         uqmsNumber: form.uqmsNumber?.trim() || undefined,
       });
 
+      if (pendingDocuments.length > 0) {
+        try {
+          await requestsService.addRequestDocuments(
+            request._id,
+            pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
+          );
+        } catch (err: any) {
+          alert(err.message || 'Request fields saved, but document upload failed.');
+        }
+      }
+
       const res = await requestsService.getRequestById(request._id);
       setRequest(res.data);
       setForm(requestToForm(res.data));
+      setPendingDocuments([]);
       setEditing(false);
     } catch (err: any) {
       alert(err.message || 'Failed to save request.');
@@ -305,7 +348,7 @@ export default function RequestDetailsPage() {
     const printWindow = window.open('', '_blank');
     try {
       const pdfUrl = await requestsService.printRequestSurveyPdf(request._id);
-      
+
       if (printWindow) {
         printWindow.document.open();
         printWindow.document.write(`
@@ -346,9 +389,9 @@ export default function RequestDetailsPage() {
         const fallbackWindow = window.open(pdfUrl, '_blank');
         fallbackWindow?.focus();
       }
-      
+
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
-      
+
       const res = await requestsService.getRequestById(request._id);
       setRequest(res.data);
       setForm(requestToForm(res.data));
@@ -367,7 +410,7 @@ export default function RequestDetailsPage() {
     const printWindow = window.open('', '_blank');
     try {
       const pdfUrl = await requestsService.printAndSendRequestSurveyPdf(request._id);
-      
+
       if (printWindow) {
         printWindow.document.open();
         printWindow.document.write(`
@@ -408,11 +451,11 @@ export default function RequestDetailsPage() {
         const fallbackWindow = window.open(pdfUrl, '_blank');
         fallbackWindow?.focus();
       }
-      
+
       window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
-      
+
       alert(`Request PDF has been printed & sent to client email (${request.companyEmail}) successfully.`);
-      
+
       const res = await requestsService.getRequestById(request._id);
       setRequest(res.data);
       setForm(requestToForm(res.data));
@@ -493,7 +536,7 @@ export default function RequestDetailsPage() {
               <strong>{request.uqmsNumber || '-'}</strong>
             </div>
             <div className={s.summaryTile}>
-              <span>IMO</span>
+              <span>IMO/MMSI</span>
               <strong>{request.imoNumber || '-'}</strong>
             </div>
             <div className={s.summaryTile}>
@@ -520,7 +563,7 @@ export default function RequestDetailsPage() {
                 <DetailField label="Vessel name" value={request.vesselName} />
                 <DetailField label="Vessel code" value={request.vesselCode} />
                 <DetailField label="Vessel type" value={vesselLabel(request)} />
-                <DetailField label="IMO number" value={request.imoNumber} />
+                <DetailField label="IMO/MMSI number" value={request.imoNumber} />
                 <DetailField label="Sector" value={request.sector} />
               </DetailSection>
 
@@ -586,7 +629,7 @@ export default function RequestDetailsPage() {
                             className={`${s.actionBtn} ${s.deleteBtn}`}
                             type="button"
                             onClick={() => handleDeleteDocument(doc)}
-                            disabled={!canDelete}
+                            disabled={!canDelete || request.status === 'print'}
                           >
                             Delete
                           </button>
@@ -611,7 +654,7 @@ export default function RequestDetailsPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">IMO Number (Optional)</label>
+                    <label className="form-label">IMO/MMSI Number (Optional)</label>
                     <input
                       className="form-input"
                       value={form.imoNumber || ''}
@@ -664,6 +707,55 @@ export default function RequestDetailsPage() {
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, contactPersonNumber: e.target.value } : prev))}
                     />
                   </div>
+                  <div>
+                    <label className="form-label">Registered Address</label>
+                    <input
+                      className="form-input"
+                      value={form.registerdAddress || ''}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, registerdAddress: e.target.value } : prev))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Invoicing Address</label>
+                    <input
+                      className="form-input"
+                      value={form.invoicingAddress}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, invoicingAddress: e.target.value } : prev))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Company Email</label>
+                    <input
+                      className="form-input"
+                      type="email"
+                      value={form.companyEmail}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, companyEmail: e.target.value } : prev))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Sector</label>
+                    <select
+                      className="form-input"
+                      value={form.sector}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, sector: e.target.value as 'marine' | 'industrial' } : prev))}
+                    >
+                      <option value="marine">Marine</option>
+                      <option value="industrial">Industrial</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label">Status</label>
+                    <select
+                      className="form-input"
+                      value={form.status}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, status: e.target.value as ApiRequest['status'] } : prev))}
+                    >
+                      <option value="active">Active</option>
+                      <option value="print">Print</option>
+                      <option value="reject">Reject</option>
+                      <option value="success">Success</option>
+                    </select>
+                  </div>
                   <SearchableSelect
                     label="Vessel Type"
                     value={form.vesselType}
@@ -688,6 +780,91 @@ export default function RequestDetailsPage() {
                 </div>
               </section>
 
+              <section className={s.detailSection} style={{ marginTop: '20px' }}>
+                <h3 className={s.detailSectionTitle}>Documents</h3>
+
+                {/* List existing documents */}
+                {documents.length === 0 ? (
+                  <div className={s.emptyState} style={{ padding: '12px', fontSize: '13px' }}>No documents attached.</div>
+                ) : (
+                  <div className={s.docList}>
+                    {documents.map((doc) => (
+                      <div key={doc._id} className={s.docRow}>
+                        <div className={s.docInfo}>
+                          <div className={s.docName}>{doc.name}</div>
+                          <div className={s.docMeta}>
+                            {doc.contentType || 'file'} - {formatBytes(doc.size)}
+                          </div>
+                        </div>
+                        <div className={s.docActions}>
+                          {doc.url && (
+                            <a className={s.linkBtn} href={doc.url} target="_blank" rel="noreferrer">
+                              View
+                            </a>
+                          )}
+                          <button
+                            className={`${s.actionBtn} ${s.deleteBtn}`}
+                            type="button"
+                            onClick={() => handleDeleteDocument(doc)}
+                            disabled={!canDelete || request.status === 'print'}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload New Documents */}
+                <div className="upload-area" style={{ marginTop: '16px', position: 'relative' }}>
+                  <div className="upload-icon">+</div>
+                  <div className="upload-text">
+                    <span>Upload more files</span> (PDF or images)
+                  </div>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*"
+                    onChange={(e) => handleAddFiles(e.target.files)}
+                    style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Pending Documents List */}
+                {pendingDocuments.length > 0 && (
+                  <div className={s.fileList} style={{ marginTop: '12px' }}>
+                    {pendingDocuments.map((doc) => (
+                      <div key={doc.id} className={s.fileRow}>
+                        <div className={s.fileMeta}>
+                          <div className={s.fileName}>{doc.file.name}</div>
+                          <div className={s.fileSize}>{formatBytes(doc.file.size)}</div>
+                        </div>
+                        <input
+                          className="form-input"
+                          style={{ marginBottom: 0 }}
+                          type="text"
+                          placeholder="Document name"
+                          value={doc.name}
+                          onChange={(e) =>
+                            setPendingDocuments((prev) =>
+                              prev.map((item) => (item.id === doc.id ? { ...item, name: e.target.value } : item))
+                            )
+                          }
+                        />
+                        <button
+                          className={`${s.actionBtn} ${s.deleteBtn}`}
+                          type="button"
+                          onClick={() => handleRemovePending(doc.id)}
+                        >
+                          X
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               <div className={s.detailFooter}>
                 <button className="btn-secondary" type="button" onClick={handleCancel} disabled={saving}>
                   Cancel
@@ -700,7 +877,7 @@ export default function RequestDetailsPage() {
           )}
         </>
       )}
-      
+
       {showPreviewModal && previewUrl && request && (
         <div className={s.overlay} style={{ padding: 0 }}>
           <div className={s.modal} style={{ maxWidth: '100%', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }}>
@@ -710,7 +887,7 @@ export default function RequestDetailsPage() {
                 &times;
               </button>
             </div>
-            
+
             <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
               <iframe
                 src={previewUrl}
@@ -723,7 +900,7 @@ export default function RequestDetailsPage() {
                 }}
               />
             </div>
-            
+
             <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
               <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
                 Cancel

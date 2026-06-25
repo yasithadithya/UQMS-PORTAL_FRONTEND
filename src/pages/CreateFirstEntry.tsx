@@ -40,6 +40,7 @@ export default function CreateFirstEntry() {
   const [uqmsNumber, setUqmsNumber] = useState('');
   const [vesselName, setVesselName] = useState('');
   const [imoNumber, setImoNumber] = useState('');
+  const [mmsiNumber, setMmsiNumber] = useState('');
   const [vesselCode, setVesselCode] = useState('');
   const [vesselType, setVesselType] = useState('');
   const [areaOfOperation, setAreaOfOperation] = useState('');
@@ -190,6 +191,7 @@ export default function CreateFirstEntry() {
     setUqmsNumber(vessel.uqmsNumber || '');
     setVesselName(vessel.vesselName);
     setImoNumber(vessel.imoNumber || '');
+    setMmsiNumber(vessel.mmsiNumber || '');
     setVesselCode(vessel.vesselCode || '');
     setVesselType(typeof vessel.vesselType === 'object' ? vessel.vesselType?._id || '' : vessel.vesselType || '');
     setAreaOfOperation(typeof vessel.areaOfOperation === 'object' ? vessel.areaOfOperation?._id || '' : vessel.areaOfOperation || '');
@@ -335,6 +337,7 @@ export default function CreateFirstEntry() {
       const vesselPayload: Partial<ApiVessel> = {
         vesselName,
         imoNumber: imoNumber.trim() || undefined,
+        mmsiNumber: mmsiNumber.trim() || undefined,
         vesselCode: vesselCode.trim() || undefined,
         vesselType: vesselType || undefined,
         areaOfOperation: areaOfOperation || undefined,
@@ -545,6 +548,7 @@ export default function CreateFirstEntry() {
                   if (reqObj) {
                     if (reqObj.vesselName) setVesselName(reqObj.vesselName);
                     if (reqObj.imoNumber) setImoNumber(reqObj.imoNumber);
+                    if (reqObj.mmsiNumber) setMmsiNumber(reqObj.mmsiNumber);
                     if (reqObj.vesselCode) setVesselCode(reqObj.vesselCode);
 
                     if (reqObj.vesselType) {
@@ -627,7 +631,7 @@ export default function CreateFirstEntry() {
               />
             </div>
             <div>
-              <label className="form-label" htmlFor="imo">IMO/MMSI Number</label>
+              <label className="form-label" htmlFor="imo">IMO Number</label>
               <input
                 id="imo"
                 type="text"
@@ -635,6 +639,17 @@ export default function CreateFirstEntry() {
                 placeholder="e.g. 9134543"
                 value={imoNumber}
                 onChange={e => setImoNumber(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="mmsi">MMSI Number</label>
+              <input
+                id="mmsi"
+                type="text"
+                className="form-input"
+                placeholder="e.g. 235085327"
+                value={mmsiNumber}
+                onChange={e => setMmsiNumber(e.target.value)}
               />
             </div>
             <div>

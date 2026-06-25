@@ -66,6 +66,7 @@ const requestStatusClass = (status: ApiRequest['status']) => {
 const requestToForm = (request: ApiRequest): RequestPayload => ({
   uqmsNumber: request.uqmsNumber || '',
   imoNumber: request.imoNumber || '',
+  mmsiNumber: request.mmsiNumber || '',
   vesselCode: request.vesselCode || '',
   vesselName: request.vesselName || '',
   companyName: request.companyName || '',
@@ -217,6 +218,7 @@ export default function RequestDetailsPage() {
       await requestsService.updateRequest(request._id, {
         ...form,
         imoNumber: form.imoNumber?.trim() || undefined,
+        mmsiNumber: form.mmsiNumber?.trim() || undefined,
         uqmsNumber: form.uqmsNumber?.trim() || undefined,
       });
 
@@ -536,8 +538,12 @@ export default function RequestDetailsPage() {
               <strong>{request.uqmsNumber || '-'}</strong>
             </div>
             <div className={s.summaryTile}>
-              <span>IMO/MMSI</span>
+              <span>IMO</span>
               <strong>{request.imoNumber || '-'}</strong>
+            </div>
+            <div className={s.summaryTile}>
+              <span>MMSI</span>
+              <strong>{request.mmsiNumber || '-'}</strong>
             </div>
             <div className={s.summaryTile}>
               <span>Sector</span>
@@ -563,7 +569,8 @@ export default function RequestDetailsPage() {
                 <DetailField label="Vessel name" value={request.vesselName} />
                 <DetailField label="Vessel code" value={request.vesselCode} />
                 <DetailField label="Vessel type" value={vesselLabel(request)} />
-                <DetailField label="IMO/MMSI number" value={request.imoNumber} />
+                <DetailField label="IMO number" value={request.imoNumber} />
+                <DetailField label="MMSI number" value={request.mmsiNumber} />
                 <DetailField label="Sector" value={request.sector} />
               </DetailSection>
 
@@ -654,11 +661,19 @@ export default function RequestDetailsPage() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">IMO/MMSI Number (Optional)</label>
+                    <label className="form-label">IMO Number (Optional)</label>
                     <input
                       className="form-input"
                       value={form.imoNumber || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, imoNumber: e.target.value } : prev))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">MMSI Number (Optional)</label>
+                    <input
+                      className="form-input"
+                      value={form.mmsiNumber || ''}
+                      onChange={(e) => setForm((prev) => (prev ? { ...prev, mmsiNumber: e.target.value } : prev))}
                     />
                   </div>
                   <div>

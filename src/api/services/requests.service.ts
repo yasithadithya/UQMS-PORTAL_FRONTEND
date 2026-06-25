@@ -4,6 +4,7 @@ import type { ApiRequest, ApiSurveyType } from '../types';
 export type RequestPayload = {
   uqmsNumber?: string;
   imoNumber?: string;
+  mmsiNumber?: string;
   vesselCode?: string;
   vesselName: string;
   companyName: string;

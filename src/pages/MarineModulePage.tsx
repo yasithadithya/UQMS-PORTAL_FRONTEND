@@ -391,7 +391,7 @@ export default function MarineModulePage() {
                         <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--label)', fontSize: '14px' }}>
                           {vessel?.vesselName || 'Unknown Vessel'}
                           <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
-                            IMO: {vessel?.imoNumber || 'N/A'}
+                            IMO/MMSI: {vessel?.imoNumber || 'N/A'}
                           </span>
                         </td>
                         <td style={{ padding: '16px 20px', color: 'var(--secondary)', fontSize: '13px' }}>

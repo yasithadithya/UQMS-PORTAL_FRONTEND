@@ -1,3 +1,10 @@
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data: T;
+  count?: number;
+}
+
 export interface LoginResponse {
   success: boolean;
   message: string;

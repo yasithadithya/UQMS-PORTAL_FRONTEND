@@ -20,6 +20,7 @@ import s from './NewRequest.module.css';
 const emptyForm: RequestPayload = {
   uqmsNumber: '',
   imoNumber: '',
+  mmsiNumber: '',
   vesselCode: '',
   vesselName: '',
   companyName: '',
@@ -184,6 +185,7 @@ export default function NewRequestPage() {
     setFormData({
       uqmsNumber: request.uqmsNumber || '',
       imoNumber: request.imoNumber || '',
+      mmsiNumber: request.mmsiNumber || '',
       vesselCode: request.vesselCode || '',
       vesselName: request.vesselName || '',
       companyName: request.companyName || '',
@@ -253,6 +255,7 @@ export default function NewRequestPage() {
     const payload: RequestPayload = {
       ...formData,
       imoNumber: formData.imoNumber?.trim() || undefined,
+      mmsiNumber: formData.mmsiNumber?.trim() || undefined,
       uqmsNumber: formData.uqmsNumber?.trim() || undefined,
       status: formData.status || 'active',
     };
@@ -522,12 +525,22 @@ export default function NewRequestPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">IMO/MMSI Number (Optional)</label>
+                  <label className="form-label">IMO Number (Optional)</label>
                   <input
                     className="form-input"
                     type="text"
                     value={formData.imoNumber}
                     onChange={(e) => setFormData((prev) => ({ ...prev, imoNumber: e.target.value }))}
+                    disabled={!editingIsActive}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">MMSI Number (Optional)</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={formData.mmsiNumber || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, mmsiNumber: e.target.value }))}
                     disabled={!editingIsActive}
                   />
                 </div>

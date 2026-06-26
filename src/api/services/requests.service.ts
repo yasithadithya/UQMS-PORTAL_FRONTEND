@@ -86,6 +86,20 @@ export const requestsService = {
       method: 'DELETE',
     });
   },
+  uploadRequestSignedPdf: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('signedPdf', file);
+    return requestFormData<{ success: boolean; message: string; data: ApiRequest }>(
+      `/requests/${id}/signed-pdf`,
+      formData,
+      { method: 'POST' }
+    );
+  },
+  deleteRequestSignedPdf: (id: string) => {
+    return request<{ success: boolean; message: string }>(`/requests/${id}/signed-pdf`, {
+      method: 'DELETE',
+    });
+  },
   getRequestSurveyPdf: async (id: string) => {
     const response = await request<{ success: boolean; data: { url: string } }>(`/requests/${id}/survey-pdf`);
     return response.data.url;

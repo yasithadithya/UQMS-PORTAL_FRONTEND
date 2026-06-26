@@ -106,6 +106,7 @@ export interface ApiRequest {
   areaOfOperation: ApiAreaOfOperation | string;
   surveyTypes: Array<ApiSurveyType | string>;
   documents?: ApiRequestDocument[];
+  signedPdf?: ApiRequestDocument;
   status: 'active' | 'print' | 'reject' | 'success';
   createdAt?: string;
   updatedAt?: string;

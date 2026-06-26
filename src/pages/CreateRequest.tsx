@@ -73,6 +73,7 @@ export default function CreateRequestPage() {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
+  const [pendingSignedPdf, setPendingSignedPdf] = useState<File | null>(null);
 
   const [vesselSearchQuery, setVesselSearchQuery] = useState('');
   const [vesselSearchResults, setVesselSearchResults] = useState<ApiVessel[]>([]);
@@ -201,14 +202,24 @@ export default function CreateRequestPage() {
       const res = await requestsService.createRequest(payload);
       requestId = res.data._id;
 
-      if (requestId && pendingDocuments.length > 0) {
-        try {
-          await requestsService.addRequestDocuments(
-            requestId,
-            pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
-          );
-        } catch (err: any) {
-          alert(err.message || 'Request saved, but document upload failed.');
+      if (requestId) {
+        if (pendingSignedPdf) {
+          try {
+            await requestsService.uploadRequestSignedPdf(requestId, pendingSignedPdf);
+          } catch (err: any) {
+            alert(err.message || 'Request saved, but signed PDF upload failed.');
+          }
+        }
+
+        if (pendingDocuments.length > 0) {
+          try {
+            await requestsService.addRequestDocuments(
+              requestId,
+              pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
+            );
+          } catch (err: any) {
+            alert(err.message || 'Request saved, but document upload failed.');
+          }
         }
       }
 
@@ -492,6 +503,43 @@ export default function CreateRequestPage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          <div className={s.fullRow} style={{ marginTop: '12px' }}>
+            <label className="form-label">Signed PDF (Optional)</label>
+            <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
+              <div className="upload-icon">+</div>
+              <div className="upload-text">
+                {pendingSignedPdf ? (
+                  <span>Selected: {pendingSignedPdf.name}</span>
+                ) : (
+                  <span>Upload Signed PDF</span>
+                )}
+              </div>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setPendingSignedPdf(e.target.files ? e.target.files[0] : null)}
+                style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
+              />
+            </div>
+            {pendingSignedPdf && (
+              <div className={s.fileList} style={{ marginTop: '10px' }}>
+                <div className={s.fileRow}>
+                  <div className={s.fileMeta}>
+                    <div className={s.fileName}>{pendingSignedPdf.name}</div>
+                    <div className={s.fileSize}>{formatBytes(pendingSignedPdf.size)}</div>
+                  </div>
+                  <button
+                    className={`${s.actionBtn} ${s.deleteBtn}`}
+                    type="button"
+                    onClick={() => setPendingSignedPdf(null)}
+                  >
+                    X
+                  </button>
+                </div>
               </div>
             )}
           </div>

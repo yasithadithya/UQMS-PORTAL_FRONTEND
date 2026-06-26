@@ -137,6 +137,7 @@ export default function RequestDetailsPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
+  const [pendingSignedPdf, setPendingSignedPdf] = useState<File | null>(null);
 
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -207,6 +208,7 @@ export default function RequestDetailsPage() {
   const handleCancel = () => {
     if (request) setForm(requestToForm(request));
     setPendingDocuments([]);
+    setPendingSignedPdf(null);
     setEditing(false);
   };
 
@@ -215,12 +217,22 @@ export default function RequestDetailsPage() {
 
     setSaving(true);
     try {
-      await requestsService.updateRequest(request._id, {
-        ...form,
-        imoNumber: form.imoNumber?.trim() || undefined,
-        mmsiNumber: form.mmsiNumber?.trim() || undefined,
-        uqmsNumber: form.uqmsNumber?.trim() || undefined,
-      });
+      if (request.status === 'active') {
+        await requestsService.updateRequest(request._id, {
+          ...form,
+          imoNumber: form.imoNumber?.trim() || undefined,
+          mmsiNumber: form.mmsiNumber?.trim() || undefined,
+          uqmsNumber: form.uqmsNumber?.trim() || undefined,
+        });
+      }
+
+      if (pendingSignedPdf) {
+        try {
+          await requestsService.uploadRequestSignedPdf(request._id, pendingSignedPdf);
+        } catch (err: any) {
+          alert(err.message || 'Request fields saved, but signed PDF upload failed.');
+        }
+      }
 
       if (pendingDocuments.length > 0) {
         try {
@@ -237,9 +249,38 @@ export default function RequestDetailsPage() {
       setRequest(res.data);
       setForm(requestToForm(res.data));
       setPendingDocuments([]);
+      setPendingSignedPdf(null);
       setEditing(false);
     } catch (err: any) {
       alert(err.message || 'Failed to save request.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSignedPdf = async () => {
+    if (!request) return;
+    if (!confirm('Are you sure you want to delete the signed PDF?')) return;
+    try {
+      await requestsService.deleteRequestSignedPdf(request._id);
+      const updated = await requestsService.getRequestById(request._id);
+      setRequest(updated.data);
+      setForm(requestToForm(updated.data));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete signed PDF.');
+    }
+  };
+
+  const handleUploadSignedPdf = async (file: File | null) => {
+    if (!file || !request) return;
+    setSaving(true);
+    try {
+      await requestsService.uploadRequestSignedPdf(request._id, file);
+      const updated = await requestsService.getRequestById(request._id);
+      setRequest(updated.data);
+      setForm(requestToForm(updated.data));
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload signed PDF.');
     } finally {
       setSaving(false);
     }
@@ -513,7 +554,7 @@ export default function RequestDetailsPage() {
             )
           )}
           {request && !editing && (
-            <button className="btn-primary" type="button" onClick={handleEdit} disabled={request.status === 'print'}>
+            <button className="btn-primary" type="button" onClick={handleEdit}>
               Edit
             </button>
           )}
@@ -646,6 +687,80 @@ export default function RequestDetailsPage() {
                   </div>
                 )}
               </section>
+
+              <section className={s.documentPanel}>
+                <div className={s.detailSectionHeader}>
+                  <h3 className={s.detailSectionTitle}>Signed Request PDF</h3>
+                </div>
+
+                {request.signedPdf ? (
+                  <div className={s.docList}>
+                    <div className={s.docRow}>
+                      <div className={s.docInfo}>
+                        <div className={s.docName}>{request.signedPdf.name}</div>
+                        <div className={s.docMeta}>
+                          {request.signedPdf.contentType || 'application/pdf'} - {formatBytes(request.signedPdf.size)}
+                          {request.signedPdf.uploadedAt ? ` - Uploaded ${formatDate(request.signedPdf.uploadedAt)}` : ''}
+                        </div>
+                      </div>
+                      <div className={s.docActions}>
+                        {request.signedPdf.url && (
+                          <a className={s.linkBtn} href={request.signedPdf.url} target="_blank" rel="noreferrer">
+                            View
+                          </a>
+                        )}
+                        <button
+                          className={`${s.actionBtn} ${s.deleteBtn}`}
+                          type="button"
+                          onClick={handleDeleteSignedPdf}
+                          disabled={!canDelete}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
+                      <div className="upload-icon">↻</div>
+                      <div className="upload-text">
+                        <span>Replace Signed PDF</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleUploadSignedPdf(e.target.files[0]);
+                          }
+                        }}
+                        style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
+                        disabled={saving}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className={s.emptyState} style={{ marginBottom: '12px' }}>No signed PDF uploaded yet.</div>
+                    <div className="upload-area" style={{ position: 'relative' }}>
+                      <div className="upload-icon">+</div>
+                      <div className="upload-text">
+                        <span>Upload Signed PDF</span>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleUploadSignedPdf(e.target.files[0]);
+                          }
+                        }}
+                        style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
+                        disabled={saving}
+                      />
+                    </div>
+                  </div>
+                )}
+              </section>
             </div>
           ) : (
             <div className={s.editCard}>
@@ -658,6 +773,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.uqmsNumber || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, uqmsNumber: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -666,6 +782,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.imoNumber || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, imoNumber: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -674,6 +791,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.mmsiNumber || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, mmsiNumber: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -683,6 +801,7 @@ export default function RequestDetailsPage() {
                       value={form.vesselCode || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, vesselCode: e.target.value } : prev))}
                       style={{ width: '100%', cursor: 'pointer' }}
+                      disabled={request.status !== 'active'}
                     >
                       <option value="">-- Select Vessel Code --</option>
                       {vesselCodes.map(vc => (
@@ -696,6 +815,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.vesselName}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, vesselName: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -704,6 +824,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.companyName}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, companyName: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -712,6 +833,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.contactPersonName}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, contactPersonName: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -720,6 +842,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.contactPersonNumber}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, contactPersonNumber: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -728,6 +851,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.registerdAddress || ''}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, registerdAddress: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -736,6 +860,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.invoicingAddress}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, invoicingAddress: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -745,6 +870,7 @@ export default function RequestDetailsPage() {
                       type="email"
                       value={form.companyEmail}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, companyEmail: e.target.value } : prev))}
+                      disabled={request.status !== 'active'}
                     />
                   </div>
                   <div>
@@ -753,6 +879,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.sector}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, sector: e.target.value as 'marine' | 'industrial' } : prev))}
+                      disabled={request.status !== 'active'}
                     >
                       <option value="marine">Marine</option>
                       <option value="industrial">Industrial</option>
@@ -764,6 +891,7 @@ export default function RequestDetailsPage() {
                       className="form-input"
                       value={form.status}
                       onChange={(e) => setForm((prev) => (prev ? { ...prev, status: e.target.value as ApiRequest['status'] } : prev))}
+                      disabled={request.status !== 'active'}
                     >
                       <option value="active">Active</option>
                       <option value="print">Print</option>
@@ -777,6 +905,7 @@ export default function RequestDetailsPage() {
                     options={vesselOptions}
                     placeholder="Select vessel"
                     onChange={(value) => setForm((prev) => (prev ? { ...prev, vesselType: value } : prev))}
+                    disabled={request.status !== 'active'}
                   />
                   <SearchableSelect
                     label="Area of Operation"
@@ -784,6 +913,7 @@ export default function RequestDetailsPage() {
                     options={areaOptions}
                     placeholder="Select area"
                     onChange={(value) => setForm((prev) => (prev ? { ...prev, areaOfOperation: value } : prev))}
+                    disabled={request.status !== 'active'}
                   />
                   <SearchableMultiSelect
                     label="Survey Types"
@@ -791,6 +921,7 @@ export default function RequestDetailsPage() {
                     options={surveyOptions}
                     placeholder="Select survey types"
                     onChange={(value) => setForm((prev) => (prev ? { ...prev, surveyTypes: value } : prev))}
+                    disabled={request.status !== 'active'}
                   />
                 </div>
               </section>
@@ -878,6 +1009,50 @@ export default function RequestDetailsPage() {
                     ))}
                   </div>
                 )}
+              </section>
+
+              <section className={s.detailSection} style={{ marginTop: '20px' }}>
+                <h3 className={s.detailSectionTitle}>Signed Request PDF</h3>
+
+                {request.signedPdf ? (
+                  <div className={s.docList} style={{ marginBottom: '12px' }}>
+                    <div className={s.docRow}>
+                      <div className={s.docInfo}>
+                        <div className={s.docName}>{request.signedPdf.name}</div>
+                        <div className={s.docMeta}>
+                          {formatBytes(request.signedPdf.size)}
+                        </div>
+                      </div>
+                      <div className={s.docActions}>
+                        <button
+                          className={`${s.actionBtn} ${s.deleteBtn}`}
+                          type="button"
+                          onClick={handleDeleteSignedPdf}
+                          disabled={!canDelete}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
+                  <div className="upload-icon">+</div>
+                  <div className="upload-text">
+                    {pendingSignedPdf ? (
+                      <span>Selected: {pendingSignedPdf.name}</span>
+                    ) : (
+                      <span>Upload Signed PDF</span>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => setPendingSignedPdf(e.target.files ? e.target.files[0] : null)}
+                    style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
+                  />
+                </div>
               </section>
 
               <div className={s.detailFooter}>

@@ -1,8 +1,17 @@
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   message?: string;
   data: T;
   count?: number;
+  pagination?: PaginationMeta;
 }
 
 export interface LoginResponse {

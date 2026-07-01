@@ -1,20 +1,55 @@
 import { request, requestFormData } from '../client';
+import { cachedRequest, invalidateCache, invalidateCacheByPrefix, CACHE_KEYS, TTL } from '../apiCache';
 import { ApiResponse } from '../types';
 
 export const hrService = {
   // Employees
-  getEmployees: () => request<ApiResponse<any>>('/hr/employees'),
+  getEmployees: (params?: { page?: number; limit?: number; search?: string; department?: string; status?: string; type?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.department) searchParams.append('department', params.department);
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.type) searchParams.append('type', params.type);
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+
+    const cacheKey = `${CACHE_KEYS.HR_EMPLOYEES}:${searchParams.toString() || 'all'}`;
+
+    return cachedRequest(
+      cacheKey,
+      () => request<ApiResponse<any>>(`/hr/employees${query}`),
+      TTL.SEMI_DYNAMIC
+    );
+  },
   getEmployeeById: (id: string) => request<ApiResponse<any>>(`/hr/employees/${id}`),
-  createEmployee: (data: any) => request<ApiResponse<any>>('/hr/employees', { method: 'POST', body: JSON.stringify(data) }),
-  updateEmployee: (id: string, data: any) => request<ApiResponse<any>>(`/hr/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteEmployee: (id: string) => request<ApiResponse<any>>(`/hr/employees/${id}`, { method: 'DELETE' }),
+  createEmployee: (data: any) => request<ApiResponse<any>>('/hr/employees', { method: 'POST', body: JSON.stringify(data) }).then((res) => {
+    invalidateCacheByPrefix(CACHE_KEYS.HR_EMPLOYEES);
+    return res;
+  }),
+  updateEmployee: (id: string, data: any) => request<ApiResponse<any>>(`/hr/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }).then((res) => {
+    invalidateCacheByPrefix(CACHE_KEYS.HR_EMPLOYEES);
+    return res;
+  }),
+  deleteEmployee: (id: string) => request<ApiResponse<any>>(`/hr/employees/${id}`, { method: 'DELETE' }).then((res) => {
+    invalidateCacheByPrefix(CACHE_KEYS.HR_EMPLOYEES);
+    return res;
+  }),
   uploadPhoto: (id: string, formData: FormData) => requestFormData<ApiResponse<any>>(`/hr/employees/${id}/upload-photo`, formData, { method: 'POST' }),
 
   // Departments
-  getDepartments: () => request<ApiResponse<any>>('/hr/departments'),
+  getDepartments: () => cachedRequest(
+    CACHE_KEYS.HR_DEPARTMENTS,
+    () => request<ApiResponse<any>>('/hr/departments'),
+    TTL.STATIC
+  ),
 
   // Job Titles
-  getJobTitles: () => request<ApiResponse<any>>('/hr/jobtitles'),
+  getJobTitles: () => cachedRequest(
+    CACHE_KEYS.HR_JOB_TITLES,
+    () => request<ApiResponse<any>>('/hr/jobtitles'),
+    TTL.STATIC
+  ),
 
   // Attendance
   getAttendance: (employeeId?: string) => request<ApiResponse<any>>(`/hr/attendance${employeeId ? `/${employeeId}` : ''}`),
@@ -23,7 +58,11 @@ export const hrService = {
   getAttendanceSummary: (employeeId: string, month: number, year: number) => request<ApiResponse<any>>(`/hr/attendance/summary/${employeeId}?month=${month}&year=${year}`),
 
   // Leaves
-  getLeaveTypes: () => request<ApiResponse<any>>('/hr/leaves/types'),
+  getLeaveTypes: () => cachedRequest(
+    CACHE_KEYS.HR_LEAVE_TYPES,
+    () => request<ApiResponse<any>>('/hr/leaves/types'),
+    TTL.STATIC
+  ),
   getLeaveBalance: (employeeId: string) => request<ApiResponse<any>>(`/hr/leaves/balance/${employeeId}`),
   getLeaveRequests: () => request<ApiResponse<any>>('/hr/leaves/requests'),
   submitLeaveRequest: (data: any) => request<ApiResponse<any>>('/hr/leaves/request', { method: 'POST', body: JSON.stringify(data) }),
@@ -31,7 +70,11 @@ export const hrService = {
   rejectLeaveRequest: (id: string, comments: string) => request<ApiResponse<any>>(`/hr/leaves/requests/${id}/reject`, { method: 'PUT', body: JSON.stringify({ comments }) }),
 
   // Holidays
-  getHolidays: () => request<ApiResponse<any>>('/hr/holidays'),
+  getHolidays: () => cachedRequest(
+    CACHE_KEYS.HR_HOLIDAYS,
+    () => request<ApiResponse<any>>('/hr/holidays'),
+    TTL.STATIC
+  ),
 
   // Payroll
   getPayrollRuns: () => request<ApiResponse<any>>('/hr/payroll/runs'),

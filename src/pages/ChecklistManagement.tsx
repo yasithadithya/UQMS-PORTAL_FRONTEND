@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import {
   checklistQuestionsService,
@@ -10,6 +10,7 @@ import {
   type ApiVesselType,
   type ApiVesselCode,
 } from '@/api';
+import Pagination from '@/components/Pagination';
 import s from './ChecklistManagement.module.css';
 
 // Predefined options requested by user
@@ -147,11 +148,18 @@ export default function ChecklistManagement() {
 
   // Filtering criteria states (Arrays for multi-select dropdowns)
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterSurveyCategories, setFilterSurveyCategories] = useState<string[]>([]);
   const [filterAreaOperations, setFilterAreaOperations] = useState<string[]>([]);
   const [filterBoatTypes, setFilterBoatTypes] = useState<string[]>([]);
   const [filterVesselCode, setFilterVesselCode] = useState('');
   const [filterQCategory, setFilterQCategory] = useState('');
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -192,21 +200,38 @@ export default function ChecklistManagement() {
     loadLookups();
   }, []);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Reset page to 1 on filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterVesselCode, filterQCategory]);
+
   // Fetch checklist questions on filter updates
   const fetchQuestions = async () => {
     try {
       setLoading(true);
       const params: any = {
-        search: search.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
         surveyCategory: filterSurveyCategories.length > 0 ? filterSurveyCategories.join(',') : undefined,
         areaOfOperation: filterAreaOperations.length > 0 ? filterAreaOperations.join(',') : undefined,
         boatType: filterBoatTypes.length > 0 ? filterBoatTypes.join(',') : undefined,
         vesselCode: filterVesselCode.trim() || undefined,
         qCategory: filterQCategory.trim() || undefined,
+        page,
+        limit,
       };
       const res = await checklistQuestionsService.getQuestions(params);
       if (res.success) {
         setQuestions(res.data);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
       }
     } catch (err: any) {
       toast.error('Failed to fetch checklist questions: ' + err.message);
@@ -217,7 +242,7 @@ export default function ChecklistManagement() {
 
   useEffect(() => {
     fetchQuestions();
-  }, [search, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterVesselCode, filterQCategory]);
+  }, [page, limit, debouncedSearch, filterSurveyCategories, filterAreaOperations, filterBoatTypes, filterVesselCode, filterQCategory]);
 
   const openAddModal = () => {
     setEditingQuestion(null);
@@ -479,7 +504,8 @@ export default function ChecklistManagement() {
           </p>
         </div>
       ) : (
-        <div className={s.tableWrap}>
+        <>
+          <div className={s.tableWrap}>
           <table className={s.table}>
             <thead>
               <tr>
@@ -547,6 +573,15 @@ export default function ChecklistManagement() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={page}
+          limit={limit}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
+        </>
       )}
 
       {/* Add / Edit Modal */}

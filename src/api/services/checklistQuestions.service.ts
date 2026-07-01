@@ -2,19 +2,19 @@ import { request } from '../client';
 import type { ApiChecklistQuestion } from '../types';
 
 export const checklistQuestionsService = {
-  getQuestions: (params?: { search?: string; surveyCategory?: string; areaOfOperation?: string; boatType?: string; length?: string; vesselCode?: string; qCategory?: string }) => {
+  getQuestions: (params?: { search?: string; surveyCategory?: string; areaOfOperation?: string; boatType?: string; length?: string; vesselCode?: string; qCategory?: string; page?: number; limit?: number }) => {
     let url = '/checklist-questions';
     if (params) {
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, val]) => {
-        if (val) searchParams.append(key, val);
+        if (val !== undefined && val !== null && val !== '') searchParams.append(key, String(val));
       });
       const queryStr = searchParams.toString();
       if (queryStr) {
         url += `?${queryStr}`;
       }
     }
-    return request<{ success: boolean; count: number; data: ApiChecklistQuestion[] }>(url);
+    return request<{ success: boolean; count: number; data: ApiChecklistQuestion[]; pagination?: any }>(url);
   },
   getQuestionById: (id: string) => {
     return request<{ success: boolean; data: ApiChecklistQuestion }>(`/checklist-questions/${id}`);

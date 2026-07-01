@@ -4,6 +4,7 @@ import {
   usersService,
   rolesService,
   modulesService,
+  invalidateAll,
   type ApiUser,
   type ApiRole,
   type ApiModule,
@@ -179,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsers([]);
     setRoles([]);
     setModules([]);
+    invalidateAll();
   }, []);
 
   const addUser = useCallback(

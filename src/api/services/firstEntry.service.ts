@@ -3,8 +3,12 @@ import type { ApiFirstEntry, ApiScheduleII, ApiScheduleIIDocument, ApiFirstEntry
 
 export const firstEntryService = {
   // First Entry endpoints
-  getFirstEntries: () => {
-    return request<{ success: boolean; count: number; data: ApiFirstEntry[] }>('/first-entries');
+  getFirstEntries: (params?: { page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request<{ success: boolean; count: number; data: ApiFirstEntry[]; pagination?: any }>(`/first-entries${query}`);
   },
   getFirstEntryById: (id: string) => {
     return request<{ success: boolean; data: ApiFirstEntry }>(`/first-entries/${id}`);
@@ -40,8 +44,12 @@ export const firstEntryService = {
   },
 
   // First Entry Survey Booking endpoints
-  getFirstEntrySurveyBookings: () => {
-    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyBooking[] }>('/first-entry-survey-bookings');
+  getFirstEntrySurveyBookings: (params?: { page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyBooking[]; pagination?: any }>(`/first-entry-survey-bookings${query}`);
   },
   getFirstEntrySurveyBookingById: (id: string) => {
     return request<{ success: boolean; data: ApiFirstEntrySurveyBooking }>(`/first-entry-survey-bookings/${id}`);
@@ -119,8 +127,12 @@ export const firstEntryService = {
   },
 
   // First Entry Survey Report endpoints
-  getFirstEntrySurveyReports: () => {
-    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyReport[] }>('/first-entry-survey-reports');
+  getFirstEntrySurveyReports: (params?: { page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request<{ success: boolean; count: number; data: ApiFirstEntrySurveyReport[]; pagination?: any }>(`/first-entry-survey-reports${query}`);
   },
   getFirstEntrySurveyReportById: (id: string) => {
     return request<{ success: boolean; data: ApiFirstEntrySurveyReport }>(`/first-entry-survey-reports/${id}`);
@@ -221,8 +233,12 @@ export const firstEntryService = {
   },
 
   // SCCCOS Certificate endpoints
-  getScccosCertificates: () => {
-    return request<{ success: boolean; count: number; data: ApiSCCCOS[] }>('/scccos');
+  getScccosCertificates: (params?: { page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return request<{ success: boolean; count: number; data: ApiSCCCOS[]; pagination?: any }>(`/scccos${query}`);
   },
   getScccosCertificateBySurveyReportId: (surveyReportId: string) => {
     return request<{ success: boolean; data: ApiSCCCOS }>(`/scccos/report/${surveyReportId}`);

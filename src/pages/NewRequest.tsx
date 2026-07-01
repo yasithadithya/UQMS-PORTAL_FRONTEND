@@ -15,6 +15,7 @@ import {
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
+import Pagination from '@/components/Pagination';
 import s from './NewRequest.module.css';
 
 const emptyForm: RequestPayload = {
@@ -81,6 +82,12 @@ export default function NewRequestPage() {
   const [pageError, setPageError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   const [showModal, setShowModal] = useState(false);
   const [editingRequest, setEditingRequest] = useState<ApiRequest | null>(null);
   const [formData, setFormData] = useState<RequestPayload>({ ...emptyForm });
@@ -105,13 +112,15 @@ export default function NewRequestPage() {
         operationsService.getVesselTypes(),
         operationsService.getAreaOperations(),
         operationsService.getSurveyTypes(),
-        requestsService.getRequests(),
+        requestsService.getRequests({ page: 1, limit }),
         vesselCodesService.getVesselCodes(),
       ]);
       setVesselTypes(vesselRes.data);
       setAreaOperations(areaRes.data);
       setSurveyTypes(surveyRes.data);
       setRequests(requestRes.data);
+      setTotal(requestRes.count || 0);
+      setTotalPages(requestRes.pagination?.totalPages || 1);
       setVesselCodes(vcRes.data);
     } catch (err: any) {
       setPageError(err.message || 'Failed to load request data.');
@@ -120,10 +129,16 @@ export default function NewRequestPage() {
     }
   };
 
-  const refreshRequests = async (search?: string) => {
+  const refreshRequests = async (currentPage = page, currentLimit = limit, currentSearch = searchTerm) => {
     try {
-      const res = await requestsService.getRequests(search !== undefined ? search : searchTerm);
+      const res = await requestsService.getRequests({
+        search: currentSearch,
+        page: currentPage,
+        limit: currentLimit
+      });
       setRequests(res.data);
+      setTotal(res.count || 0);
+      setTotalPages(res.pagination?.totalPages || 1);
     } catch (err: any) {
       setPageError(err.message || 'Failed to refresh requests.');
     }
@@ -131,9 +146,9 @@ export default function NewRequestPage() {
 
   useEffect(() => {
     if (!loading) {
-      refreshRequests();
+      refreshRequests(page, limit, searchTerm);
     }
-  }, [searchTerm]);
+  }, [page, limit, searchTerm]);
 
   useEffect(() => {
     loadData();
@@ -409,7 +424,10 @@ export default function NewRequestPage() {
           placeholder="Search by request no or vessel name..."
           style={{ maxWidth: '400px', width: '100%' }}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+          }}
         />
       </div>
 
@@ -468,6 +486,15 @@ export default function NewRequestPage() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            page={page}
+            limit={limit}
+            total={total}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            onLimitChange={setLimit}
+          />
         </>
       )}
 

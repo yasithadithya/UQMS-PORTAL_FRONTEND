@@ -5,6 +5,7 @@ import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyRepo
 import { useAuth } from '@/context/AuthContext';
 import { formatDate } from '@/utils/date';
 import ScccosModal from '@/components/ScccosModal';
+import Pagination from '@/components/Pagination';
 
 export default function MarineModulePage() {
   const { hasPermission } = useAuth();
@@ -38,30 +39,50 @@ export default function MarineModulePage() {
 
   const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'reports' | 'certificates'>('first-entry');
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Scccos Modal States
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
   const [selectedBookingForScccos, setSelectedBookingForScccos] = useState<ApiFirstEntrySurveyBooking | null>(null);
   const [selectedReportIdForScccos, setSelectedReportIdForScccos] = useState<string>('');
 
+  // Reset page to 1 when tab changes
   useEffect(() => {
-    if (activeTab === 'first-entry') {
-      fetchEntries();
-    } else if (activeTab === 'survey') {
-      fetchSurveyBookings();
-    } else if (activeTab === 'reports') {
-      fetchReports();
-    } else if (activeTab === 'certificates') {
-      fetchCertificates();
+    setPage(1);
+    // If page is already 1, manually fetch active tab data since page state change won't trigger page effect
+    if (page === 1) {
+      if (activeTab === 'first-entry') fetchEntries(1, limit);
+      else if (activeTab === 'survey') fetchSurveyBookings(1, limit);
+      else if (activeTab === 'reports') fetchReports(1, limit);
+      else if (activeTab === 'certificates') fetchCertificates(1, limit);
     }
   }, [activeTab]);
 
-  const fetchEntries = async () => {
+  useEffect(() => {
+    if (activeTab === 'first-entry') {
+      fetchEntries(page, limit);
+    } else if (activeTab === 'survey') {
+      fetchSurveyBookings(page, limit);
+    } else if (activeTab === 'reports') {
+      fetchReports(page, limit);
+    } else if (activeTab === 'certificates') {
+      fetchCertificates(page, limit);
+    }
+  }, [page, limit]);
+
+  const fetchEntries = async (currentPage = page, currentLimit = limit) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await firstEntryService.getFirstEntries();
+      const res = await firstEntryService.getFirstEntries({ page: currentPage, limit: currentLimit });
       if (res.success) {
         setEntries(res.data);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
       } else {
         setError('Failed to fetch entries');
       }
@@ -72,13 +93,15 @@ export default function MarineModulePage() {
     }
   };
 
-  const fetchSurveyBookings = async () => {
+  const fetchSurveyBookings = async (currentPage = page, currentLimit = limit) => {
     try {
       setSurveyLoading(true);
       setSurveyError(null);
-      const res = await firstEntryService.getFirstEntrySurveyBookings();
+      const res = await firstEntryService.getFirstEntrySurveyBookings({ page: currentPage, limit: currentLimit });
       if (res.success) {
         setSurveyBookings(res.data);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
       } else {
         setSurveyError('Failed to fetch survey bookings');
       }
@@ -121,13 +144,15 @@ export default function MarineModulePage() {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = async (currentPage = page, currentLimit = limit) => {
     try {
       setReportsLoading(true);
       setReportsError(null);
-      const res = await firstEntryService.getFirstEntrySurveyReports();
+      const res = await firstEntryService.getFirstEntrySurveyReports({ page: currentPage, limit: currentLimit });
       if (res.success) {
         setReports(res.data);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
       } else {
         setReportsError('Failed to fetch survey reports');
       }
@@ -154,13 +179,15 @@ export default function MarineModulePage() {
     }
   };
 
-  const fetchCertificates = async () => {
+  const fetchCertificates = async (currentPage = page, currentLimit = limit) => {
     try {
       setCertificatesLoading(true);
       setCertificatesError(null);
-      const res = await firstEntryService.getScccosCertificates();
+      const res = await firstEntryService.getScccosCertificates({ page: currentPage, limit: currentLimit });
       if (res.success) {
         setCertificates(res.data);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
       } else {
         setCertificatesError('Failed to fetch certificates');
       }
@@ -347,7 +374,7 @@ export default function MarineModulePage() {
           ) : error ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{error}</p>
-              <button className="btn-secondary" onClick={fetchEntries} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={() => fetchEntries()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : entries.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -503,7 +530,7 @@ export default function MarineModulePage() {
           ) : surveyError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{surveyError}</p>
-              <button className="btn-secondary" onClick={fetchSurveyBookings} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={() => fetchSurveyBookings()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : surveyBookings.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -643,7 +670,7 @@ export default function MarineModulePage() {
           ) : reportsError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{reportsError}</p>
-              <button className="btn-secondary" onClick={fetchReports} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={() => fetchReports()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : reports.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -815,7 +842,7 @@ export default function MarineModulePage() {
           ) : certificatesError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{certificatesError}</p>
-              <button className="btn-secondary" onClick={fetchCertificates} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={() => fetchCertificates()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : certificates.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -901,6 +928,17 @@ export default function MarineModulePage() {
             </div>
           )}
         </div>
+      )}
+
+      {!(activeTab === 'first-entry' ? loading : activeTab === 'survey' ? surveyLoading : activeTab === 'reports' ? reportsLoading : certificatesLoading) && (
+        <Pagination
+          page={page}
+          limit={limit}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
       )}
 
       {/* Scccos Modal */}

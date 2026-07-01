@@ -34,9 +34,14 @@ const buildDocumentsFormData = (
 };
 
 export const requestsService = {
-  getRequests: (search?: string) => {
-    const query = search ? `?search=${encodeURIComponent(search)}` : '';
-    return request<{ success: boolean; count: number; data: ApiRequest[] }>(`/requests${query}`);
+  getRequests: (params?: { search?: string; page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.append('search', params.search);
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const queryStr = searchParams.toString();
+    const query = queryStr ? `?${queryStr}` : '';
+    return request<{ success: boolean; count: number; data: ApiRequest[]; pagination?: any }>(`/requests${query}`);
   },
   createRequest: (payload: RequestPayload) => {
     return request<{ success: boolean; message: string; data: ApiRequest }>('/requests', {

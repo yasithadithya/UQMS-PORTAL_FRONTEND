@@ -420,11 +420,12 @@ export default function CreateFirstEntrySurveyBooking() {
         toast.error(`Please select a visit date for ${visitDetails[i].visitNo || `Row ${i + 1}`}`);
         return;
       }
-      const vDateStr = visitDetails[i].visitDate;
-      if (new Date(vDateStr) < new Date(requestedDate)) {
-        toast.error(`Visit date for ${visitDetails[i].visitNo || `Row ${i + 1}`} cannot be a backdate from the Requested Date (${requestedDate}).`);
-        return;
-      }
+      // Date: 2026-07-07 - Temporary comment as advised by shanuka. This was commented to add old records.
+      // const vDateStr = visitDetails[i].visitDate;
+      // if (new Date(vDateStr) < new Date(requestedDate)) {
+      //   toast.error(`Visit date for ${visitDetails[i].visitNo || `Row ${i + 1}`} cannot be a backdate from the Requested Date (${requestedDate}).`);
+      //   return;
+      // }
     }
 
     try {
@@ -913,6 +914,8 @@ export default function CreateFirstEntrySurveyBooking() {
                     </div>
                     <div>
                       <label className="form-label" style={{ fontSize: '11px' }}>Visit Date *</label>
+                      {/* Date: 2026-07-07 - Temporary comment as advised by shanuka. This was commented to add old records. */}
+                      {/* min={requestedDate} */}
                       <input
                         type="date"
                         className="form-input"
@@ -920,7 +923,6 @@ export default function CreateFirstEntrySurveyBooking() {
                         value={visit.visitDate}
                         onChange={e => updateVisitField(visitIdx, 'visitDate', e.target.value)}
                         required
-                        min={requestedDate}
                       />
                     </div>
                     <div>

@@ -113,7 +113,11 @@ export default function CreateFirstEntrySurveyBooking() {
             setSurveyMode(booking.surveyMode || 'Singly');
             setSociety(booking.society || '');
             setManagedBy(booking.managedBy || '');
-            setBuildDate(booking.buildDate ? booking.buildDate.split('T')[0].split('-').reverse().join('/') : '');
+            let db = booking.buildDate || '';
+            if (db.includes('T')) {
+              db = db.split('T')[0].split('-').reverse().join('/');
+            }
+            setBuildDate(db);
             setYardNo(booking.yardNo || '');
             setOfficialNo(booking.officialNo || '');
             setGt(booking.gt || '');
@@ -179,7 +183,13 @@ export default function CreateFirstEntrySurveyBooking() {
       if (isFieldEditable('managedBy')) setManagedBy(vessel.managerName || '');
       if (isFieldEditable('uqmsNo')) setUqmsNo(vessel.uqmsNumber || '');
       
-      if (vessel.dateOfBuild && isFieldEditable('buildDate')) setBuildDate(vessel.dateOfBuild.split('T')[0].split('-').reverse().join('/'));
+      if (vessel.dateOfBuild && isFieldEditable('buildDate')) {
+        let db = vessel.dateOfBuild;
+        if (db.includes('T')) {
+          db = db.split('T')[0].split('-').reverse().join('/');
+        }
+        setBuildDate(db);
+      }
       if (vessel.keelDate && isFieldEditable('keelDate')) setKeelDate(vessel.keelDate.split('T')[0]);
       
       if (vessel.vesselType && isFieldEditable('shipType')) {
@@ -420,20 +430,6 @@ export default function CreateFirstEntrySurveyBooking() {
     try {
       setLoading(true);
 
-      let finalBuildDate = undefined;
-      if (buildDate) {
-        if (buildDate.includes('/')) {
-          const parts = buildDate.split('/');
-          if (parts.length === 2) { // MM/YYYY
-            finalBuildDate = `${parts[1]}-${parts[0]}-01`;
-          } else if (parts.length === 3) { // DD/MM/YYYY
-            finalBuildDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-          }
-        } else if (buildDate.includes('-')) {
-          finalBuildDate = buildDate;
-        }
-      }
-
       const payload = {
         vesselId: selectedVesselId || undefined,
         requestIds: selectedRequestIds,
@@ -455,7 +451,7 @@ export default function CreateFirstEntrySurveyBooking() {
         surveyMode,
         society: society.trim() || undefined,
         managedBy: managedBy.trim() || undefined,
-        buildDate: finalBuildDate || undefined,
+        buildDate: buildDate || undefined,
         yardNo: yardNo.trim() || undefined,
         officialNo: officialNo.trim() || undefined,
         gt: gt !== '' ? Number(gt) : undefined,

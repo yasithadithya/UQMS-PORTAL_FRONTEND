@@ -168,6 +168,13 @@ export interface ApiVessel {
   propeller?: string;
   speed?: number;
   rpm?: number;
+  engines?: {
+    model?: string;
+    quantity?: number;
+    totalPower?: number;
+    speed?: number;
+    rpm?: number;
+  }[];
   electricalInstallation?: string;
   boilers?: string;
   sisterShips?: Array<ApiVessel | string>;
@@ -495,7 +502,15 @@ export interface ApiSurveyReport {
     auxEngineCount: number;
     auxEngineModel: string;
     auxEngineOutput: string;
+    auxEngineAlarms: string;
     powerGeneration: string;
+    engines?: {
+      model?: string;
+      quantity?: number;
+      totalPower?: number;
+      speed?: number;
+      rpm?: number;
+    }[];
   };
   signature: {
     dateOfIssue?: string | null;

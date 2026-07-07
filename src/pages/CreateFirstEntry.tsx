@@ -214,7 +214,11 @@ export default function CreateFirstEntry() {
     setBuilder(vessel.builder || '');
     setPlaceOfBuilt(vessel.placeOfBuilt || '');
     setYardNo(vessel.yardNo || '');
-    setDateOfBuild(vessel.dateOfBuild ? vessel.dateOfBuild.split('T')[0].split('-').reverse().join('/') : '');
+    let db = vessel.dateOfBuild || '';
+    if (db.includes('T')) {
+      db = db.split('T')[0].split('-').reverse().join('/');
+    }
+    setDateOfBuild(db);
     setKeelDate(vessel.keelDate ? vessel.keelDate.split('T')[0] : '');
     setBuildingContractDate(vessel.buildingContractDate ? vessel.buildingContractDate.split('T')[0] : '');
     setMajorConversionDate(vessel.majorConversionDate ? vessel.majorConversionDate.split('T')[0] : '');
@@ -372,15 +376,7 @@ export default function CreateFirstEntry() {
         builder: builder.trim() || undefined,
         placeOfBuilt: placeOfBuilt.trim() || undefined,
         yardNo: yardNo.trim() || undefined,
-        dateOfBuild: (() => {
-          if (!dateOfBuild) return undefined;
-          if (dateOfBuild.includes('/')) {
-            const parts = dateOfBuild.split('/');
-            if (parts.length === 2) return `${parts[1]}-${parts[0]}-01`;
-            if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-          }
-          return dateOfBuild;
-        })(),
+        dateOfBuild: dateOfBuild || undefined,
         keelDate: keelDate || undefined,
         buildingContractDate: buildingContractDate || undefined,
         majorConversionDate: majorConversionDate || undefined,
@@ -765,6 +761,221 @@ export default function CreateFirstEntry() {
 
           <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
           <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Tonnages & Dimensions</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
+            <div>
+              <label className="form-label" htmlFor="grossTon">Gross Tonnage *</label>
+              <input
+                id="grossTon"
+                type="number"
+                className="form-input"
+                value={grossTonnage}
+                onChange={e => setGrossTonnage(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="netTon">Net Tonnage</label>
+              <input
+                id="netTon"
+                type="number"
+                className="form-input"
+                value={netTonnage}
+                onChange={e => setNetTonnage(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="dwt">Deadweight</label>
+              <input
+                id="dwt"
+                type="number"
+                className="form-input"
+                value={deadweight}
+                onChange={e => setDeadweight(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="lightship">Lightship</label>
+              <input
+                id="lightship"
+                type="number"
+                className="form-input"
+                value={lightship}
+                onChange={e => setLightship(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
+            <div>
+              <label className="form-label" htmlFor="overallLength">Overall Length (m) *</label>
+              <input
+                id="overallLength"
+                type="number"
+                className="form-input"
+                value={overallLength}
+                onChange={e => setOverallLength(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="lbp">LBP (m)</label>
+              <input
+                id="lbp"
+                type="number"
+                className="form-input"
+                value={lbp}
+                onChange={e => setLbp(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="length">Length (m)</label>
+              <input
+                id="length"
+                type="number"
+                className="form-input"
+                value={length}
+                onChange={e => setLength(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="breadth">Breadth (m)</label>
+              <input
+                id="breadth"
+                type="number"
+                className="form-input"
+                value={breadth}
+                onChange={e => setBreadth(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="depth">Depth (m)</label>
+              <input
+                id="depth"
+                type="number"
+                className="form-input"
+                value={depth}
+                onChange={e => setDepth(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="draught">Draught (m)</label>
+              <input
+                id="draught"
+                type="number"
+                className="form-input"
+                value={draught}
+                onChange={e => setDraught(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="freeboard">Freeboard (m)</label>
+              <input
+                id="freeboard"
+                type="number"
+                className="form-input"
+                value={freeboard}
+                onChange={e => setFreeboard(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="ballast">Ballast Wtr Capacity</label>
+              <input
+                id="ballast"
+                type="number"
+                className="form-input"
+                value={ballastWtrCapacity}
+                onChange={e => setBallastWtrCapacity(e.target.value !== '' ? Number(e.target.value) : '')}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="material">Material</label>
+              <input
+                id="material"
+                type="text"
+                className="form-input"
+                value={material}
+                onChange={e => setMaterial(e.target.value)}
+                disabled={!!uqmsNumber}
+              />
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
+          <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Machinery & Engine Specs</h4>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
+            <div>
+              <label className="form-label" htmlFor="stroke">Stroke</label>
+              <input
+                id="stroke"
+                type="text"
+                className="form-input"
+                value={stroke}
+                onChange={e => setStroke(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="engineBuilder">Engine Builder</label>
+              <input
+                id="engineBuilder"
+                type="text"
+                className="form-input"
+                value={engineBuilder}
+                onChange={e => setEngineBuilder(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="engineBuilt">Engine Built</label>
+              <input
+                id="engineBuilt"
+                type="text"
+                className="form-input"
+                value={engineBuilt}
+                onChange={e => setEngineBuilt(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="propeller">Propeller</label>
+              <input
+                id="propeller"
+                type="text"
+                className="form-input"
+                value={propeller}
+                onChange={e => setPropeller(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="boilers">Boilers</label>
+              <input
+                id="boilers"
+                type="text"
+                className="form-input"
+                value={boilers}
+                onChange={e => setBoilers(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="form-label" htmlFor="elect">Electrical Inst.</label>
+              <input
+                id="elect"
+                type="text"
+                className="form-input"
+                value={electricalInstallation}
+                onChange={e => setElectricalInstallation(e.target.value)}
+              />
+            </div>
+          </div>
+
 
           {engines.map((eng, index) => (
             <div key={index} style={{ marginBottom: '20px', padding: '16px', background: 'var(--subtle)', borderRadius: '8px', position: 'relative', border: '1px solid var(--separator)' }}>

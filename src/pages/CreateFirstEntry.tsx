@@ -81,15 +81,11 @@ export default function CreateFirstEntry() {
   const [majorConversionDate, setMajorConversionDate] = useState('');
 
   // Engine
-  const [mainEngineModel, setMainEngineModel] = useState('');
-  const [noOfEngines, setNoOfEngines] = useState<number | ''>('');
-  const [totalPower, setTotalPower] = useState<number | ''>('');
+  const [engines, setEngines] = useState<{ model: string; quantity: number | ''; totalPower: number | ''; speed: number | ''; rpm: number | ''; }[]>([{ model: '', quantity: '', totalPower: '', speed: '', rpm: '' }]);
   const [stroke, setStroke] = useState('');
   const [engineBuilder, setEngineBuilder] = useState('');
   const [engineBuilt, setEngineBuilt] = useState('');
   const [propeller, setPropeller] = useState('');
-  const [speed, setSpeed] = useState<number | ''>('');
-  const [rpm, setRpm] = useState<number | ''>('');
   const [electricalInstallation, setElectricalInstallation] = useState('');
   const [boilers, setBoilers] = useState('');
 
@@ -222,15 +218,27 @@ export default function CreateFirstEntry() {
     setKeelDate(vessel.keelDate ? vessel.keelDate.split('T')[0] : '');
     setBuildingContractDate(vessel.buildingContractDate ? vessel.buildingContractDate.split('T')[0] : '');
     setMajorConversionDate(vessel.majorConversionDate ? vessel.majorConversionDate.split('T')[0] : '');
-    setMainEngineModel(vessel.mainEngineModel || '');
-    setNoOfEngines(vessel.noOfEngines || '');
-    setTotalPower(vessel.totalPower || '');
+    if (vessel.engines && vessel.engines.length > 0) {
+      setEngines(vessel.engines.map(e => ({
+        model: e.model || '',
+        quantity: e.quantity || '',
+        totalPower: e.totalPower || '',
+        speed: e.speed || '',
+        rpm: e.rpm || ''
+      })));
+    } else {
+      setEngines([{
+        model: vessel.mainEngineModel || '',
+        quantity: vessel.noOfEngines || '',
+        totalPower: vessel.totalPower || '',
+        speed: vessel.speed || '',
+        rpm: vessel.rpm || ''
+      }]);
+    }
     setStroke(vessel.stroke || '');
     setEngineBuilder(vessel.engineBuilder || '');
     setEngineBuilt(vessel.engineBuilt || '');
     setPropeller(vessel.propeller || '');
-    setSpeed(vessel.speed || '');
-    setRpm(vessel.rpm || '');
     setElectricalInstallation(vessel.electricalInstallation || '');
     setBoilers(vessel.boilers || '');
     setRegisteredOwnerName(vessel.registeredOwnerName || '');
@@ -368,15 +376,17 @@ export default function CreateFirstEntry() {
         keelDate: keelDate || undefined,
         buildingContractDate: buildingContractDate || undefined,
         majorConversionDate: majorConversionDate || undefined,
-        mainEngineModel: mainEngineModel.trim() || undefined,
-        noOfEngines: noOfEngines !== '' ? Number(noOfEngines) : undefined,
-        totalPower: totalPower !== '' ? Number(totalPower) : undefined,
+        engines: engines.map(e => ({
+          model: e.model.trim() || undefined,
+          quantity: e.quantity !== '' ? Number(e.quantity) : undefined,
+          totalPower: e.totalPower !== '' ? Number(e.totalPower) : undefined,
+          speed: e.speed !== '' ? Number(e.speed) : undefined,
+          rpm: e.rpm !== '' ? Number(e.rpm) : undefined
+        })),
         stroke: stroke.trim() || undefined,
         engineBuilder: engineBuilder.trim() || undefined,
         engineBuilt: engineBuilt.trim() || undefined,
         propeller: propeller.trim() || undefined,
-        speed: speed !== '' ? Number(speed) : undefined,
-        rpm: rpm !== '' ? Number(rpm) : undefined,
         electricalInstallation: electricalInstallation.trim() || undefined,
         boilers: boilers.trim() || undefined,
         registeredOwnerName: registeredOwnerName.trim() || undefined,
@@ -748,191 +758,68 @@ export default function CreateFirstEntry() {
           <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
           <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Tonnages & Dimensions</h4>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
-            <div>
-              <label className="form-label" htmlFor="grossTon">Gross Tonnage *</label>
-              <input
-                id="grossTon"
-                type="number"
-                className="form-input"
-                value={grossTonnage}
-                onChange={e => setGrossTonnage(e.target.value !== '' ? Number(e.target.value) : '')}
-                disabled={!!uqmsNumber}
-              />
+          {engines.map((eng, index) => (
+            <div key={index} style={{ marginBottom: '20px', padding: '16px', background: 'var(--subtle)', borderRadius: '8px', position: 'relative', border: '1px solid var(--separator)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Engine {index + 1}</span>
+                {engines.length > 1 && (
+                  <button type="button" onClick={() => {
+                    const newEngines = [...engines];
+                    newEngines.splice(index, 1);
+                    setEngines(newEngines);
+                  }} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '12px', padding: '4px' }}>
+                    Remove
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px' }}>
+                <div>
+                  <label className="form-label">Model</label>
+                  <input type="text" className="form-input" value={eng.model} onChange={e => {
+                    const newEngines = [...engines];
+                    newEngines[index].model = e.target.value;
+                    setEngines(newEngines);
+                  }} />
+                </div>
+                <div>
+                  <label className="form-label">Quantity</label>
+                  <input type="number" className="form-input" value={eng.quantity} onChange={e => {
+                    const newEngines = [...engines];
+                    newEngines[index].quantity = e.target.value !== '' ? Number(e.target.value) : '';
+                    setEngines(newEngines);
+                  }} />
+                </div>
+                <div>
+                  <label className="form-label">Total Power (kW)</label>
+                  <input type="number" className="form-input" value={eng.totalPower} onChange={e => {
+                    const newEngines = [...engines];
+                    newEngines[index].totalPower = e.target.value !== '' ? Number(e.target.value) : '';
+                    setEngines(newEngines);
+                  }} />
+                </div>
+                <div>
+                  <label className="form-label">Speed (knots)</label>
+                  <input type="number" className="form-input" value={eng.speed} onChange={e => {
+                    const newEngines = [...engines];
+                    newEngines[index].speed = e.target.value !== '' ? Number(e.target.value) : '';
+                    setEngines(newEngines);
+                  }} />
+                </div>
+                <div>
+                  <label className="form-label">RPM</label>
+                  <input type="number" className="form-input" value={eng.rpm} onChange={e => {
+                    const newEngines = [...engines];
+                    newEngines[index].rpm = e.target.value !== '' ? Number(e.target.value) : '';
+                    setEngines(newEngines);
+                  }} />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="form-label" htmlFor="netTon">Net Tonnage</label>
-              <input
-                id="netTon"
-                type="number"
-                className="form-input"
-                value={netTonnage}
-                onChange={e => setNetTonnage(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="deadweight">Deadweight (DWT)</label>
-              <input
-                id="deadweight"
-                type="number"
-                className="form-input"
-                value={deadweight}
-                onChange={e => setDeadweight(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="lightship">Lightship</label>
-              <input
-                id="lightship"
-                type="number"
-                className="form-input"
-                value={lightship}
-                onChange={e => setLightship(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
-            <div>
-              <label className="form-label" htmlFor="oLength">Overall Length (LOA) *</label>
-              <input
-                id="oLength"
-                type="number"
-                className="form-input"
-                value={overallLength}
-                onChange={e => setOverallLength(e.target.value !== '' ? Number(e.target.value) : '')}
-                disabled={!!uqmsNumber}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="lbp">LBP</label>
-              <input
-                id="lbp"
-                type="number"
-                className="form-input"
-                value={lbp}
-                onChange={e => setLbp(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="length">Length</label>
-              <input
-                id="length"
-                type="number"
-                className="form-input"
-                value={length}
-                onChange={e => setLength(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="breadth">Breadth</label>
-              <input
-                id="breadth"
-                type="number"
-                className="form-input"
-                value={breadth}
-                onChange={e => setBreadth(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="draught">Draught</label>
-              <input
-                id="draught"
-                type="number"
-                className="form-input"
-                value={draught}
-                onChange={e => setDraught(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
-            <div>
-              <label className="form-label" htmlFor="depth">Depth</label>
-              <input
-                id="depth"
-                type="number"
-                className="form-input"
-                value={depth}
-                onChange={e => setDepth(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="freeboard">Freeboard</label>
-              <input
-                id="freeboard"
-                type="number"
-                className="form-input"
-                value={freeboard}
-                onChange={e => setFreeboard(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="ballast">Ballast Wtr Capacity</label>
-              <input
-                id="ballast"
-                type="number"
-                className="form-input"
-                value={ballastWtrCapacity}
-                onChange={e => setBallastWtrCapacity(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-          <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '14px' }}>Machinery & Engine Specs</h4>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>
-            <div>
-              <label className="form-label" htmlFor="engModel">Main Engine Model</label>
-              <input
-                id="engModel"
-                type="text"
-                className="form-input"
-                value={mainEngineModel}
-                onChange={e => setMainEngineModel(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="numEng">No Of Engines</label>
-              <input
-                id="numEng"
-                type="number"
-                className="form-input"
-                value={noOfEngines}
-                onChange={e => setNoOfEngines(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="power">Total Power (kW)</label>
-              <input
-                id="power"
-                type="number"
-                className="form-input"
-                value={totalPower}
-                onChange={e => setTotalPower(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="speed">Speed (knots)</label>
-              <input
-                id="speed"
-                type="number"
-                className="form-input"
-                value={speed}
-                onChange={e => setSpeed(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
-            <div>
-              <label className="form-label" htmlFor="rpm">RPM</label>
-              <input
-                id="rpm"
-                type="number"
-                className="form-input"
-                value={rpm}
-                onChange={e => setRpm(e.target.value !== '' ? Number(e.target.value) : '')}
-              />
-            </div>
+          ))}
+          <div style={{ marginBottom: '20px' }}>
+            <button type="button" onClick={() => setEngines([...engines, { model: '', quantity: '', totalPower: '', speed: '', rpm: '' }])} className="btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+              + Add Engine
+            </button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px 20px', marginBottom: '20px' }}>

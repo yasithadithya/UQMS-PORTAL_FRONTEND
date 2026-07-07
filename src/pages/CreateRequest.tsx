@@ -15,6 +15,7 @@ import {
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
+import DragDropFileUpload from '@/components/DragDropFileUpload';
 import s from './NewRequest.module.css';
 
 const emptyForm: RequestPayload = {
@@ -460,19 +461,13 @@ export default function CreateRequestPage() {
 
           <div className={s.fullRow}>
             <label className="form-label">Documents</label>
-            <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
-              <div className="upload-icon">+</div>
-              <div className="upload-text">
-                <span>Upload files</span> (PDF or images)
-              </div>
-              <input
-                type="file"
-                multiple
-                accept=".pdf,image/*"
-                onChange={(e) => handleAddFiles(e.target.files)}
-                style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-              />
-            </div>
+            <DragDropFileUpload
+              onFilesSelected={handleAddFiles}
+              multiple={true}
+              accept=".pdf,image/*"
+              subText="(PDF or images)"
+              containerStyle={{ marginTop: '12px' }}
+            />
 
             {pendingDocuments.length > 0 && (
               <div className={s.fileList}>
@@ -509,22 +504,13 @@ export default function CreateRequestPage() {
 
           <div className={s.fullRow} style={{ marginTop: '12px' }}>
             <label className="form-label">Signed PDF (Optional)</label>
-            <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
-              <div className="upload-icon">+</div>
-              <div className="upload-text">
-                {pendingSignedPdf ? (
-                  <span>Selected: {pendingSignedPdf.name}</span>
-                ) : (
-                  <span>Upload Signed PDF</span>
-                )}
-              </div>
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setPendingSignedPdf(e.target.files ? e.target.files[0] : null)}
-                style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-              />
-            </div>
+            <DragDropFileUpload
+              onFilesSelected={(files) => setPendingSignedPdf(files ? files[0] : null)}
+              multiple={false}
+              accept=".pdf"
+              text={pendingSignedPdf ? <span>Selected: {pendingSignedPdf.name}</span> : <span>Upload Signed PDF</span>}
+              containerStyle={{ marginTop: '12px' }}
+            />
             {pendingSignedPdf && (
               <div className={s.fileList} style={{ marginTop: '10px' }}>
                 <div className={s.fileRow}>

@@ -16,6 +16,7 @@ import {
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import Pagination from '@/components/Pagination';
+import DragDropFileUpload from '@/components/DragDropFileUpload';
 import s from './NewRequest.module.css';
 
 const emptyForm: RequestPayload = {
@@ -721,20 +722,14 @@ export default function NewRequestPage() {
               <div className={s.fullRow}>
                 <label className="form-label">Documents</label>
                 {editingRequest && renderDocuments(editingRequest)}
-                <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
-                  <div className="upload-icon">+</div>
-                  <div className="upload-text">
-                    <span>Upload files</span> (PDF or images)
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,image/*"
-                    onChange={(e) => handleAddFiles(e.target.files)}
-                    style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-                    disabled={!editingIsActive}
-                  />
-                </div>
+                <DragDropFileUpload
+                  onFilesSelected={handleAddFiles}
+                  multiple={true}
+                  accept=".pdf,image/*"
+                  disabled={!editingIsActive}
+                  subText="(PDF or images)"
+                  containerStyle={{ marginTop: '12px' }}
+                />
 
                 {pendingDocuments.length > 0 && (
                   <div className={s.fileList}>
@@ -815,11 +810,12 @@ export default function NewRequestPage() {
                 onChange={(e) => setDocModalName(e.target.value)}
               />
               <label className="form-label">Replace File (Optional)</label>
-              <input
-                className="form-input"
-                type="file"
+              <DragDropFileUpload
+                onFilesSelected={(files) => setDocModalFile(files ? files[0] : null)}
+                multiple={false}
                 accept=".pdf,image/*"
-                onChange={(e) => setDocModalFile(e.target.files ? e.target.files[0] : null)}
+                text={docModalFile ? <span>Selected: {docModalFile.name}</span> : <span>Upload Replace File</span>}
+                containerStyle={{ marginTop: '8px', padding: '16px' }}
               />
             </div>
             <div className={s.modalFooter}>

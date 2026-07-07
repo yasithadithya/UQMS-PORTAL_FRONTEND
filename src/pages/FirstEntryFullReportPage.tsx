@@ -6,6 +6,7 @@ import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import ScccosModal from '@/components/ScccosModal';
+import DragDropFileUpload from '@/components/DragDropFileUpload';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime } from '@/utils/date';
 
@@ -379,8 +380,7 @@ export default function FirstEntryFullReportPage() {
     fileInputRefs.current[itemKey]?.click();
   };
 
-  const handleFileUpload = async (originalIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleFileUpload = async (originalIndex: number, files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     const itemKey = checklist[originalIndex]._id || String(originalIndex);
@@ -417,7 +417,6 @@ export default function FirstEntryFullReportPage() {
       toast.error('Error uploading file: ' + err.message);
     } finally {
       setUploadingQuestionId(null);
-      e.target.value = ''; // Reset file input
     }
   };
 
@@ -868,36 +867,30 @@ export default function FirstEntryFullReportPage() {
                             {/* File Upload Column */}
                             <div className={s.uploadsArea}>
                               <span className={s.inputLabel}>Attachments (PDF, Word, Image)</span>
-                              <div
-                                className={s.uploadTrigger}
-                                onClick={() => !isLocked && triggerFileInput(itemKey)}
-                                style={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                              >
-                                {isUploadingThis ? (
-                                  <>
-                                    <div style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'currentColor', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                      <polyline points="17 8 12 3 7 8"></polyline>
-                                      <line x1="12" y1="3" x2="12" y2="15"></line>
-                                    </svg>
-                                    Attach File
-                                  </>
-                                )}
-                              </div>
-                              <input
-                                ref={(el) => {
-                                  fileInputRefs.current[itemKey] = el;
-                                }}
-                                type="file"
-                                style={{ display: 'none' }}
+                              <DragDropFileUpload
+                                onFilesSelected={(files) => handleFileUpload(item.originalIndex, files)}
+                                multiple={false}
                                 accept=".pdf,.doc,.docx,image/*"
-                                onChange={(e) => handleFileUpload(item.originalIndex, e)}
-                                disabled={isLocked}
+                                disabled={isLocked || isUploadingThis}
+                                className={s.uploadTrigger}
+                                containerStyle={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                                text={
+                                  isUploadingThis ? (
+                                    <>
+                                      <div style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'currentColor', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                      Uploading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                      </svg>
+                                      Attach File
+                                    </>
+                                  )
+                                }
                               />
 
                               {/* List of uploaded files */}

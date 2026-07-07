@@ -14,6 +14,7 @@ import {
 } from '@/api';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import SearchableSelect from '@/components/SearchableSelect';
+import DragDropFileUpload from '@/components/DragDropFileUpload';
 import { formatDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
 import s from './NewRequest.module.css';
@@ -720,44 +721,34 @@ export default function RequestDetailsPage() {
                       </div>
                     </div>
 
-                    <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
-                      <div className="upload-icon">↻</div>
-                      <div className="upload-text">
-                        <span>Replace Signed PDF</span>
-                      </div>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleUploadSignedPdf(e.target.files[0]);
-                          }
-                        }}
-                        style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-                        disabled={saving}
-                      />
-                    </div>
+                    <DragDropFileUpload
+                      onFilesSelected={(files) => {
+                        if (files && files[0]) {
+                          handleUploadSignedPdf(files[0]);
+                        }
+                      }}
+                      multiple={false}
+                      accept=".pdf"
+                      disabled={saving}
+                      text={<span>Replace Signed PDF</span>}
+                      icon="↻"
+                      containerStyle={{ marginTop: '12px' }}
+                    />
                   </div>
                 ) : (
                   <div>
                     <div className={s.emptyState} style={{ marginBottom: '12px' }}>No signed PDF uploaded yet.</div>
-                    <div className="upload-area" style={{ position: 'relative' }}>
-                      <div className="upload-icon">+</div>
-                      <div className="upload-text">
-                        <span>Upload Signed PDF</span>
-                      </div>
-                      <input
-                        type="file"
-                        accept=".pdf"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleUploadSignedPdf(e.target.files[0]);
-                          }
-                        }}
-                        style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-                        disabled={saving}
-                      />
-                    </div>
+                    <DragDropFileUpload
+                      onFilesSelected={(files) => {
+                        if (files && files[0]) {
+                          handleUploadSignedPdf(files[0]);
+                        }
+                      }}
+                      multiple={false}
+                      accept=".pdf"
+                      disabled={saving}
+                      text={<span>Upload Signed PDF</span>}
+                    />
                   </div>
                 )}
               </section>
@@ -963,19 +954,13 @@ export default function RequestDetailsPage() {
                 )}
 
                 {/* Upload New Documents */}
-                <div className="upload-area" style={{ marginTop: '16px', position: 'relative' }}>
-                  <div className="upload-icon">+</div>
-                  <div className="upload-text">
-                    <span>Upload more files</span> (PDF or images)
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,image/*"
-                    onChange={(e) => handleAddFiles(e.target.files)}
-                    style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-                  />
-                </div>
+                <DragDropFileUpload
+                  onFilesSelected={handleAddFiles}
+                  multiple={true}
+                  accept=".pdf,image/*"
+                  subText="(PDF or images)"
+                  containerStyle={{ marginTop: '16px' }}
+                />
 
                 {/* Pending Documents List */}
                 {pendingDocuments.length > 0 && (
@@ -1037,22 +1022,13 @@ export default function RequestDetailsPage() {
                   </div>
                 ) : null}
 
-                <div className="upload-area" style={{ marginTop: '12px', position: 'relative' }}>
-                  <div className="upload-icon">+</div>
-                  <div className="upload-text">
-                    {pendingSignedPdf ? (
-                      <span>Selected: {pendingSignedPdf.name}</span>
-                    ) : (
-                      <span>Upload Signed PDF</span>
-                    )}
-                  </div>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    onChange={(e) => setPendingSignedPdf(e.target.files ? e.target.files[0] : null)}
-                    style={{ opacity: 0, position: 'absolute', inset: 0, cursor: 'pointer' }}
-                  />
-                </div>
+                <DragDropFileUpload
+                  onFilesSelected={(files) => setPendingSignedPdf(files ? files[0] : null)}
+                  multiple={false}
+                  accept=".pdf"
+                  text={pendingSignedPdf ? <span>Selected: {pendingSignedPdf.name}</span> : <span>Upload Signed PDF</span>}
+                  containerStyle={{ marginTop: '12px' }}
+                />
               </section>
 
               <div className={s.detailFooter}>

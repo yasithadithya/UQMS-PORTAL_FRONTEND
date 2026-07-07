@@ -214,7 +214,7 @@ export default function CreateFirstEntry() {
     setBuilder(vessel.builder || '');
     setPlaceOfBuilt(vessel.placeOfBuilt || '');
     setYardNo(vessel.yardNo || '');
-    setDateOfBuild(vessel.dateOfBuild ? vessel.dateOfBuild.split('T')[0] : '');
+    setDateOfBuild(vessel.dateOfBuild ? vessel.dateOfBuild.split('T')[0].split('-').reverse().join('/') : '');
     setKeelDate(vessel.keelDate ? vessel.keelDate.split('T')[0] : '');
     setBuildingContractDate(vessel.buildingContractDate ? vessel.buildingContractDate.split('T')[0] : '');
     setMajorConversionDate(vessel.majorConversionDate ? vessel.majorConversionDate.split('T')[0] : '');
@@ -372,7 +372,15 @@ export default function CreateFirstEntry() {
         builder: builder.trim() || undefined,
         placeOfBuilt: placeOfBuilt.trim() || undefined,
         yardNo: yardNo.trim() || undefined,
-        dateOfBuild: dateOfBuild || undefined,
+        dateOfBuild: (() => {
+          if (!dateOfBuild) return undefined;
+          if (dateOfBuild.includes('/')) {
+            const parts = dateOfBuild.split('/');
+            if (parts.length === 2) return `${parts[1]}-${parts[0]}-01`;
+            if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+          return dateOfBuild;
+        })(),
         keelDate: keelDate || undefined,
         buildingContractDate: buildingContractDate || undefined,
         majorConversionDate: majorConversionDate || undefined,
@@ -936,10 +944,11 @@ export default function CreateFirstEntry() {
               <label className="form-label" htmlFor="buildDate">Build Date</label>
               <input
                 id="buildDate"
-                type="date"
+                type="text"
+                placeholder="DD/MM/YYYY or MM/YYYY"
                 className="form-input"
                 value={dateOfBuild}
-                onChange={e => setDateOfBuild(e.target.value)}
+                onChange={e => setDateOfBuild(e.target.value.replace(/[^\d/]/g, ''))}
               />
             </div>
           </div>

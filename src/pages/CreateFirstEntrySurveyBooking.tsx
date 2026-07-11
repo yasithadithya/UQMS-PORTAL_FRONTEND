@@ -769,8 +769,8 @@ export default function CreateFirstEntrySurveyBooking() {
                 <label className="form-label" htmlFor="surveyMode">Survey Mode</label>
                 <select id="surveyMode" className="form-input" value={surveyMode} onChange={e => setSurveyMode(e.target.value)} disabled={!isFieldEditable('surveyMode')}>
                   <option value="Singly">Singly</option>
-                  <option value="Dually">Dually</option>
-                  <option value="Interim">Interim</option>
+                  <option value="Jointly">Jointly</option>
+                  <option value="OnBehalf">Singly and On Behalf</option>
                 </select>
               </div>
               <div>

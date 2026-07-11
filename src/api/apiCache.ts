@@ -96,6 +96,8 @@ export const CACHE_KEYS = {
   HR_JOB_TITLES: 'hr:jobTitles',
   HR_LEAVE_TYPES: 'hr:leaveTypes',
   HR_HOLIDAYS: 'hr:holidays',
+  HR_CHECKLIST_TEMPLATES: 'hr:checklistTemplates',
+  HR_TRAINING_PROGRAMS: 'hr:trainingPrograms',
 } as const;
 
 // TTL presets (in milliseconds)

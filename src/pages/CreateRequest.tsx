@@ -61,6 +61,18 @@ const makeId = () => {
 
 const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
 
+const toDateInputValue = (value?: string | Date | null) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const defaultCreatedDate = toDateInputValue(new Date());
+
 export default function CreateRequestPage() {
   const navigate = useNavigate();
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
@@ -97,6 +109,7 @@ export default function CreateRequestPage() {
         ...prev,
         vesselType: vesselRes.data[0]?._id || '',
         areaOfOperation: areaRes.data[0]?._id || '',
+        createdAt: prev.createdAt || defaultCreatedDate,
       }));
     } catch (err: any) {
       setPageError(err.message || 'Failed to load request data.');
@@ -195,6 +208,7 @@ export default function CreateRequestPage() {
       imoNumber: formData.imoNumber?.trim() || undefined,
       mmsiNumber: formData.mmsiNumber?.trim() || undefined,
       uqmsNumber: formData.uqmsNumber?.trim() || undefined,
+      createdAt: formData.createdAt ? new Date(formData.createdAt).toISOString() : undefined,
       status: formData.status || 'active',
     };
 
@@ -410,6 +424,15 @@ export default function CreateRequestPage() {
                 <option value="marine">Marine</option>
                 <option value="industrial">Industrial</option>
               </select>
+            </div>
+            <div>
+              <label className="form-label">Created Date</label>
+              <input
+                className="form-input"
+                type="date"
+                value={formData.createdAt || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, createdAt: e.target.value }))}
+              />
             </div>
             <SearchableSelect
               label="Vessel Type"

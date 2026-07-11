@@ -1,86 +1,81 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
 import { hrService } from '../../api';
+import { request } from '../../api/client';
+import { Modal, formatMoney } from './hrShared';
+import s from './hr.module.css';
 
-export default function PayslipModal({ runId, onClose }: { runId: string, onClose: () => void }) {
+function PayRow({ label, value, strong }: { label: string; value?: number; strong?: boolean }) {
+  return (
+    <div className={`${s.payRow} ${strong ? s.payRowStrong : ''}`}>
+      <span>{label}</span>
+      <span>{(value ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+    </div>
+  );
+}
+
+export default function PayslipModal({ runId, onClose, selfService = false }: { runId: string, onClose: () => void, selfService?: boolean }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    hrService.getPayslip(runId).then(res => {
+    const fetcher = selfService
+      ? request<any>(`/hr/me/payslips/${runId}`)
+      : hrService.getPayslip(runId);
+    fetcher.then(res => {
       if (res.success) setData(res.data);
       setLoading(false);
-    }).catch(err => {
-      alert('Error fetching payslip');
+    }).catch(() => {
+      toast.error('Error fetching payslip');
       onClose();
     });
   }, [runId]);
 
-  if (loading) return null;
-  if (!data) return null;
+  if (loading || !data) return null;
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="card animate-in" style={{ width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-          <div>
-            <h2 style={{ marginBottom: '4px' }}>Payslip</h2>
-            <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
-              For the period: {data.month}/{data.year}
-            </p>
-          </div>
-          <button className="btn-secondary" onClick={onClose} style={{ marginBottom: 0 }}>Close</button>
-        </div>
-
-        <div style={{ marginBottom: '24px', padding: '16px', background: 'var(--separator)', borderRadius: '8px' }}>
-          <p style={{ margin: '0 0 8px 0', fontWeight: 600 }}>Employee Details</p>
-          <p style={{ margin: '0 0 4px 0', fontSize: '14px' }}>Name: {data.employee?.firstName} {data.employee?.lastName}</p>
-          <p style={{ margin: 0, fontSize: '14px' }}>ID: {data.employee?.employeeId}</p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-          <div>
-            <h4 style={{ borderBottom: '1px solid var(--separator)', paddingBottom: '8px', marginBottom: '16px' }}>Earnings</h4>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>Basic Salary</span>
-              <span>{data.basicSalary?.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>Allowances</span>
-              <span>{data.allowances?.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', fontWeight: 600, marginTop: '16px' }}>
-              <span>Gross Earnings</span>
-              <span>{data.grossSalary?.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div>
-            <h4 style={{ borderBottom: '1px solid var(--separator)', paddingBottom: '8px', marginBottom: '16px' }}>Deductions</h4>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>EPF (Employee 8%)</span>
-              <span>{data.epfEmployee?.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>Income Tax (APIT)</span>
-              <span>{data.incomeTax?.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-              <span>Unpaid Leave Ded.</span>
-              <span>{data.unpaidLeaveDeduction?.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', fontWeight: 600, marginTop: '16px' }}>
-              <span>Total Deductions</span>
-              <span>{data.totalDeductions?.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: '32px', paddingTop: '16px', borderTop: '2px solid var(--separator)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '16px', fontWeight: 700 }}>Net Pay</span>
-          <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--green)' }}>Rs. {data.netSalary?.toFixed(2)}</span>
-        </div>
-
+    <Modal title={`Payslip — ${data.month}/${data.year}`} onClose={onClose}>
+      <div className={s.payMeta}>
+        <p style={{ fontWeight: 600, marginBottom: '6px' }}>{data.employee?.firstName} {data.employee?.lastName} · {data.employee?.employeeId}</p>
+        <p className={s.mutedNote}>
+          Attendance: {data.daysWorked}/{data.workingDaysInMonth} days worked
+          {data.leaveDaysPaid > 0 && ` · ${data.leaveDaysPaid} paid leave`}
+          {data.absentDays > 0 && ` · ${data.absentDays} absent`}
+          {data.overtimeHours > 0 && ` · ${data.overtimeHours} OT hrs`}
+        </p>
       </div>
-    </div>
+
+      <div className={s.payCols}>
+        <div>
+          <div className={s.payColTitle}>Earnings</div>
+          <PayRow label="Basic Salary" value={data.basicSalary} />
+          {(data.allowanceBreakdown || []).map((a: any, i: number) => (
+            <PayRow key={i} label={a.name} value={a.amount} />
+          ))}
+          {(!data.allowanceBreakdown || data.allowanceBreakdown.length === 0) && <PayRow label="Allowances" value={data.totalAllowances} />}
+          {data.overtimePay > 0 && <PayRow label="Overtime Pay" value={data.overtimePay} />}
+          <PayRow label="Gross Earnings" value={data.grossSalary} strong />
+        </div>
+
+        <div>
+          <div className={s.payColTitle}>Deductions</div>
+          <PayRow label="EPF (Employee 8%)" value={data.epfEmployee} />
+          <PayRow label="Income Tax (APIT)" value={data.incomeTax} />
+          {(data.otherDeductions || []).map((d: any, i: number) => (
+            <PayRow key={i} label={d.name} value={d.amount} />
+          ))}
+          <PayRow label="Total Deductions" value={data.totalDeductions} strong />
+        </div>
+      </div>
+
+      <div className={s.payNote}>
+        Employer contributions (not deducted from salary): EPF 12% = {(data.epfEmployer ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} · ETF 3% = {(data.etf ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+      </div>
+
+      <div className={s.payTotal}>
+        <span style={{ fontSize: '16px', fontWeight: 700 }}>Net Pay</span>
+        <span className={s.payTotalValue}>{formatMoney(data.netSalary)}</span>
+      </div>
+    </Modal>
   );
 }

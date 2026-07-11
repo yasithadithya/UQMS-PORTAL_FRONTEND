@@ -77,6 +77,7 @@ const requestToForm = (request: ApiRequest): RequestPayload => ({
   invoicingAddress: request.invoicingAddress || '',
   companyEmail: request.companyEmail || '',
   sector: request.sector || 'marine',
+  createdAt: request.createdAt ? request.createdAt.split('T')[0] : '',
   vesselType: getId(request.vesselType),
   areaOfOperation: getId(request.areaOfOperation),
   surveyTypes: (request.surveyTypes || []).map(getId),

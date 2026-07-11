@@ -71,6 +71,18 @@ const makeId = () => {
 
 const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
 
+const toDateInputValue = (value?: string | Date | null) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const defaultCreatedDate = toDateInputValue(new Date());
+
 export default function NewRequestPage() {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
@@ -211,6 +223,7 @@ export default function NewRequestPage() {
       invoicingAddress: request.invoicingAddress || '',
       companyEmail: request.companyEmail || '',
       sector: request.sector || 'marine',
+        createdAt: toDateInputValue(request.createdAt) || defaultCreatedDate,
       vesselType: getId(request.vesselType),
       areaOfOperation: getId(request.areaOfOperation),
       surveyTypes: request.surveyTypes.map(getId),
@@ -273,6 +286,7 @@ export default function NewRequestPage() {
       imoNumber: formData.imoNumber?.trim() || undefined,
       mmsiNumber: formData.mmsiNumber?.trim() || undefined,
       uqmsNumber: formData.uqmsNumber?.trim() || undefined,
+      createdAt: formData.createdAt ? new Date(formData.createdAt).toISOString() : undefined,
       status: formData.status || 'active',
     };
 
@@ -668,6 +682,16 @@ export default function NewRequestPage() {
                     <option value="marine">Marine</option>
                     <option value="industrial">Industrial</option>
                   </select>
+                </div>
+                <div>
+                  <label className="form-label">Created Date</label>
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={formData.createdAt || ''}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, createdAt: e.target.value }))}
+                    disabled={!editingIsActive}
+                  />
                 </div>
                 <SearchableSelect
                   label="Vessel Type"

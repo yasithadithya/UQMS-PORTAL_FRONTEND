@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { hrService } from '../../api';
 import EmployeeForm from './EmployeeForm';
 import Pagination from '@/components/Pagination';
+import { PageHeader, Badge, EmptyRow } from './hrShared';
+import s from './hr.module.css';
 
 export default function EmployeeList({ basePath }: { basePath: string }) {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -52,48 +54,44 @@ export default function EmployeeList({ basePath }: { basePath: string }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-        <button className="btn-primary" onClick={handleAdd}>
-          + Add Employee
-        </button>
-      </div>
+      <PageHeader
+        title="Employees"
+        subtitle={`${total} employee${total === 1 ? '' : 's'}`}
+        action={<button className={s.addBtn} onClick={handleAdd}>+ Add Employee</button>}
+      />
 
       {loading ? (
-        <p>Loading employees...</p>
+        <p className={s.mutedNote}>Loading employees...</p>
       ) : (
         <>
-          <div className="card" style={{ padding: 0, overflowX: 'auto', marginBottom: '16px' }}>
-            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+          <div className={s.tableWrap} style={{ marginBottom: '16px' }}>
+            <table className={s.table}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--separator)' }}>
-                  <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Emp ID</th>
-                  <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Name</th>
-                  <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Department</th>
-                  <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+                <tr>
+                  <th>Emp ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Job Title</th>
+                  <th>Status</th>
+                  <th className={s.alignRight}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {employees.map(emp => (
-                  <tr key={emp._id} style={{ borderBottom: '1px solid var(--separator)' }} className="table-row-hover">
-                    <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 600 }}>{emp.employeeId}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '14px', color: 'var(--label)' }}>{emp.firstName} {emp.lastName}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '13px' }}>{emp.department?.name || 'N/A'}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '13px' }}>
-                      <span style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '4px', background: emp.employmentStatus === 'Active' ? 'var(--green-subtle)' : 'var(--separator)', color: emp.employmentStatus === 'Active' ? 'var(--green)' : 'var(--muted)', fontSize: '11px', fontWeight: 600 }}>
-                        {emp.employmentStatus}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                      <button className="btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }} onClick={() => handleEdit(emp)}>Edit</button>
+                  <tr key={emp._id}>
+                    <td className={s.cellStrong}>{emp.employeeId}</td>
+                    <td className={s.cellStrong}>{emp.firstName} {emp.lastName}</td>
+                    <td>{emp.department?.name || '—'}</td>
+                    <td>{emp.jobTitle?.title || '—'}</td>
+                    <td><Badge status={emp.employmentStatus} /></td>
+                    <td className={s.alignRight}>
+                      <div className={s.actionRow}>
+                        <button className={s.actionBtn} onClick={() => handleEdit(emp)}>Edit</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {employees.length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>No employees found.</td>
-                  </tr>
-                )}
+                {employees.length === 0 && <EmptyRow colSpan={6} text="No employees found." />}
               </tbody>
             </table>
           </div>
@@ -110,10 +108,10 @@ export default function EmployeeList({ basePath }: { basePath: string }) {
       )}
 
       {isFormOpen && (
-        <EmployeeForm 
-          employee={selectedEmployee} 
-          onClose={() => setIsFormOpen(false)} 
-          onSaved={handleSaved} 
+        <EmployeeForm
+          employee={selectedEmployee}
+          onClose={() => setIsFormOpen(false)}
+          onSaved={handleSaved}
         />
       )}
     </div>

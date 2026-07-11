@@ -1,110 +1,177 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { hrService } from '../../api';
+import Pagination from '../../components/Pagination';
+import ConfirmModal from '../../components/ConfirmModal';
+import { PageHeader, Badge, EmptyRow, Modal, Field } from './hrShared';
+import s from './hr.module.css';
 
 export default function LeaveManagement({ basePath }: { basePath: string }) {
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
 
-  useEffect(() => {
-    fetchRequests();
-  }, []);
+  const [approveId, setApproveId] = useState<string | null>(null);
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await hrService.getLeaveRequests();
-      if (res.success) setRequests(res.data?.requests || []);
-    } catch (err) {
-      console.error(err);
+      const res = await hrService.getLeaveRequests({ status: statusFilter || undefined, page, limit });
+      if (res.success) {
+        setRequests(res.data?.requests || []);
+        setTotal(res.data?.total || 0);
+        setPages(res.data?.pages || 1);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error loading leave requests');
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, page, limit]);
 
-  const handleApprove = async (id: string) => {
-    if (!window.confirm('Approve this leave request?')) return;
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
+
+  const handleApprove = async () => {
+    if (!approveId) return;
+    const id = approveId;
+    setApproveId(null);
     try {
       await hrService.approveLeaveRequest(id);
+      toast.success('Leave request approved');
       fetchRequests();
     } catch (err: any) {
-      alert(err.message || 'Error approving request');
+      toast.error(err.message || 'Error approving request');
     }
   };
 
-  const handleReject = async (id: string) => {
-    const comments = window.prompt('Reason for rejection:');
-    if (comments === null) return;
+  const handleReject = async () => {
+    if (!rejectId) return;
+    if (!rejectReason.trim()) {
+      toast.warn('Please enter a rejection reason');
+      return;
+    }
     try {
-      await hrService.rejectLeaveRequest(id, comments);
+      await hrService.rejectLeaveRequest(rejectId, rejectReason.trim());
+      toast.success('Leave request rejected');
+      setRejectId(null);
+      setRejectReason('');
       fetchRequests();
     } catch (err: any) {
-      alert(err.message || 'Error rejecting request');
+      toast.error(err.message || 'Error rejecting request');
     }
   };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600 }}>Leave Requests</h3>
-        <button className="btn-secondary" onClick={fetchRequests}>Refresh</button>
-      </div>
+      <PageHeader
+        title="Leave Requests"
+        subtitle={`${total} request${total === 1 ? '' : 's'}`}
+        action={
+          <>
+            <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+              <option value="">All statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <button className={s.actionBtn} onClick={fetchRequests}>Refresh</button>
+          </>
+        }
+      />
 
       {loading ? (
-        <p>Loading leave requests...</p>
+        <p className={s.mutedNote}>Loading leave requests...</p>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+        <div className={s.tableWrap}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--separator)' }}>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Employee</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Leave Type</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Dates</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Days</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Status</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+              <tr>
+                <th>Employee</th>
+                <th>Leave Type</th>
+                <th>Dates</th>
+                <th>Days</th>
+                <th>Reason</th>
+                <th>Status</th>
+                <th className={s.alignRight}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {requests.map(req => (
-                <tr key={req._id} style={{ borderBottom: '1px solid var(--separator)' }} className="table-row-hover">
-                  <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600 }}>
+                <tr key={req._id}>
+                  <td className={s.cellStrong}>
                     {req.employee?.firstName} {req.employee?.lastName}
-                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--muted)', fontWeight: 400, marginTop: '2px' }}>
-                      {req.employee?.employeeId}
-                    </span>
+                    <span className={s.cellSub}>{req.employee?.employeeId}</span>
                   </td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>{req.leaveType?.name || 'Unknown'}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>
-                    {new Date(req.startDate).toLocaleDateString()} - {new Date(req.endDate).toLocaleDateString()}
+                  <td>{req.leaveType?.name || 'Unknown'}</td>
+                  <td>{new Date(req.startDate).toLocaleDateString()} - {new Date(req.endDate).toLocaleDateString()}</td>
+                  <td>{req.totalDays}</td>
+                  <td style={{ maxWidth: '220px' }}>
+                    {req.reason || '—'}
+                    {req.status === 'Rejected' && req.rejectionReason && (
+                      <span className={s.cellSub} style={{ color: 'var(--red)' }}>Rejected: {req.rejectionReason}</span>
+                    )}
                   </td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>{req.numberOfDays}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>
-                    <span style={{ 
-                      display: 'inline-flex', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                      background: req.status === 'Approved' ? 'var(--green-subtle)' : req.status === 'Rejected' ? 'var(--red-subtle)' : 'var(--orange-subtle)', 
-                      color: req.status === 'Approved' ? 'var(--green)' : req.status === 'Rejected' ? 'var(--red)' : 'var(--orange)'
-                    }}>
-                      {req.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                  <td><Badge status={req.status} /></td>
+                  <td className={s.alignRight}>
                     {req.status === 'Pending' && (
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
-                        <button className="btn-secondary" style={{ padding: '4px 12px', fontSize: '12px', color: 'var(--green)', borderColor: 'rgba(16,185,129,0.3)' }} onClick={() => handleApprove(req._id)}>Approve</button>
-                        <button className="btn-secondary" style={{ padding: '4px 12px', fontSize: '12px', color: 'var(--red)', borderColor: 'rgba(239,68,68,0.3)' }} onClick={() => handleReject(req._id)}>Reject</button>
+                      <div className={s.actionRow}>
+                        <button className={`${s.actionBtn} ${s.actionSuccess}`} onClick={() => setApproveId(req._id)}>Approve</button>
+                        <button className={`${s.actionBtn} ${s.actionDanger}`} onClick={() => { setRejectId(req._id); setRejectReason(''); }}>Reject</button>
                       </div>
                     )}
                   </td>
                 </tr>
               ))}
-              {requests.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>No leave requests found.</td>
-                </tr>
-              )}
+              {requests.length === 0 && <EmptyRow colSpan={7} text="No leave requests found." />}
             </tbody>
           </table>
+          <div style={{ padding: '0 20px 16px' }}>
+            <Pagination page={page} limit={limit} total={total} totalPages={pages} onPageChange={setPage} onLimitChange={setLimit} />
+          </div>
         </div>
+      )}
+
+      <ConfirmModal
+        isOpen={!!approveId}
+        title="Approve Leave"
+        message="Approve this leave request? The employee's balance will be deducted and attendance marked as On Leave."
+        confirmText="Approve"
+        onCancel={() => setApproveId(null)}
+        onConfirm={handleApprove}
+      />
+
+      {rejectId && (
+        <Modal
+          title="Reject Leave Request"
+          size="narrow"
+          onClose={() => { setRejectId(null); setRejectReason(''); }}
+          footer={
+            <>
+              <button className="btn-secondary" onClick={() => { setRejectId(null); setRejectReason(''); }}>Cancel</button>
+              <button className="btn-primary" style={{ background: 'var(--red)', borderColor: 'var(--red)' }} onClick={handleReject}>Reject</button>
+            </>
+          }
+        >
+          <p className={s.mutedNote} style={{ marginBottom: '16px' }}>Provide a reason for rejecting this request. The pending balance will be restored.</p>
+          <Field label="Reason">
+            <textarea
+              className="form-input form-textarea"
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Insufficient coverage during this period"
+            />
+          </Field>
+        </Modal>
       )}
     </div>
   );

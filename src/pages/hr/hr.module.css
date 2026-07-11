@@ -1,0 +1,943 @@
+/* ============================================================
+   Shared HR module styling — mirrors the app's admin pages
+   (UserManagement.module.css) using global tokens from globals.css.
+   ============================================================ */
+
+/* ---------- Page header / toolbar ---------- */
+.topBar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.headerSub {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.addBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-title);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: background .2s, box-shadow .2s, transform .1s;
+    white-space: nowrap;
+}
+
+.addBtn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 0 16px rgba(59, 130, 246, .2);
+}
+
+.addBtn:active {
+    transform: scale(.98);
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Filter / toolbar card ---------- */
+.filterBar {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    margin-bottom: 24px;
+}
+
+.filterBar .spacer {
+    flex: 1;
+}
+
+/* Compact field used inside filter bars / inline forms.
+   Pairs a .form-label with a control, no bottom margin. */
+.filterField {
+    display: flex;
+    flex-direction: column;
+    min-width: 160px;
+}
+
+.filterField :global(.form-label) {
+    margin-bottom: 6px;
+}
+
+.filterField :global(.form-input) {
+    margin-bottom: 0;
+}
+
+/* ---------- Tables ---------- */
+.tableWrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+}
+
+.table th {
+    text-align: left;
+    font-family: var(--font-title);
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(148, 163, 184, .03);
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--separator);
+    vertical-align: middle;
+    color: var(--secondary);
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table tbody tr:hover td {
+    background: rgba(148, 163, 184, .03);
+}
+
+/* Right-aligned actions column */
+.alignRight {
+    text-align: right;
+}
+
+.cellStrong {
+    font-weight: 600;
+    color: var(--label);
+}
+
+.cellSub {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+.emptyRow {
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+}
+
+/* ---------- Row action buttons ---------- */
+.actionRow {
+    display: inline-flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--secondary);
+    font-family: var(--font);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 12px;
+    transition: background .2s, color .2s, border-color .2s;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.actionBtn:hover {
+    background: var(--card-hover);
+    color: var(--label);
+    border-color: rgba(148, 163, 184, .18);
+}
+
+.actionBtn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.actionPrimary:hover {
+    background: var(--primary-subtle);
+    color: var(--primary);
+    border-color: rgba(59, 130, 246, .3);
+}
+
+.actionSuccess:hover {
+    background: var(--green-subtle);
+    color: var(--green);
+    border-color: rgba(16, 185, 129, .3);
+}
+
+.actionDanger {
+    color: var(--red);
+}
+
+.actionDanger:hover {
+    background: var(--red-subtle);
+    color: var(--red);
+    border-color: rgba(239, 68, 68, .3);
+}
+
+/* ---------- Badges ---------- */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: var(--font-title);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+
+.badgeGreen {
+    background: var(--green-subtle);
+    color: var(--green);
+}
+
+.badgeRed {
+    background: var(--red-subtle);
+    color: var(--red);
+}
+
+.badgeOrange {
+    background: var(--orange-subtle);
+    color: var(--orange);
+}
+
+.badgeBlue {
+    background: var(--primary-subtle);
+    color: var(--primary);
+}
+
+.badgeMuted {
+    background: var(--fill);
+    color: var(--muted);
+}
+
+/* ---------- Modal ---------- */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, .6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: hrFadeIn .2s ease;
+}
+
+@keyframes hrFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+    width: 100%;
+    max-width: 580px;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    animation: hrModalSlide .3s cubic-bezier(.4, 0, .2, 1);
+    overflow: hidden;
+}
+
+.modalWide {
+    max-width: 720px;
+}
+
+.modalNarrow {
+    max-width: 440px;
+}
+
+@keyframes hrModalSlide {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px 12px;
+    flex-shrink: 0;
+}
+
+.modalTitle {
+    font-family: var(--font-title);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--label);
+}
+
+.closeBtn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: var(--surface);
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s, color .2s;
+    flex-shrink: 0;
+}
+
+.closeBtn:hover {
+    background: rgba(148, 163, 184, .15);
+    color: var(--label);
+}
+
+.modalBody {
+    padding: 8px 24px 20px;
+    overflow-y: auto;
+}
+
+.modalFooter {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--separator);
+    flex-shrink: 0;
+}
+
+.modalFooter :global(.btn-primary),
+.modalFooter :global(.btn-secondary) {
+    width: auto;
+    min-width: 120px;
+    margin-bottom: 0;
+}
+
+/* Native selects inside HR modals/forms get the app's chevron */
+.modalBody select.form-input,
+.filterField select,
+.filterBar select.form-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%2394A3B8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+}
+
+/* ---------- Form layout inside modals ---------- */
+.modalGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px 16px;
+}
+
+@media (min-width: 560px) {
+    .modalGrid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .modalGrid3 {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.fieldGroup :global(.form-label) {
+    margin-bottom: 6px;
+}
+
+.fieldGroup :global(.form-input) {
+    margin-bottom: 0;
+    max-width: none;
+}
+
+.fullWidth {
+    grid-column: 1 / -1;
+}
+
+.formSection {
+    font-family: var(--font-title);
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--separator);
+    padding-bottom: 8px;
+    margin: 8px 0 16px;
+}
+
+.req {
+    color: var(--red);
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+}
+
+/* ---------- Two-level module nav ---------- */
+.groupTabs {
+    display: flex;
+    border-bottom: 1px solid var(--separator);
+    gap: 20px;
+    overflow-x: auto;
+}
+
+.groupTab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: var(--font-title);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 4px;
+    cursor: pointer;
+    transition: color var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+
+.groupTab:hover {
+    color: var(--secondary);
+}
+
+.groupTabActive {
+    color: var(--label);
+    border-bottom-color: var(--primary);
+}
+
+.subTabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.subTab {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+    white-space: nowrap;
+}
+
+.subTab:hover {
+    color: var(--secondary);
+    border-color: rgba(148, 163, 184, .25);
+}
+
+.subTabActive {
+    background: var(--primary-subtle);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+/* ---------- In-page section switcher (pill group) ---------- */
+.sectionSwitch {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sectionBtn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.sectionBtn:hover {
+    color: var(--secondary);
+}
+
+.sectionBtnActive {
+    background: var(--primary-subtle);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+/* ---------- Progress bars ---------- */
+.progressTrack {
+    height: 6px;
+    background: var(--separator);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progressFill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.progressFillDone {
+    background: var(--green);
+}
+
+/* ---------- Summary tiles (counts) ---------- */
+.summaryCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.summaryCard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    text-align: center;
+}
+
+.summaryValue {
+    font-family: var(--font-title);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    color: var(--label);
+}
+
+.summaryLabel {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-top: 4px;
+}
+
+/* ---------- Generic content grids / cards ---------- */
+.cardGrid {
+    display: grid;
+    gap: 16px;
+}
+
+.sectionTitle {
+    font-family: var(--font-title);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--label);
+}
+
+.mutedNote {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* ---------- Dashboard info cards ---------- */
+.infoGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.infoCardTitle {
+    font-family: var(--font-title);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--label);
+    margin-bottom: 14px;
+}
+
+.infoRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--separator);
+    font-size: 13px;
+}
+
+.infoRow:last-child {
+    border-bottom: none;
+}
+
+/* ---------- Small utilities ---------- */
+.checkLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--secondary);
+}
+
+.checkLabel input {
+    width: auto;
+    margin: 0;
+}
+
+/* Inline select/input used directly in a header actions row (not a filter card) */
+.inlineControl {
+    margin-bottom: 0;
+    width: auto;
+    min-width: 150px;
+}
+
+.formCard {
+    max-width: 720px;
+}
+
+/* Repeatable editor row (allowances, ratings, checklist items…).
+   Callers set grid-template-columns inline since ratios vary per form. */
+.dynRow {
+    display: grid;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.dynHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.checkInline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--secondary);
+}
+
+.checkInline input {
+    width: auto;
+    margin: 0;
+}
+
+.iconBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 8px 10px;
+    transition: background .2s, color .2s, border-color .2s;
+}
+
+.iconBtn:hover {
+    background: var(--red-subtle);
+    color: var(--red);
+    border-color: rgba(239, 68, 68, .3);
+}
+
+/* ---------- Entity card grids (programs, checklists…) ---------- */
+.gridAuto {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.entityCard {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+}
+
+.entityCardHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.entityTitle {
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 14.5px;
+    color: var(--label);
+}
+
+.entityMeta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+}
+
+.entityDesc {
+    font-size: 12.5px;
+    color: var(--secondary);
+    margin-bottom: 12px;
+}
+
+.cardActions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.inactive {
+    opacity: .6;
+}
+
+/* Task/checklist item row */
+.taskRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--separator);
+}
+
+.taskRow:last-child {
+    border-bottom: none;
+}
+
+.taskTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--label);
+}
+
+.taskTitleDone {
+    text-decoration: line-through;
+    color: var(--muted);
+}
+
+.taskMeta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.miniSelect {
+    margin-bottom: 0;
+    width: auto;
+    min-width: 110px;
+    padding: 6px 28px 6px 10px;
+    font-size: 12.5px;
+}
+
+/* ---------- ESS / My HR ---------- */
+.announceStrip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+}
+
+.announceRow {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 4px 0;
+}
+
+.profileCard {
+    max-width: 640px;
+}
+
+.profileHead {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-title);
+    font-size: 24px;
+    font-weight: 700;
+    background: var(--primary-subtle);
+    color: var(--primary);
+    flex-shrink: 0;
+}
+
+.profileName {
+    font-family: var(--font-title);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--label);
+}
+
+.profileGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    font-size: 13px;
+    color: var(--secondary);
+}
+
+@media (max-width: 480px) {
+    .profileGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.emptyState {
+    max-width: 520px;
+    margin: 40px auto;
+    text-align: center;
+}
+
+.rowActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Payslip ---------- */
+.payMeta {
+    background: var(--bg-subtle);
+    border: 1px solid var(--separator);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.payCols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+}
+
+@media (max-width: 520px) {
+    .payCols {
+        grid-template-columns: 1fr;
+    }
+}
+
+.payColTitle {
+    font-family: var(--font-title);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--separator);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+}
+
+.payRow {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--secondary);
+}
+
+.payRowStrong {
+    font-weight: 700;
+    color: var(--label);
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--separator);
+}
+
+.payNote {
+    margin-top: 20px;
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.payTotal {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 2px solid var(--separator);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.payTotalValue {
+    font-family: var(--font-title);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green);
+}

@@ -14,6 +14,7 @@ export type RequestPayload = {
   invoicingAddress: string;
   companyEmail: string;
   sector: 'marine' | 'industrial';
+  createdAt?: string;
   vesselType: string;
   areaOfOperation: string;
   surveyTypes: string[];

@@ -1,125 +1,213 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { hrService } from '../../api';
+import { Badge, Modal, EmptyRow, FilterBar, Field } from './hrShared';
+import s from './hr.module.css';
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function AttendanceView({ basePath }: { basePath: string }) {
+  const now = new Date();
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
   const [logs, setLogs] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [clockLoading, setClockLoading] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manual, setManual] = useState({ date: '', clockIn: '', clockOut: '', status: 'Present', notes: '' });
 
   useEffect(() => {
-    hrService.getEmployees().then(res => {
+    hrService.getEmployees({ limit: 100 }).then(res => {
       if (res.success) setEmployees(res.data?.employees || []);
-    });
+    }).catch(() => toast.error('Failed to load employees'));
   }, []);
 
-  useEffect(() => {
-    if (selectedEmployeeId) {
-      fetchLogs();
-    } else {
+  const fetchLogs = useCallback(async () => {
+    if (!selectedEmployeeId) {
       setLogs([]);
+      setSummary(null);
+      return;
     }
-  }, [selectedEmployeeId]);
-
-  const fetchLogs = async () => {
     setLoading(true);
     try {
-      const res = await hrService.getAttendance(selectedEmployeeId);
-      if (res.success) {
-        setLogs(res.data);
-      }
-    } catch (err) {
-      console.error(err);
+      const [logsRes, summaryRes] = await Promise.all([
+        hrService.getAttendance(selectedEmployeeId, { month, year }),
+        hrService.getAttendanceSummary(selectedEmployeeId, month, year),
+      ]);
+      if (logsRes.success) setLogs(logsRes.data || []);
+      if (summaryRes.success) setSummary(summaryRes.data);
+    } catch (err: any) {
+      toast.error(err.message || 'Error loading attendance');
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedEmployeeId, month, year]);
 
-  const handleClockIn = async () => {
-    if (!selectedEmployeeId) return alert('Select an employee first');
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  const handleClock = async (direction: 'in' | 'out') => {
+    if (!selectedEmployeeId) return toast.warn('Select an employee first');
     setClockLoading(true);
     try {
-      await hrService.clockIn(selectedEmployeeId);
+      if (direction === 'in') await hrService.clockIn(selectedEmployeeId);
+      else await hrService.clockOut(selectedEmployeeId);
+      toast.success(direction === 'in' ? 'Clocked in' : 'Clocked out');
       fetchLogs();
     } catch (err: any) {
-      alert(err.message || 'Error clocking in');
+      toast.error(err.message || 'Error');
     } finally {
       setClockLoading(false);
     }
   };
 
-  const handleClockOut = async () => {
-    if (!selectedEmployeeId) return alert('Select an employee first');
-    setClockLoading(true);
+  const submitManual = async () => {
+    if (!selectedEmployeeId) return toast.warn('Select an employee first');
+    if (!manual.date) return toast.warn('Date is required');
     try {
-      await hrService.clockOut(selectedEmployeeId);
+      await hrService.manualAttendanceEntry({
+        employeeId: selectedEmployeeId,
+        date: manual.date,
+        clockIn: manual.clockIn ? `${manual.date}T${manual.clockIn}:00` : undefined,
+        clockOut: manual.clockOut ? `${manual.date}T${manual.clockOut}:00` : undefined,
+        status: manual.status,
+        notes: manual.notes || undefined,
+      });
+      toast.success('Manual entry saved');
+      setManualOpen(false);
+      setManual({ date: '', clockIn: '', clockOut: '', status: 'Present', notes: '' });
       fetchLogs();
     } catch (err: any) {
-      alert(err.message || 'Error clocking out');
-    } finally {
-      setClockLoading(false);
+      toast.error(err.message || 'Error saving manual entry');
     }
   };
+
+  const summaryCards = summary ? [
+    { label: 'Present', value: summary.present },
+    { label: 'Absent', value: summary.absent },
+    { label: 'Late', value: summary.late },
+    { label: 'Half Day', value: summary.halfDay },
+    { label: 'On Leave', value: summary.onLeave },
+    { label: 'OT Hours', value: (summary.totalOvertimeHours || 0).toFixed(1) },
+  ] : [];
 
   return (
     <div>
-      <div className="card" style={{ padding: '24px', marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'flex-end' }}>
-        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-          <label>Select Employee</label>
-          <select value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(e.target.value)}>
+      <FilterBar>
+        <Field label="Select Employee" className={s.filterField} full>
+          <select className="form-input" value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(e.target.value)}>
             <option value="">-- Select Employee --</option>
             {employees.map(emp => (
               <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>
             ))}
           </select>
-        </div>
-        <button className="btn-primary" onClick={handleClockIn} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
+        </Field>
+        <Field label="Month" className={s.filterField}>
+          <select className="form-input" value={month} onChange={e => setMonth(Number(e.target.value))}>
+            {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        </Field>
+        <Field label="Year" className={s.filterField}>
+          <select className="form-input" value={year} onChange={e => setYear(Number(e.target.value))}>
+            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </Field>
+        <button className="btn-primary" onClick={() => handleClock('in')} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
           Clock In
         </button>
-        <button className="btn-secondary" onClick={handleClockOut} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
+        <button className="btn-secondary" onClick={() => handleClock('out')} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
           Clock Out
         </button>
-      </div>
+        <button className={s.actionBtn} onClick={() => setManualOpen(true)} disabled={!selectedEmployeeId}>
+          + Manual Entry
+        </button>
+      </FilterBar>
+
+      {summary && (
+        <div className={s.summaryCards}>
+          {summaryCards.map(card => (
+            <div key={card.label} className={s.summaryCard}>
+              <div className={s.summaryValue}>{card.value}</div>
+              <div className={s.summaryLabel}>{card.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {loading ? (
-        <p>Loading attendance logs...</p>
+        <p className={s.mutedNote}>Loading attendance logs...</p>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+        <div className={s.tableWrap}>
+          <table className={s.table}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--separator)' }}>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Date</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Clock In</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Clock Out</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Hours Worked</th>
-                <th style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' }}>Status</th>
+              <tr>
+                <th>Date</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Hours</th>
+                <th>OT</th>
+                <th>Status</th>
+                <th>Notes</th>
               </tr>
             </thead>
             <tbody>
               {logs.map(log => (
-                <tr key={log._id} style={{ borderBottom: '1px solid var(--separator)' }} className="table-row-hover">
-                  <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 600 }}>{new Date(log.date).toLocaleDateString()}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>{log.clockIn ? new Date(log.clockIn).toLocaleTimeString() : '-'}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString() : '-'}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>{log.workedHours ? log.workedHours.toFixed(2) : '-'}</td>
-                  <td style={{ padding: '16px 20px', fontSize: '13px' }}>
-                    <span style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '4px', background: 'var(--primary-subtle)', color: 'var(--primary)', fontSize: '11px', fontWeight: 600 }}>
-                      {log.status}
-                    </span>
+                <tr key={log._id}>
+                  <td className={s.cellStrong}>{new Date(log.date).toLocaleDateString()}</td>
+                  <td>{log.clockIn ? new Date(log.clockIn).toLocaleTimeString() : '-'}</td>
+                  <td>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString() : '-'}</td>
+                  <td>{log.workedHours ? log.workedHours.toFixed(2) : '-'}</td>
+                  <td>{log.overtimeHours ? log.overtimeHours.toFixed(2) : '-'}</td>
+                  <td>
+                    <Badge status={log.status} />
+                    {log.isManualEntry && <span className={s.cellSub} style={{ display: 'inline', marginLeft: '6px' }}>(manual)</span>}
                   </td>
+                  <td style={{ maxWidth: '200px' }}>{log.notes || '—'}</td>
                 </tr>
               ))}
               {logs.length === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>
-                    {selectedEmployeeId ? 'No attendance logs found for this employee.' : 'Please select an employee to view logs.'}
-                  </td>
-                </tr>
+                <EmptyRow colSpan={7} text={selectedEmployeeId ? 'No attendance logs found for this period.' : 'Please select an employee to view logs.'} />
               )}
             </tbody>
           </table>
         </div>
+      )}
+
+      {manualOpen && (
+        <Modal
+          title="Manual Attendance Entry"
+          onClose={() => setManualOpen(false)}
+          footer={
+            <>
+              <button className="btn-secondary" onClick={() => setManualOpen(false)}>Cancel</button>
+              <button className="btn-primary" onClick={submitManual}>Save Entry</button>
+            </>
+          }
+        >
+          <div className={s.modalGrid}>
+            <Field label="Date" required>
+              <input className="form-input" type="date" value={manual.date} onChange={e => setManual({ ...manual, date: e.target.value })} />
+            </Field>
+            <Field label="Status">
+              <select className="form-input" value={manual.status} onChange={e => setManual({ ...manual, status: e.target.value })}>
+                {['Present', 'Absent', 'Late', 'HalfDay', 'OnLeave', 'Holiday'].map(st => <option key={st} value={st}>{st}</option>)}
+              </select>
+            </Field>
+            <Field label="Clock In">
+              <input className="form-input" type="time" value={manual.clockIn} onChange={e => setManual({ ...manual, clockIn: e.target.value })} />
+            </Field>
+            <Field label="Clock Out">
+              <input className="form-input" type="time" value={manual.clockOut} onChange={e => setManual({ ...manual, clockOut: e.target.value })} />
+            </Field>
+            <Field label="Notes" full>
+              <input className="form-input" type="text" value={manual.notes} onChange={e => setManual({ ...manual, notes: e.target.value })} placeholder="Reason for manual entry" />
+            </Field>
+          </div>
+        </Modal>
       )}
     </div>
   );

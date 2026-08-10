@@ -22,6 +22,33 @@ interface ILifeRaftDetails {
   serviceProvider: string;
 }
 
+interface ITank {
+  name: string;
+  frame: string;
+  condition: string;
+}
+
+interface IBridgeOutfit {
+  equipment: string;
+  mfg: string;
+  type: string;
+  serial: string;
+}
+
+interface IPyrotechnic {
+  item: string;
+  nos: string;
+  expiry: string;
+  remarks: string;
+}
+
+interface IEngine {
+  model: string;
+  power: string;
+  fuelType: string;
+  alarms: string;
+}
+
 const defaultFireRows: IFireRow[] = [
   { location: 'Operating station', nos: '1', type: 'DCP', capacity: '3.5 kg', date: '17/07/2025', servicedBy: 'SHM Shipcare Pvt Ltd' },
   { location: 'Steering room', nos: '1', type: 'DCP', capacity: '3.5 kg', date: '17/07/2025', servicedBy: 'SHM Shipcare Pvt Ltd' },
@@ -107,6 +134,50 @@ const numberToWord = (num: string | number): string => {
   return map[clean] || clean;
 };
 
+const defaultBridgeOutfit: IBridgeOutfit[] = [
+  { equipment: 'Magnetic Compass', mfg: 'Plastimo', type: 'OFFSHORE 135', serial: 'BV 0062' },
+  { equipment: 'Radar', mfg: 'Furuno', type: 'MFD 12', serial: '4368-1294' },
+  { equipment: 'VHF', mfg: 'Furuno', type: 'FM-8800S', serial: '3519-Ala2' },
+  { equipment: 'AIS Transponder', mfg: 'Sunhung', type: 'SH- 820', serial: '5H 8201 10917' },
+];
+
+const serializeBridgeOutfit = (rows: IBridgeOutfit[]): string => {
+  return 'BRIDGE:' + JSON.stringify(rows);
+};
+
+const deserializeBridgeOutfit = (remarks: string): IBridgeOutfit[] => {
+  if (remarks.startsWith('BRIDGE:')) {
+    try {
+      return JSON.parse(remarks.substring(7));
+    } catch (e) {
+      return defaultBridgeOutfit;
+    }
+  }
+  return defaultBridgeOutfit; // For backward compatibility with old logic, handled later
+};
+
+const defaultPyrotechnics: IPyrotechnic[] = [
+  { item: 'Hand Flares', nos: '4', expiry: '08/2027', remarks: '' },
+  { item: 'Rocket Parachute', nos: '2', expiry: '08/2027', remarks: '' },
+  { item: 'Smoke Signal', nos: '2', expiry: '08/2027', remarks: '' },
+];
+
+const serializePyrotechnics = (rows: IPyrotechnic[]): string => {
+  return 'PYRO:' + JSON.stringify(rows);
+};
+
+const deserializePyrotechnics = (remarks: string): IPyrotechnic[] => {
+  if (remarks.startsWith('PYRO:')) {
+    try {
+      return JSON.parse(remarks.substring(5));
+    } catch (e) {
+      return defaultPyrotechnics;
+    }
+  }
+  return defaultPyrotechnics;
+};
+
+
 const defaultInspections = [
   'Weather decks, hatchways, and other deck openings for watertight integrity.',
   'Ship side plating above the waterline, casings, skylights, and deckhouses.',
@@ -166,17 +237,13 @@ export default function EditSurveyReport() {
 
   const [accessOpeningsCondition, setAccessOpeningsCondition] = useState('satisfactory');
 
-  const [tanks, setTanks] = useState({
-    fuelOilPortName: 'P',
-    fuelOilPortFrame: '',
-    fuelOilPortCondition: 'satisfactory',
-    fuelOilStarboardName: 'S',
-    fuelOilStarboardFrame: '',
-    fuelOilStarboardCondition: 'satisfactory',
-    freshWaterCenterName: 'C',
-    freshWaterCenterFrame: '',
-    freshWaterCenterCondition: 'satisfactory',
-  });
+  const [fuelOilTanks, setFuelOilTanks] = useState<ITank[]>([
+    { name: 'P', frame: '', condition: 'satisfactory' },
+    { name: 'S', frame: '', condition: 'satisfactory' }
+  ]);
+  const [freshWaterTanks, setFreshWaterTanks] = useState<ITank[]>([
+    { name: 'C', frame: '', condition: 'satisfactory' }
+  ]);
 
   const [spaces, setSpaces] = useState({
     machinerySpace: 'Satisfactory',
@@ -199,11 +266,7 @@ export default function EditSurveyReport() {
   const [electricalExamCondition, setElectricalExamCondition] = useState('as far as practicable');
 
   const [machinery, setMachinery] = useState({
-    mainEngineCount: 2,
-    mainEngineModel: 'Caterpillar',
-    mainEnginePower: '714kW (970 HP)',
-    mainEngineFuelType: 'Diesel',
-    mainEngineAlarms: 'satisfaction',
+    mainEngines: [{ model: 'Caterpillar', power: '714kW (970 HP)', fuelType: 'Diesel', alarms: 'satisfaction' }] as IEngine[],
     
     auxEngineCount: 0,
     auxEngineModel: 'Caterpillar',
@@ -227,32 +290,12 @@ export default function EditSurveyReport() {
 
   // Form Fields (VesselEquipmentRecord)
   const [equipmentRecords, setEquipmentRecords] = useState<any[]>([]);
-  const [compassMfg, setCompassMfg] = useState('Plastimo');
-  const [compassType, setCompassType] = useState('OFFSHORE 135');
-  const [compassSerial, setCompassSerial] = useState('BV 0062');
-
-  const [radarMfg, setRadarMfg] = useState('Furuno');
-  const [radarType, setRadarType] = useState('MFD 12');
-  const [radarSerial, setRadarSerial] = useState('4368-1294');
-
-  const [vhfMfg, setVhfMfg] = useState('Furuno');
-  const [vhfType, setVhfType] = useState('FM-8800S');
-  const [vhfSerial, setVhfSerial] = useState('3519-Ala2');
-
-  const [aisMfg, setAisMfg] = useState('Sunhung');
-  const [aisType, setAisType] = useState('SH- 820');
-  const [aisSerial, setAisSerial] = useState('5H 8201 10917');
+  const [bridgeOutfitRows, setBridgeOutfitRows] = useState<IBridgeOutfit[]>(defaultBridgeOutfit);
 
   const [fireRows, setFireRows] = useState<IFireRow[]>(defaultFireRows);
   const [lifeRaftDetails, setLifeRaftDetails] = useState<ILifeRaftDetails>(defaultLifeRaft);
 
-  const [flaresExpiry, setFlaresExpiry] = useState('08/2027');
-  const [parachuteExpiry, setParachuteExpiry] = useState('08/2027');
-  const [smokeExpiry, setSmokeExpiry] = useState('08/2027');
-
-  const [flaresCount, setFlaresCount] = useState('4');
-  const [parachuteCount, setParachuteCount] = useState('2');
-  const [smokeCount, setSmokeCount] = useState('2');
+  const [pyrotechnicsRows, setPyrotechnicsRows] = useState<IPyrotechnic[]>(defaultPyrotechnics);
 
   // Load data
   useEffect(() => {
@@ -300,17 +343,22 @@ export default function EditSurveyReport() {
 
           setAccessOpeningsCondition(report.accessOpeningsCondition || 'satisfactory');
 
-          setTanks({
-            fuelOilPortName: report.tanks?.fuelOilPortName || 'P',
-            fuelOilPortFrame: report.tanks?.fuelOilPortFrame || '',
-            fuelOilPortCondition: report.tanks?.fuelOilPortCondition || 'satisfactory',
-            fuelOilStarboardName: report.tanks?.fuelOilStarboardName || 'S',
-            fuelOilStarboardFrame: report.tanks?.fuelOilStarboardFrame || '',
-            fuelOilStarboardCondition: report.tanks?.fuelOilStarboardCondition || 'satisfactory',
-            freshWaterCenterName: report.tanks?.freshWaterCenterName || 'C',
-            freshWaterCenterFrame: report.tanks?.freshWaterCenterFrame || '',
-            freshWaterCenterCondition: report.tanks?.freshWaterCenterCondition || 'satisfactory',
-          });
+          if (report.tanks?.fuelOilTanks && report.tanks.fuelOilTanks.length > 0) {
+            setFuelOilTanks(report.tanks.fuelOilTanks);
+          } else {
+            setFuelOilTanks([
+              { name: report.tanks?.fuelOilPortName || 'P', frame: report.tanks?.fuelOilPortFrame || '', condition: report.tanks?.fuelOilPortCondition || 'satisfactory' },
+              { name: report.tanks?.fuelOilStarboardName || 'S', frame: report.tanks?.fuelOilStarboardFrame || '', condition: report.tanks?.fuelOilStarboardCondition || 'satisfactory' }
+            ]);
+          }
+
+          if (report.tanks?.freshWaterTanks && report.tanks.freshWaterTanks.length > 0) {
+            setFreshWaterTanks(report.tanks.freshWaterTanks);
+          } else {
+            setFreshWaterTanks([
+              { name: report.tanks?.freshWaterCenterName || 'C', frame: report.tanks?.freshWaterCenterFrame || '', condition: report.tanks?.freshWaterCenterCondition || 'satisfactory' }
+            ]);
+          }
 
           setSpaces({
             machinerySpace: report.spaces?.machinerySpace || 'Satisfactory',
@@ -333,13 +381,26 @@ export default function EditSurveyReport() {
           setPipingCondition(report.pipingCondition || 'satisfactory');
           setElectricalExamCondition(report.electricalExamCondition || 'as far as practicable');
 
+          let loadedEngines: IEngine[] = [];
+          if (report.machinery?.mainEngines && report.machinery.mainEngines.length > 0) {
+            loadedEngines = report.machinery.mainEngines;
+          } else {
+            const count = report.machinery?.mainEngineCount ?? (vData?.noOfEngines || 2);
+            for (let i = 0; i < count; i++) {
+              loadedEngines.push({
+                model: report.machinery?.mainEngineModel || (vData?.mainEngineModel || 'Caterpillar'),
+                power: report.machinery?.mainEnginePower || (vData?.totalPower ? `${vData.totalPower}kW (${Math.round(vData.totalPower * 1.341)} HP)` : '714kW (970 HP)'),
+                fuelType: report.machinery?.mainEngineFuelType || 'Diesel',
+                alarms: report.machinery?.mainEngineAlarms || 'satisfaction',
+              });
+            }
+            if (loadedEngines.length === 0) {
+               loadedEngines.push({ model: 'Caterpillar', power: '714kW (970 HP)', fuelType: 'Diesel', alarms: 'satisfaction' });
+            }
+          }
+
           setMachinery({
-            mainEngineCount: report.machinery?.mainEngineCount ?? (vData?.noOfEngines || 2),
-            mainEngineModel: report.machinery?.mainEngineModel || (vData?.mainEngineModel || 'Caterpillar'),
-            mainEnginePower: report.machinery?.mainEnginePower || (vData?.totalPower ? `${vData.totalPower}kW (${Math.round(vData.totalPower * 1.341)} HP)` : '714kW (970 HP)'),
-            mainEngineFuelType: report.machinery?.mainEngineFuelType || 'Diesel',
-            mainEngineAlarms: report.machinery?.mainEngineAlarms || 'satisfaction',
-            
+            mainEngines: loadedEngines,
             auxEngineCount: report.machinery?.auxEngineCount ?? 0,
             auxEngineModel: report.machinery?.auxEngineModel || 'Caterpillar',
             auxEngineOutput: report.machinery?.auxEngineOutput || '17KW',
@@ -367,45 +428,32 @@ export default function EditSurveyReport() {
           const records = equipRes.data.equipmentRecords || [];
           setEquipmentRecords(records);
 
-          // Find specific items
+          // Bridge Outfit
           const compass = records.find(r => r.questionId?.description.toLowerCase().includes('compass'));
-          const radar = records.find(r => r.questionId?.description.toLowerCase().includes('radar'));
-          const vhf = records.find(r => r.questionId?.description.toLowerCase().includes('vhf fixed'));
-          const ais = records.find(r => r.questionId?.description.toLowerCase().includes('ais'));
+          if (compass && compass.remarks && compass.remarks.startsWith('BRIDGE:')) {
+            setBridgeOutfitRows(deserializeBridgeOutfit(compass.remarks));
+          } else {
+            const radar = records.find(r => r.questionId?.description.toLowerCase().includes('radar'));
+            const vhf = records.find(r => r.questionId?.description.toLowerCase().includes('vhf fixed'));
+            const ais = records.find(r => r.questionId?.description.toLowerCase().includes('ais'));
 
-          const parseParts = (val: string, defaultVal: string) => {
-            const raw = val && val !== '-' ? val : defaultVal;
-            const parts = raw.split(/\||,/).map(s => s.trim());
-            return {
-              mfg: parts[0] || '',
-              type: parts[1] || '',
-              serial: parts[2] || '',
+            const parseParts = (val: string, defaultVal: string) => {
+              const raw = val && val !== '-' ? val : defaultVal;
+              const parts = raw.split(/\||,/).map(s => s.trim());
+              return { mfg: parts[0] || '', type: parts[1] || '', serial: parts[2] || '' };
             };
-          };
 
-          if (compass) {
-            const p = parseParts(compass.remarks || '', 'Plastimo | OFFSHORE 135 | BV 0062');
-            setCompassMfg(p.mfg);
-            setCompassType(p.type);
-            setCompassSerial(p.serial);
-          }
-          if (radar) {
-            const p = parseParts(radar.remarks || '', 'Furuno | MFD 12 | 4368-1294');
-            setRadarMfg(p.mfg);
-            setRadarType(p.type);
-            setRadarSerial(p.serial);
-          }
-          if (vhf) {
-            const p = parseParts(vhf.remarks || '', 'Furuno | FM-8800S | 3519-Ala2');
-            setVhfMfg(p.mfg);
-            setVhfType(p.type);
-            setVhfSerial(p.serial);
-          }
-          if (ais) {
-            const p = parseParts(ais.remarks || '', 'Sunhung | SH- 820 | 5H 8201 10917');
-            setAisMfg(p.mfg);
-            setAisType(p.type);
-            setAisSerial(p.serial);
+            const parsedCompass = parseParts(compass?.remarks || '', 'Plastimo | OFFSHORE 135 | BV 0062');
+            const parsedRadar = parseParts(radar?.remarks || '', 'Furuno | MFD 12 | 4368-1294');
+            const parsedVhf = parseParts(vhf?.remarks || '', 'Furuno | FM-8800S | 3519-Ala2');
+            const parsedAis = parseParts(ais?.remarks || '', 'Sunhung | SH- 820 | 5H 8201 10917');
+
+            setBridgeOutfitRows([
+              { equipment: 'Magnetic Compass', ...parsedCompass },
+              { equipment: 'Radar', ...parsedRadar },
+              { equipment: 'VHF', ...parsedVhf },
+              { equipment: 'AIS Transponder', ...parsedAis }
+            ]);
           }
 
           // Fire Fighting Extinguishers
@@ -422,22 +470,25 @@ export default function EditSurveyReport() {
 
           // Pyrotechnics Expiries & Counts
           const flare = records.find(r => r.questionId?.description.toLowerCase().includes('parachute flares'));
-          const redFlare = records.find(r => r.questionId?.description.toLowerCase().includes('red hand flares'));
-          const smoke = records.find(r => r.questionId?.description.toLowerCase().includes('smoke signals'));
+          if (flare && flare.remarks && flare.remarks.startsWith('PYRO:')) {
+            setPyrotechnicsRows(deserializePyrotechnics(flare.remarks));
+          } else {
+            const redFlare = records.find(r => r.questionId?.description.toLowerCase().includes('red hand flares'));
+            const smoke = records.find(r => r.questionId?.description.toLowerCase().includes('smoke signals'));
 
-          const getExp = (rem?: string) => rem?.match(/Expiry:\s*([^\s]+)/i)?.[1] || '08/2027';
-          if (flare) setParachuteExpiry(getExp(flare.remarks));
-          if (redFlare) setFlaresExpiry(getExp(redFlare.remarks));
-          if (smoke) setSmokeExpiry(getExp(smoke.remarks));
+            const getExp = (rem?: string) => rem?.match(/Expiry:\s*([^\s]+)/i)?.[1] || '08/2027';
+            const getQty = (rem?: string) => {
+              if (!rem) return '';
+              const match = rem.match(/^([^\.\s]+)/);
+              return match ? wordToNumber(match[1]) : '';
+            };
 
-          const getQty = (rem?: string) => {
-            if (!rem) return '';
-            const match = rem.match(/^([^\.\s]+)/);
-            return match ? wordToNumber(match[1]) : '';
-          };
-          if (flare) setParachuteCount(getQty(flare.remarks) || '2');
-          if (redFlare) setFlaresCount(getQty(redFlare.remarks) || '4');
-          if (smoke) setSmokeCount(getQty(smoke.remarks) || '2');
+            setPyrotechnicsRows([
+              { item: 'Hand Flares', nos: getQty(redFlare?.remarks) || '4', expiry: getExp(redFlare?.remarks), remarks: '' },
+              { item: 'Rocket Parachute', nos: getQty(flare?.remarks) || '2', expiry: getExp(flare?.remarks), remarks: '' },
+              { item: 'Smoke Signal', nos: getQty(smoke?.remarks) || '2', expiry: getExp(smoke?.remarks), remarks: '' }
+            ]);
+          }
         }
 
       } catch (err: any) {
@@ -485,15 +536,8 @@ export default function EditSurveyReport() {
       },
       accessOpeningsCondition,
       tanks: {
-        fuelOilPortName: tanks.fuelOilPortName,
-        fuelOilPortFrame: tanks.fuelOilPortFrame,
-        fuelOilPortCondition: tanks.fuelOilPortCondition,
-        fuelOilStarboardName: tanks.fuelOilStarboardName,
-        fuelOilStarboardFrame: tanks.fuelOilStarboardFrame,
-        fuelOilStarboardCondition: tanks.fuelOilStarboardCondition,
-        freshWaterCenterName: tanks.freshWaterCenterName,
-        freshWaterCenterFrame: tanks.freshWaterCenterFrame,
-        freshWaterCenterCondition: tanks.freshWaterCenterCondition,
+        fuelOilTanks,
+        freshWaterTanks,
       },
       spaces: {
         machinerySpace: spaces.machinerySpace,
@@ -512,11 +556,7 @@ export default function EditSurveyReport() {
       pipingCondition,
       electricalExamCondition,
       machinery: {
-        mainEngineCount: machinery.mainEngineCount,
-        mainEngineModel: machinery.mainEngineModel,
-        mainEnginePower: machinery.mainEnginePower,
-        mainEngineFuelType: machinery.mainEngineFuelType,
-        mainEngineAlarms: machinery.mainEngineAlarms,
+        mainEngines: machinery.mainEngines,
         
         auxEngineCount: machinery.auxEngineCount,
         auxEngineModel: machinery.auxEngineModel,
@@ -566,24 +606,24 @@ export default function EditSurveyReport() {
         let itemStatus = rec.status || 'Provided';
 
         if (desc.includes('compass')) {
-          remarks = `${compassMfg} | ${compassType} | ${compassSerial}`;
+          remarks = serializeBridgeOutfit(bridgeOutfitRows);
         } else if (desc.includes('radar')) {
-          remarks = `${radarMfg} | ${radarType} | ${radarSerial}`;
+          remarks = `See Magnetic Compass`;
         } else if (desc.includes('vhf fixed')) {
-          remarks = `${vhfMfg} | ${vhfType} | ${vhfSerial}`;
+          remarks = `See Magnetic Compass`;
         } else if (desc.includes('ais')) {
-          remarks = `${aisMfg} | ${aisType} | ${aisSerial}`;
+          remarks = `See Magnetic Compass`;
         } else if (desc.includes('portable fire extinguishers')) {
           remarks = serializeFireRows(fireRows);
         } else if (desc.includes('life rafts')) {
           remarks = serializeLifeRaft(lifeRaftDetails);
           itemStatus = Number(lifeRaftDetails.quantity) > 0 ? 'Provided' : 'Not Provided';
         } else if (desc.includes('parachute flares')) {
-          remarks = `${numberToWord(parachuteCount)}. Serial No: 1302095 Expiry: ${parachuteExpiry}`;
+          remarks = serializePyrotechnics(pyrotechnicsRows);
         } else if (desc.includes('red hand flares')) {
-          remarks = `${numberToWord(flaresCount)}. Serial No: 1301816 Expiry: ${flaresExpiry}`;
+          remarks = `See Parachute Flares`;
         } else if (desc.includes('smoke signals')) {
-          remarks = `${numberToWord(smokeCount)}. Serial No: 9-0001-1 Expiry: ${smokeExpiry}`;
+          remarks = `See Parachute Flares`;
         }
 
         return {
@@ -988,93 +1028,121 @@ export default function EditSurveyReport() {
         </p>
 
         <div className="paper-section-title">TANKS:</div>
-        <p className="paper-paragraph">
-          Fuel Oil Tank ({' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.fuelOilPortName}
-            onChange={e => setTanks(p => ({ ...p, fuelOilPortName: e.target.value }))}
-            style={{ width: '40px', textAlign: 'center' }}
-          />{' '}
-          ) – Between{' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.fuelOilPortFrame}
-            onChange={e => setTanks(p => ({ ...p, fuelOilPortFrame: e.target.value }))}
-            placeholder="Fr. 10 – 12"
-            style={{ width: '100px' }}
-          /> <br />
-          Tank external examination carried out to{' '}
-          <select
-            className="paper-input"
-            value={tanks.fuelOilPortCondition}
-            onChange={e => setTanks(p => ({ ...p, fuelOilPortCondition: e.target.value }))}
-          >
-            <option value="satisfactory">satisfactory</option>
-            <option value="unsatisfactory">unsatisfactory</option>
-          </select>
-          . Remote Quick closing valve tested.
-        </p>
-        <p className="paper-paragraph">
-          Fuel Oil Tank ({' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.fuelOilStarboardName}
-            onChange={e => setTanks(p => ({ ...p, fuelOilStarboardName: e.target.value }))}
-            style={{ width: '40px', textAlign: 'center' }}
-          />{' '}
-          ) – Between{' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.fuelOilStarboardFrame}
-            onChange={e => setTanks(p => ({ ...p, fuelOilStarboardFrame: e.target.value }))}
-            placeholder="Fr. 10 – 12"
-            style={{ width: '100px' }}
-          /> <br />
-          Tank external examination carried out to{' '}
-          <select
-            className="paper-input"
-            value={tanks.fuelOilStarboardCondition}
-            onChange={e => setTanks(p => ({ ...p, fuelOilStarboardCondition: e.target.value }))}
-          >
-            <option value="satisfactory">satisfactory</option>
-            <option value="unsatisfactory">unsatisfactory</option>
-          </select>
-          . Remote Quick closing valve tested.
-        </p>
-        <p className="paper-paragraph">
-          Fresh Water Tanks ({' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.freshWaterCenterName}
-            onChange={e => setTanks(p => ({ ...p, freshWaterCenterName: e.target.value }))}
-            style={{ width: '40px', textAlign: 'center' }}
-          />{' '}
-          ) - Between{' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={tanks.freshWaterCenterFrame}
-            onChange={e => setTanks(p => ({ ...p, freshWaterCenterFrame: e.target.value }))}
-            placeholder="Fr. 12 – 13"
-            style={{ width: '100px' }}
-          /> <br />
-          External examination carried out to{' '}
-          <select
-            className="paper-input"
-            value={tanks.freshWaterCenterCondition}
-            onChange={e => setTanks(p => ({ ...p, freshWaterCenterCondition: e.target.value }))}
-          >
-            <option value="satisfactory">satisfactory</option>
-            <option value="unsatisfactory">unsatisfactory</option>
-          </select>
-          .
-        </p>
+        {fuelOilTanks.map((tank, idx) => (
+          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+            Fuel Oil Tank ({' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={tank.name}
+              onChange={e => {
+                const newTanks = [...fuelOilTanks];
+                newTanks[idx].name = e.target.value;
+                setFuelOilTanks(newTanks);
+              }}
+              style={{ width: '40px', textAlign: 'center' }}
+            />{' '}
+            ) – Between{' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={tank.frame}
+              onChange={e => {
+                const newTanks = [...fuelOilTanks];
+                newTanks[idx].frame = e.target.value;
+                setFuelOilTanks(newTanks);
+              }}
+              placeholder="Fr. 10 – 12"
+              style={{ width: '100px' }}
+            /> <br />
+            Tank external examination carried out to{' '}
+            <select
+              className="paper-input"
+              value={tank.condition}
+              onChange={e => {
+                const newTanks = [...fuelOilTanks];
+                newTanks[idx].condition = e.target.value;
+                setFuelOilTanks(newTanks);
+              }}
+            >
+              <option value="satisfactory">satisfactory</option>
+              <option value="unsatisfactory">unsatisfactory</option>
+            </select>
+            . Remote Quick closing valve tested.
+            {fuelOilTanks.length > 1 && (
+              <button 
+                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                onClick={() => setFuelOilTanks(fuelOilTanks.filter((_, i) => i !== idx))}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4" 
+          onClick={() => setFuelOilTanks([...fuelOilTanks, { name: '', frame: '', condition: 'satisfactory' }])}
+        >
+          Add Fuel Oil Tank
+        </button>
+
+        {freshWaterTanks.map((tank, idx) => (
+          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+            Fresh Water Tanks ({' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={tank.name}
+              onChange={e => {
+                const newTanks = [...freshWaterTanks];
+                newTanks[idx].name = e.target.value;
+                setFreshWaterTanks(newTanks);
+              }}
+              style={{ width: '40px', textAlign: 'center' }}
+            />{' '}
+            ) - Between{' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={tank.frame}
+              onChange={e => {
+                const newTanks = [...freshWaterTanks];
+                newTanks[idx].frame = e.target.value;
+                setFreshWaterTanks(newTanks);
+              }}
+              placeholder="Fr. 12 – 13"
+              style={{ width: '100px' }}
+            /> <br />
+            External examination carried out to{' '}
+            <select
+              className="paper-input"
+              value={tank.condition}
+              onChange={e => {
+                const newTanks = [...freshWaterTanks];
+                newTanks[idx].condition = e.target.value;
+                setFreshWaterTanks(newTanks);
+              }}
+            >
+              <option value="satisfactory">satisfactory</option>
+              <option value="unsatisfactory">unsatisfactory</option>
+            </select>
+            .
+            {freshWaterTanks.length > 1 && (
+              <button 
+                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                onClick={() => setFreshWaterTanks(freshWaterTanks.filter((_, i) => i !== idx))}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4" 
+          onClick={() => setFreshWaterTanks([...freshWaterTanks, { name: '', frame: '', condition: 'satisfactory' }])}
+        >
+          Add Fresh Water Tank
+        </button>
 
         <div className="paper-section-title">SPACES:</div>
         <p className="paper-paragraph">
@@ -1181,59 +1249,53 @@ export default function EditSurveyReport() {
               <th style={{ width: '25%' }}>Manufacture</th>
               <th style={{ width: '25%' }}>Type</th>
               <th style={{ width: '25%' }}>Serial Number</th>
+              <th style={{ width: '5%' }}></th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Magnetic Compass</td>
-              <td>
-                <input type="text" className="paper-input" value={compassMfg} onChange={e => setCompassMfg(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={compassType} onChange={e => setCompassType(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={compassSerial} onChange={e => setCompassSerial(e.target.value)} style={{ width: '90%' }} />
-              </td>
-            </tr>
-            <tr>
-              <td>Radar</td>
-              <td>
-                <input type="text" className="paper-input" value={radarMfg} onChange={e => setRadarMfg(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={radarType} onChange={e => setRadarType(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={radarSerial} onChange={e => setRadarSerial(e.target.value)} style={{ width: '90%' }} />
-              </td>
-            </tr>
-            <tr>
-              <td>VHF</td>
-              <td>
-                <input type="text" className="paper-input" value={vhfMfg} onChange={e => setVhfMfg(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={vhfType} onChange={e => setVhfType(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={vhfSerial} onChange={e => setVhfSerial(e.target.value)} style={{ width: '90%' }} />
-              </td>
-            </tr>
-            <tr>
-              <td>AIS Transponder</td>
-              <td>
-                <input type="text" className="paper-input" value={aisMfg} onChange={e => setAisMfg(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={aisType} onChange={e => setAisType(e.target.value)} style={{ width: '90%' }} />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={aisSerial} onChange={e => setAisSerial(e.target.value)} style={{ width: '90%' }} />
-              </td>
-            </tr>
+            {bridgeOutfitRows.map((row, idx) => (
+              <tr key={idx}>
+                <td>
+                  <input type="text" className="paper-input" value={row.equipment} onChange={e => {
+                    const newRows = [...bridgeOutfitRows];
+                    newRows[idx].equipment = e.target.value;
+                    setBridgeOutfitRows(newRows);
+                  }} style={{ width: '90%' }} />
+                </td>
+                <td>
+                  <input type="text" className="paper-input" value={row.mfg} onChange={e => {
+                    const newRows = [...bridgeOutfitRows];
+                    newRows[idx].mfg = e.target.value;
+                    setBridgeOutfitRows(newRows);
+                  }} style={{ width: '90%' }} />
+                </td>
+                <td>
+                  <input type="text" className="paper-input" value={row.type} onChange={e => {
+                    const newRows = [...bridgeOutfitRows];
+                    newRows[idx].type = e.target.value;
+                    setBridgeOutfitRows(newRows);
+                  }} style={{ width: '90%' }} />
+                </td>
+                <td>
+                  <input type="text" className="paper-input" value={row.serial} onChange={e => {
+                    const newRows = [...bridgeOutfitRows];
+                    newRows[idx].serial = e.target.value;
+                    setBridgeOutfitRows(newRows);
+                  }} style={{ width: '90%' }} />
+                </td>
+                <td>
+                  <button className="btn btn-xs btn-error" onClick={() => setBridgeOutfitRows(bridgeOutfitRows.filter((_, i) => i !== idx))}>x</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          onClick={() => setBridgeOutfitRows([...bridgeOutfitRows, { equipment: '', mfg: '', type: '', serial: '' }])}
+        >
+          Add Bridge Equipment
+        </button>
 
         {/* SAFETY EQUIPMENT / FIRE EXTINGUISHERS */}
         <div className="paper-section-title">SAFETY EQUIPMENT:</div>
@@ -1254,6 +1316,7 @@ export default function EditSurveyReport() {
               <th>Capacity</th>
               <th>Last Serviced date</th>
               <th>Serviced by</th>
+              <th style={{ width: '5%' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -1277,10 +1340,20 @@ export default function EditSurveyReport() {
                 <td>
                   <input type="text" className="paper-input" value={row.servicedBy} onChange={e => updateFireRow(idx, 'servicedBy', e.target.value)} style={{ width: '130px' }} />
                 </td>
+                <td>
+                  <button className="btn btn-xs btn-error" onClick={() => setFireRows(fireRows.filter((_, i) => i !== idx))}>x</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          onClick={() => setFireRows([...fireRows, { location: '', nos: '', type: '', capacity: '', date: '', servicedBy: '' }])}
+        >
+          Add Fire Equipment
+        </button>
+
 
         {/* LIFE SAVING EQUIPMENT */}
         <div className="paper-section-title">Life Saving Equipment:</div>
@@ -1336,56 +1409,60 @@ export default function EditSurveyReport() {
               <th>Item</th>
               <th>Nos</th>
               <th>Expiry date</th>
+              <th>Remarks</th>
+              <th style={{ width: '5%' }}></th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Hand Flares</td>
-              <td>
-                <input
-                  type="text"
-                  className="paper-input"
-                  value={flaresCount}
-                  onChange={e => setFlaresCount(e.target.value)}
-                  style={{ width: '50px', textAlign: 'center' }}
-                />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={flaresExpiry} onChange={e => setFlaresExpiry(e.target.value)} style={{ width: '100px' }} />
-              </td>
-            </tr>
-            <tr>
-              <td>Rocket Parachute</td>
-              <td>
-                <input
-                  type="text"
-                  className="paper-input"
-                  value={parachuteCount}
-                  onChange={e => setParachuteCount(e.target.value)}
-                  style={{ width: '50px', textAlign: 'center' }}
-                />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={parachuteExpiry} onChange={e => setParachuteExpiry(e.target.value)} style={{ width: '100px' }} />
-              </td>
-            </tr>
-            <tr>
-              <td>Smoke Signal</td>
-              <td>
-                <input
-                  type="text"
-                  className="paper-input"
-                  value={smokeCount}
-                  onChange={e => setSmokeCount(e.target.value)}
-                  style={{ width: '50px', textAlign: 'center' }}
-                />
-              </td>
-              <td>
-                <input type="text" className="paper-input" value={smokeExpiry} onChange={e => setSmokeExpiry(e.target.value)} style={{ width: '100px' }} />
-              </td>
-            </tr>
+            {pyrotechnicsRows.map((row, idx) => (
+              <tr key={idx}>
+                <td>
+                  <input type="text" className="paper-input" value={row.item} onChange={e => {
+                    const newRows = [...pyrotechnicsRows];
+                    newRows[idx].item = e.target.value;
+                    setPyrotechnicsRows(newRows);
+                  }} style={{ width: '120px' }} />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    className="paper-input"
+                    value={row.nos}
+                    onChange={e => {
+                      const newRows = [...pyrotechnicsRows];
+                      newRows[idx].nos = e.target.value;
+                      setPyrotechnicsRows(newRows);
+                    }}
+                    style={{ width: '50px', textAlign: 'center' }}
+                  />
+                </td>
+                <td>
+                  <input type="text" className="paper-input" value={row.expiry} onChange={e => {
+                    const newRows = [...pyrotechnicsRows];
+                    newRows[idx].expiry = e.target.value;
+                    setPyrotechnicsRows(newRows);
+                  }} style={{ width: '100px' }} />
+                </td>
+                <td>
+                  <input type="text" className="paper-input" value={row.remarks} onChange={e => {
+                    const newRows = [...pyrotechnicsRows];
+                    newRows[idx].remarks = e.target.value;
+                    setPyrotechnicsRows(newRows);
+                  }} placeholder="N/A" style={{ width: '120px' }} />
+                </td>
+                <td>
+                  <button className="btn btn-xs btn-error" onClick={() => setPyrotechnicsRows(pyrotechnicsRows.filter((_, i) => i !== idx))}>x</button>
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          onClick={() => setPyrotechnicsRows([...pyrotechnicsRows, { item: '', nos: '', expiry: '', remarks: '' }])}
+        >
+          Add Pyrotechnic
+        </button>
 
         {/* MOORING EQUIPMENT */}
         <div className="paper-section-title">MOORING EQUIPMENT:</div>
@@ -1397,56 +1474,81 @@ export default function EditSurveyReport() {
 
         {/* MACHINERY */}
         <div className="paper-section-title">MACHINERY:</div>
-        <p className="paper-paragraph">
-          <strong>Main Engine (</strong>
-          <input
-            type="number"
-            className="paper-input"
-            value={machinery.mainEngineCount}
-            onChange={e => setMachinery(p => ({ ...p, mainEngineCount: Number(e.target.value) }))}
-            style={{ width: '50px' }}
-          />
-          <strong>Nos)</strong><br />
-          Type/ Model:{' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={machinery.mainEngineModel}
-            onChange={e => setMachinery(p => ({ ...p, mainEngineModel: e.target.value }))}
-            style={{ width: '180px' }}
-          />
-          <br />
-          Output:{' '}
-          <input
-            type="text"
-            className="paper-input"
-            value={machinery.mainEnginePower}
-            onChange={e => setMachinery(p => ({ ...p, mainEnginePower: e.target.value }))}
-            style={{ width: '180px' }}
-          />
-          <br />
-          Fuel Type: {' '}
-          <select
-            className="paper-input"
-            value={machinery.mainEngineFuelType}
-            onChange={e => setMachinery(p => ({ ...p, mainEngineFuelType: e.target.value }))}
-          >
-            <option value="Diesel">Diesel</option>
-            <option value="Petrol">Petrol</option>
-            <option value="Other">Other</option>
-          </select><br />
-          Main engines safety alarms/ shutdowns and operation tested to{' '}
-          <select
-            className="paper-input"
-            value={machinery.mainEngineAlarms}
-            onChange={e => setMachinery(p => ({ ...p, mainEngineAlarms: e.target.value }))}
-          >
-            <option value="satisfaction">satisfaction</option>
-            <option value="satisfactory">satisfactory</option>
-            <option value="unsatisfactory">unsatisfactory</option>
-          </select>
-          .
-        </p>
+        
+        {machinery.mainEngines.map((eng, idx) => (
+          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+            <strong>Main Engine {idx + 1}</strong><br />
+            Type/ Model:{' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={eng.model}
+              onChange={e => {
+                const newEngines = [...machinery.mainEngines];
+                newEngines[idx].model = e.target.value;
+                setMachinery(p => ({ ...p, mainEngines: newEngines }));
+              }}
+              style={{ width: '180px' }}
+            />
+            <br />
+            Output:{' '}
+            <input
+              type="text"
+              className="paper-input"
+              value={eng.power}
+              onChange={e => {
+                const newEngines = [...machinery.mainEngines];
+                newEngines[idx].power = e.target.value;
+                setMachinery(p => ({ ...p, mainEngines: newEngines }));
+              }}
+              style={{ width: '180px' }}
+            />
+            <br />
+            Fuel Type: {' '}
+            <select
+              className="paper-input"
+              value={eng.fuelType}
+              onChange={e => {
+                const newEngines = [...machinery.mainEngines];
+                newEngines[idx].fuelType = e.target.value;
+                setMachinery(p => ({ ...p, mainEngines: newEngines }));
+              }}
+            >
+              <option value="Diesel">Diesel</option>
+              <option value="Petrol">Petrol</option>
+              <option value="Other">Other</option>
+            </select><br />
+            Main engines safety alarms/ shutdowns and operation tested to{' '}
+            <select
+              className="paper-input"
+              value={eng.alarms}
+              onChange={e => {
+                const newEngines = [...machinery.mainEngines];
+                newEngines[idx].alarms = e.target.value;
+                setMachinery(p => ({ ...p, mainEngines: newEngines }));
+              }}
+            >
+              <option value="satisfaction">satisfaction</option>
+              <option value="satisfactory">satisfactory</option>
+              <option value="unsatisfactory">unsatisfactory</option>
+            </select>
+            .
+            {machinery.mainEngines.length > 1 && (
+              <button 
+                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                onClick={() => setMachinery(p => ({ ...p, mainEngines: p.mainEngines.filter((_, i) => i !== idx) }))}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+        <button 
+          className="btn btn-sm btn-outline btn-primary mb-4" 
+          onClick={() => setMachinery(p => ({ ...p, mainEngines: [...p.mainEngines, { model: 'Caterpillar', power: '714kW (970 HP)', fuelType: 'Diesel', alarms: 'satisfaction' }] }))}
+        >
+          Add Main Engine
+        </button>
 
         <p className="paper-paragraph">
           <strong>Aux. (Gen.) Engine (</strong>

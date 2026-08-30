@@ -117,6 +117,8 @@ export interface ApiRequest {
   documents?: ApiRequestDocument[];
   signedPdf?: ApiRequestDocument;
   status: 'active' | 'print' | 'reject' | 'success';
+  /** Where the request came from. Absent on records created before this was tracked. */
+  source?: 'staff' | 'web';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -417,6 +419,54 @@ export interface ApiSCCCOS {
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
   dateOfIssue: string;
+  issuedBy: ApiUser | string;
+  createdBy?: ApiUser | string;
+  updatedBy?: ApiUser | string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiDockingSurveyCert {
+  _id: string;
+  certificateNumber: string;
+  vesselId: ApiVessel | string;
+  surveyReportId: ApiFirstEntrySurveyReport | string;
+  surveyBookingId: ApiFirstEntrySurveyBooking | string;
+  client: string;
+  surveyLocation: string;
+  dockingPeriodStart?: string;
+  dockingPeriodEnd?: string;
+  constructionMaterial: string;
+  propellerDetails: string;
+  tailShaftBearings: string;
+  bracketBearing: string;
+  thicknessMeasurementsBy: string;
+  tmReportNo: string;
+  tmReportDate?: string;
+  antifoulingPaintBy: string;
+  coatingCondition: string;
+  paintDetails: any[];
+  plateRenewals: string;
+  
+  sternTubeClearancePortPS: string;
+  sternTubeClearancePortTB: string;
+  sternTubeClearanceStbdPS: string;
+  sternTubeClearanceStbdTB: string;
+
+  aBracketClearancePortPS: string;
+  aBracketClearancePortTB: string;
+  aBracketClearanceStbdPS: string;
+  aBracketClearanceStbdTB: string;
+
+  rudderBearingPortPS: string;
+  rudderBearingPortFA: string;
+  rudderBearingStbdPS: string;
+  rudderBearingStbdFA: string;
+
+  overboardValves: string;
+  anodes: string;
+  dateOfIssue: string;
+  
   issuedBy: ApiUser | string;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;

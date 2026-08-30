@@ -6,6 +6,7 @@ import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import ScccosModal from '@/components/ScccosModal';
+import DockingSurveyModal from '@/components/DockingSurveyModal';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime } from '@/utils/date';
@@ -41,6 +42,8 @@ export default function FirstEntryFullReportPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
+  const [isDockingSurveyModalOpen, setIsDockingSurveyModalOpen] = useState(false);
+  const [dockingSurveyCertExists, setDockingSurveyCertExists] = useState(false);
 
   // Remarks section states
   const [newRemarkText, setNewRemarkText] = useState('');
@@ -70,6 +73,11 @@ export default function FirstEntryFullReportPage() {
     );
     return hasLastVisit;
   }, [vessel, booking]);
+
+  const isDockingSurveyEligible = useMemo(() => {
+    if (!booking) return false;
+    return booking.surveysRequested?.some((s: string) => s.toLowerCase() === 'docking survey') ?? false;
+  }, [booking]);
 
   const getCreatorId = (createdBy: any): string => {
     if (!createdBy) return '';
@@ -213,6 +221,17 @@ export default function FirstEntryFullReportPage() {
           initialExpanded[name] = true;
         });
         setExpandedGroups(initialExpanded);
+      }
+
+      // Check if Docking Survey Cert exists
+      try {
+        const dsRes = await firstEntryService.getDockingSurveyCertBySurveyReportId(id);
+        if (dsRes.success && dsRes.data) {
+          setDockingSurveyCertExists(true);
+        }
+      } catch (dsErr) {
+        // Likely not found
+        setDockingSurveyCertExists(false);
       }
     } catch (err: any) {
       if (err.message?.includes('not found')) {
@@ -557,6 +576,28 @@ export default function FirstEntryFullReportPage() {
     }
   };
 
+  const handleViewDockingSurvey = async () => {
+    if (!surveyReport?._id) return;
+    try {
+      const res = await firstEntryService.getDockingSurveyCertBySurveyReportId(surveyReport._id);
+      if (res.success && res.data) {
+        const pdfBlob = await firstEntryService.getDockingSurveyFinalBlob(res.data._id);
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `docking_survey_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        toast.error('Could not find the certificate record.');
+      }
+    } catch (err: any) {
+      toast.error('Failed to retrieve certificate: ' + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '80px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -701,6 +742,42 @@ export default function FirstEntryFullReportPage() {
                   }}
                 >
                   Generate SSC COS Certificate
+                </button>
+              )
+            )}
+            
+            {isDockingSurveyEligible && booking && (
+              dockingSurveyCertExists ? (
+                <button
+                  className="btn-primary"
+                  onClick={handleViewDockingSurvey}
+                  style={{
+                    marginBottom: 0,
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    width: 'auto',
+                    minWidth: 'unset',
+                    background: 'var(--primary)',
+                    borderColor: 'var(--primary)'
+                  }}
+                >
+                  View Docking Survey
+                </button>
+              ) : (
+                <button
+                  className="btn-primary"
+                  onClick={() => setIsDockingSurveyModalOpen(true)}
+                  style={{
+                    marginBottom: 0,
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    width: 'auto',
+                    minWidth: 'unset',
+                    background: 'var(--blue)',
+                    borderColor: 'var(--blue)'
+                  }}
+                >
+                  Generate Docking Survey
                 </button>
               )
             )}
@@ -1335,6 +1412,19 @@ export default function FirstEntryFullReportPage() {
           surveyReportId={surveyReport?._id || ''}
           onSuccess={() => {
             toast.success('SCCCOS Certificate generated successfully.');
+          }}
+        />
+      )}
+
+      {isDockingSurveyModalOpen && booking && (
+        <DockingSurveyModal
+          isOpen={isDockingSurveyModalOpen}
+          onClose={() => setIsDockingSurveyModalOpen(false)}
+          booking={booking as any}
+          surveyReportId={surveyReport?._id || ''}
+          onSuccess={() => {
+            toast.success('Docking Survey Certificate generated successfully.');
+            setDockingSurveyCertExists(true);
           }}
         />
       )}

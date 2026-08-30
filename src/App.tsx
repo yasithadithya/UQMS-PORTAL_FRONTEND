@@ -1,7 +1,9 @@
+import { useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import AppShell from '@/components/AppShell';
 import LoginPage from '@/components/LoginPage';
+import BootScreen from '@/components/BootScreen';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -34,10 +36,21 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const BOOT_FLAG = 'uqms_backend_booted';
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const [booting, setBooting] = useState(() => sessionStorage.getItem(BOOT_FLAG) !== 'true');
+
+  const finishBoot = useCallback(() => {
+    sessionStorage.setItem(BOOT_FLAG, 'true');
+    setBooting(false);
+  }, []);
 
   if (!user) {
+    if (booting) {
+      return <BootScreen onDone={finishBoot} />;
+    }
     return <LoginPage />;
   }
 

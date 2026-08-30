@@ -473,7 +473,12 @@ export default function NewRequestPage() {
               <tbody>
                 {requests.map((req) => (
                   <tr key={req._id} onClick={() => navigate(`/new-request/${req._id}`)} style={{ cursor: 'pointer' }}>
-                    <td style={{ fontWeight: 600 }}>{req.requestNumber}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      {req.requestNumber}
+                      {req.source === 'web' && (
+                        <span className={s.sourceBadge} title="Submitted through the website">Web</span>
+                      )}
+                    </td>
                     <td>{req.vesselName || '-'}</td>
                     <td style={{ textTransform: 'capitalize' }}>{req.sector}</td>
                     <td>
@@ -490,7 +495,12 @@ export default function NewRequestPage() {
               <div key={req._id} className={s.mobileCard} onClick={() => navigate(`/new-request/${req._id}`)} style={{ cursor: 'pointer' }}>
                 <div className={s.mobileCardTop}>
                   <div className={s.mobileCardInfo}>
-                    <div className={s.mobileTitle}>{req.requestNumber}</div>
+                    <div className={s.mobileTitle}>
+                      {req.requestNumber}
+                      {req.source === 'web' && (
+                        <span className={s.sourceBadge} title="Submitted through the website">Web</span>
+                      )}
+                    </div>
                     <div className={s.mobileSub}>Vessel Name: {req.vesselName || '-'}</div>
                   </div>
                   <span className={requestStatusClass(req.status)}>{requestStatusLabel(req.status)}</span>

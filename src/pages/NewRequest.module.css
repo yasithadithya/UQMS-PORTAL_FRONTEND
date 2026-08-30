@@ -281,6 +281,23 @@
   color: var(--red);
 }
 
+/* Marks requests submitted through the public website rather than entered by staff. */
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, .15);
+  color: #2563eb;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  vertical-align: middle;
+}
+
 .checkboxGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

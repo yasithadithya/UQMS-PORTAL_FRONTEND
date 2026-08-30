@@ -1,0 +1,83 @@
+.container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,.08) 0%, transparent 70%);
+    top: 20%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.card {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: fadeUp .5s cubic-bezier(.4,0,.2,1) both;
+    position: relative;
+    z-index: 1;
+}
+
+.logo {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.logoImage {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.title {
+    font-family: var(--font-title);
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    color: var(--label);
+    margin-bottom: 28px;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    animation: spin .8s linear infinite;
+    margin-bottom: 20px;
+}
+
+.subtitle {
+    font-size: 14.5px;
+    color: var(--muted);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}

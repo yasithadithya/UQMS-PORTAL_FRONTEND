@@ -266,4 +266,27 @@ export const firstEntryService = {
       method: 'DELETE',
     });
   },
+
+  // Docking Survey Certificate endpoints
+  getDockingSurveyCertBySurveyReportId: (surveyReportId: string) => {
+    return request<{ success: boolean; data: any }>(`/docking-survey/report/${surveyReportId}`);
+  },
+  createDockingSurveyCert: (payload: any) => {
+    return request<{ success: boolean; message: string; data: any }>('/docking-survey', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  getDockingSurveyPreviewBlob: (payload: any) => {
+    return requestBlob('/docking-survey/preview', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  },
+  getDockingSurveyFinalBlob: (id: string) => {
+    return requestBlob(`/docking-survey/pdf/${id}`);
+  },
 };

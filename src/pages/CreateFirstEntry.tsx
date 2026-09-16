@@ -125,7 +125,8 @@ export default function CreateFirstEntry() {
     const loadData = async () => {
       try {
         const [reqsRes, vTypesRes, areasRes, vesselsRes, vCodesRes] = await Promise.all([
-          requestsService.getRequests(),
+          // limit: 'all' bypasses server pagination so the dropdown lists every request, not just page 1
+          requestsService.getRequests({ limit: 'all' }),
           operationsService.getVesselTypes(),
           operationsService.getAreaOperations(),
           vesselsService.getVessels(),

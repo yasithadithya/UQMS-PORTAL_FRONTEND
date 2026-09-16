@@ -35,7 +35,7 @@ const buildDocumentsFormData = (
 };
 
 export const requestsService = {
-  getRequests: (params?: { search?: string; page?: number; limit?: number }) => {
+  getRequests: (params?: { search?: string; page?: number; limit?: number | 'all' }) => {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.append('search', params.search);
     if (params?.page) searchParams.append('page', String(params.page));

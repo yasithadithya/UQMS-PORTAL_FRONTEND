@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ConfirmModal from '@/components/ConfirmModal';
+import SearchableSelect from '@/components/SearchableSelect';
 import {
   requestsService,
   vesselsService,
@@ -181,6 +182,58 @@ export default function CreateFirstEntry() {
 
     loadData();
   }, [isEdit, id]);
+
+  // Only approved requests that have not been converted yet (plus the one already linked)
+  const selectableRequests = useMemo(
+    () => requests.filter(r => (r.status === 'print' && !r.uqmsNumber) || r._id === selectedRequestId),
+    [requests, selectedRequestId]
+  );
+
+  const requestOptions = useMemo(
+    () => selectableRequests.map(r => ({
+      id: r._id,
+      label: `${r.requestNumber} - ${r.vesselName} (${r.companyName})`,
+    })),
+    [selectableRequests]
+  );
+
+  const handleRequestChange = (val: string) => {
+    setSelectedRequestId(val);
+    setUqmsNumber('');
+
+    // Auto-populate vessel fields from selected Request
+    if (!val) return;
+    const reqObj = requests.find(r => r._id === val);
+    if (!reqObj) return;
+
+    if (reqObj.vesselName) setVesselName(reqObj.vesselName);
+    if (reqObj.imoNumber) setImoNumber(reqObj.imoNumber);
+    if (reqObj.mmsiNumber) setMmsiNumber(reqObj.mmsiNumber);
+    if (reqObj.vesselCode) setVesselCode(reqObj.vesselCode);
+
+    if (reqObj.vesselType) {
+      const vtId = typeof reqObj.vesselType === 'object' ? reqObj.vesselType._id : reqObj.vesselType;
+      setVesselType(vtId || '');
+    }
+
+    if (reqObj.areaOfOperation) {
+      const aoId = typeof reqObj.areaOfOperation === 'object' ? reqObj.areaOfOperation._id : reqObj.areaOfOperation;
+      setAreaOfOperation(aoId || '');
+    }
+
+    if (reqObj.companyName) {
+      setRegisteredOwnerName(reqObj.companyName);
+      setInvoicingName(reqObj.companyName);
+    }
+
+    if (reqObj.registerdAddress) {
+      setRegisteredOwnerAddress(reqObj.registerdAddress);
+    }
+
+    if (reqObj.invoicingAddress) {
+      setInvoicingAddress(reqObj.invoicingAddress);
+    }
+  };
 
   const populateVesselForm = (vessel: ApiVessel) => {
     setExistingVesselId(vessel._id);
@@ -546,63 +599,15 @@ export default function CreateFirstEntry() {
             )} */}
           </div>
           <div style={{ maxWidth: '520px' }}>
-            <label className="form-label" htmlFor="requestId">Select Request *</label>
-            <select
-              id="requestId"
-              className="form-input"
+            <label className="form-label">Select Request *</label>
+            <SearchableSelect
               value={selectedRequestId}
-              onChange={e => {
-                const val = e.target.value;
-                setSelectedRequestId(val);
-                setUqmsNumber('');
-
-                // Auto-populate vessel fields from selected Request
-                if (val) {
-                  const reqObj = requests.find(r => r._id === val);
-                  if (reqObj) {
-                    if (reqObj.vesselName) setVesselName(reqObj.vesselName);
-                    if (reqObj.imoNumber) setImoNumber(reqObj.imoNumber);
-                    if (reqObj.mmsiNumber) setMmsiNumber(reqObj.mmsiNumber);
-                    if (reqObj.vesselCode) setVesselCode(reqObj.vesselCode);
-
-                    if (reqObj.vesselType) {
-                      const vtId = typeof reqObj.vesselType === 'object' ? reqObj.vesselType._id : reqObj.vesselType;
-                      setVesselType(vtId || '');
-                    }
-
-                    if (reqObj.areaOfOperation) {
-                      const aoId = typeof reqObj.areaOfOperation === 'object' ? reqObj.areaOfOperation._id : reqObj.areaOfOperation;
-                      setAreaOfOperation(aoId || '');
-                    }
-
-                    if (reqObj.companyName) {
-                      setRegisteredOwnerName(reqObj.companyName);
-                      setInvoicingName(reqObj.companyName);
-                    }
-
-                    if (reqObj.registerdAddress) {
-                      setRegisteredOwnerAddress(reqObj.registerdAddress);
-                    }
-
-                    if (reqObj.invoicingAddress) {
-                      setInvoicingAddress(reqObj.invoicingAddress);
-                    }
-                  }
-                }
-              }}
-              required
+              options={requestOptions}
+              placeholder="-- Choose an Approved Request --"
+              searchPlaceholder="Search request no / vessel / company..."
               disabled={!!uqmsNumber}
-              style={{ width: '100%', WebkitAppearance: 'none', background: 'var(--bg-subtle)', cursor: 'pointer' }}
-            >
-              <option value="">-- Choose an Approved Request --</option>
-              {requests
-                .filter(r => (r.status === 'print' && !r.uqmsNumber) || r._id === selectedRequestId)
-                .map(r => (
-                  <option key={r._id} value={r._id}>
-                    {r.requestNumber} - {r.vesselName} ({r.companyName})
-                  </option>
-                ))}
-            </select>
+              onChange={handleRequestChange}
+            />
           </div>
         </div>
 

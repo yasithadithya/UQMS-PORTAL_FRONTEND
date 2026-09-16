@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { firstEntryService } from '@/api';
-import type { ApiFirstEntryFullReport, ApiChecklistItem } from '@/api';
+import { firstEntryService, operationsService } from '@/api';
+import type { ApiFirstEntryFullReport, ApiChecklistItem, ApiSurveyType } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import ScccosModal from '@/components/ScccosModal';
@@ -44,6 +44,7 @@ export default function FirstEntryFullReportPage() {
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
   const [isDockingSurveyModalOpen, setIsDockingSurveyModalOpen] = useState(false);
   const [dockingSurveyCertExists, setDockingSurveyCertExists] = useState(false);
+  const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
 
   // Remarks section states
   const [newRemarkText, setNewRemarkText] = useState('');
@@ -76,8 +77,18 @@ export default function FirstEntryFullReportPage() {
 
   const isDockingSurveyEligible = useMemo(() => {
     if (!booking) return false;
-    return booking.surveysRequested?.some((s: string) => s.toLowerCase() === 'docking survey') ?? false;
-  }, [booking]);
+
+    // surveysRequested stores survey type codes (e.g. 'ST05'), so resolve each entry to
+    // its survey type before matching. Older bookings may hold the name directly.
+    return (booking.surveysRequested || []).some((entry: string) => {
+      const value = (entry || '').trim().toLowerCase();
+      if (!value) return false;
+      const match = surveyTypes.find(
+        (st) => st.code.toLowerCase() === value || st.name.toLowerCase() === value || st._id === entry
+      );
+      return (match?.name || entry).toLowerCase().includes('docking survey');
+    });
+  }, [booking, surveyTypes]);
 
   const getCreatorId = (createdBy: any): string => {
     if (!createdBy) return '';
@@ -279,6 +290,19 @@ export default function FirstEntryFullReportPage() {
   useEffect(() => {
     fetchFullReport();
   }, [id]);
+
+  // Survey types are needed to resolve the codes stored in booking.surveysRequested
+  useEffect(() => {
+    const loadSurveyTypes = async () => {
+      try {
+        const res = await operationsService.getSurveyTypes();
+        if (res.success) setSurveyTypes(res.data);
+      } catch {
+        // Non-fatal: only used to decide which certificate actions to offer.
+      }
+    };
+    loadSurveyTypes();
+  }, []);
 
   // Group checklist items by qCategory (Question Category, e.g., Hull, Machinery, General)
   const groupedChecklist = useMemo(() => {

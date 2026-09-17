@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ConfirmModal from '@/components/ConfirmModal';
 import SearchableSelect from '@/components/SearchableSelect';
+import { normalizeBuildDateText } from '@/utils/date';
 import {
   requestsService,
   vesselsService,
@@ -270,9 +271,9 @@ export default function CreateFirstEntry() {
     setYardNo(vessel.yardNo || '');
     let db = vessel.dateOfBuild || '';
     if (db.includes('T')) {
-      db = db.split('T')[0].split('-').reverse().join('/');
+      db = db.split('T')[0].split('-').join('/');
     }
-    setDateOfBuild(db);
+    setDateOfBuild(normalizeBuildDateText(db));
     setKeelDate(vessel.keelDate ? vessel.keelDate.split('T')[0] : '');
     setBuildingContractDate(vessel.buildingContractDate ? vessel.buildingContractDate.split('T')[0] : '');
     setMajorConversionDate(vessel.majorConversionDate ? vessel.majorConversionDate.split('T')[0] : '');
@@ -1162,7 +1163,7 @@ export default function CreateFirstEntry() {
               <input
                 id="buildDate"
                 type="text"
-                placeholder="DD/MM/YYYY or MM/YYYY"
+                placeholder="YYYY/MM/DD or YYYY/MM"
                 className="form-input"
                 value={dateOfBuild}
                 onChange={e => setDateOfBuild(e.target.value.replace(/[^\d/]/g, ''))}

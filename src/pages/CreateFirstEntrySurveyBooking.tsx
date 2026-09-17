@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { normalizeBuildDateText } from '@/utils/date';
 import {
   vesselsService,
   operationsService,
@@ -115,9 +116,9 @@ export default function CreateFirstEntrySurveyBooking() {
             setManagedBy(booking.managedBy || '');
             let db = booking.buildDate || '';
             if (db.includes('T')) {
-              db = db.split('T')[0].split('-').reverse().join('/');
+              db = db.split('T')[0].split('-').join('/');
             }
-            setBuildDate(db);
+            setBuildDate(normalizeBuildDateText(db));
             setYardNo(booking.yardNo || '');
             setOfficialNo(booking.officialNo || '');
             setGt(booking.gt || '');
@@ -186,9 +187,9 @@ export default function CreateFirstEntrySurveyBooking() {
       if (vessel.dateOfBuild && isFieldEditable('buildDate')) {
         let db = vessel.dateOfBuild;
         if (db.includes('T')) {
-          db = db.split('T')[0].split('-').reverse().join('/');
+          db = db.split('T')[0].split('-').join('/');
         }
-        setBuildDate(db);
+        setBuildDate(normalizeBuildDateText(db));
       }
       if (vessel.keelDate && isFieldEditable('keelDate')) setKeelDate(vessel.keelDate.split('T')[0]);
       
@@ -783,7 +784,7 @@ export default function CreateFirstEntrySurveyBooking() {
               </div>
               <div>
                 <label className="form-label" htmlFor="buildDate">Build Date</label>
-                <input id="buildDate" type="text" placeholder="DD/MM/YYYY or MM/YYYY" className="form-input" value={buildDate} onChange={e => setBuildDate(e.target.value.replace(/[^\d/]/g, ''))} disabled={!isFieldEditable('buildDate')} />
+                <input id="buildDate" type="text" placeholder="YYYY/MM/DD or YYYY/MM" className="form-input" value={buildDate} onChange={e => setBuildDate(e.target.value.replace(/[^\d/]/g, ''))} disabled={!isFieldEditable('buildDate')} />
               </div>
               <div>
                 <label className="form-label" htmlFor="yardNo">Yard No.</label>

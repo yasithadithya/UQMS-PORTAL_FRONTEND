@@ -418,6 +418,7 @@ export interface ApiSCCCOS {
   surveyFindings: ApiSurveyFindingItem[];
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
+  surveyorName?: string;
   dateOfIssue: string;
   issuedBy: ApiUser | string;
   createdBy?: ApiUser | string;

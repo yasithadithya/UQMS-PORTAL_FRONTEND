@@ -6,7 +6,7 @@ import s from './UserManagement.module.css';
 
 export default function ModulesPage() {
     const { modules, refreshModules, setModulesOptimistic, hasPermission } = useAuth();
-    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete') || hasPermission(null, 'delete');
+    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingModule, setEditingModule] = useState<any>(null);
     const [formData, setFormData] = useState({

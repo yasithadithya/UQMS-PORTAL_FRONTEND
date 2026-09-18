@@ -4,7 +4,7 @@ import s from './UserManagement.module.css';
 
 export default function RolesPage() {
     const { roles, modules, addRole, updateRole, deleteRole, hasPermission } = useAuth();
-    const canDeleteRole = hasPermission('Admin', 'delete') || hasPermission('Role Management', 'delete') || hasPermission(null, 'delete');
+    const canDeleteRole = hasPermission('Admin', 'delete') || hasPermission('Role Management', 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingRole, setEditingRole] = useState<any>(null);
     const [formData, setFormData] = useState({

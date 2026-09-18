@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { firstEntryService, vesselEquipmentRecordService } from '@/api';
 import type { ApiFirstEntrySurveyReport, ApiVesselEquipmentRecordItem } from '@/api';
@@ -67,6 +68,7 @@ const formatHoses = (count: string, material: string, width: string, length: str
 
 export default function VesselEquipmentRecordPage() {
   const navigate = useNavigate();
+  const unsaved = useUnsavedChanges();
   const { id, module } = useParams<{ id: string; module?: string }>(); // Survey Report ID
   const activeModule = module || 'reporting';
 
@@ -167,6 +169,7 @@ export default function VesselEquipmentRecordPage() {
       if (res.success) {
         toast.success('Record of Equipment saved successfully!');
         // Navigate back to the survey report edit page
+        unsaved.allowNavigation();
         navigate(`/${activeModule}/marine/first-entry/survey-report/edit/${id}`);
       } else {
         toast.error(res.message || 'Failed to save equipment record.');
@@ -449,7 +452,7 @@ export default function VesselEquipmentRecordPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty}>
         {Object.keys(groupedRecords).length === 0 ? (
           <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
             No equipment questions found in the database. Please run the seeder first.
@@ -558,6 +561,7 @@ export default function VesselEquipmentRecordPage() {
           </Link>
         </div>
       </form>
+      {unsaved.dialog}
     </div>
   );
 }

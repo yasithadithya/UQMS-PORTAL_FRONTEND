@@ -402,7 +402,7 @@ export default function NewRequestPage() {
                 className={`${s.actionBtn} ${s.deleteBtn}`}
                 type="button"
                 onClick={() => handleDeleteDocument(request._id, doc._id)}
-                disabled={request.status !== 'active' || (!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete') && !hasPermission(null, 'delete'))}
+                disabled={request.status !== 'active' || (!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete'))}
               >
                 Delete
               </button>
@@ -876,7 +876,7 @@ export default function NewRequestPage() {
                 className="btn-primary"
                 style={{ background: 'var(--red)' }}
                 onClick={() => handleDelete(deleteConfirm)}
-                disabled={!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete') && !hasPermission(null, 'delete')}
+                disabled={!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete')}
               >
                 Delete
               </button>

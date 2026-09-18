@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -21,65 +21,92 @@ export default function ConfirmModal({
   onCancel,
   isDestructive = false
 }: ConfirmModalProps) {
+  const titleId = useId();
+  const messageId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // Callers usually pass inline arrows; keep the latest without re-running the focus effect.
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Focus the safe action by default so Enter never triggers a destructive confirm by accident.
+    cancelRef.current?.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onCancelRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(4px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '16px',
-      animation: 'fadeIn 0.2s ease'
-    }}>
-      <div className="card animate-in" style={{
-        maxWidth: '400px',
-        width: '100%',
-        background: 'var(--card)',
-        padding: '24px',
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        boxShadow: 'var(--shadow-lg)'
-      }}>
-        <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--label)', marginBottom: '8px' }}>
+    <div
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px',
+        animation: 'fadeIn 0.2s ease'
+      }}
+    >
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        className="card animate-in"
+        style={{
+          maxWidth: '420px',
+          width: '100%',
+          background: 'var(--card)',
+          padding: '24px',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          boxShadow: 'var(--shadow-lg)',
+          marginBottom: 0
+        }}
+      >
+        <h3 id={titleId} style={{ fontSize: '18px', fontWeight: 700, color: 'var(--label)', marginBottom: '8px' }}>
           {title}
         </h3>
-        <div style={{ fontSize: '13px', color: 'var(--secondary)', lineHeight: '1.5', marginBottom: '24px' }}>
+        <div id={messageId} style={{ fontSize: '14px', color: 'var(--secondary)', lineHeight: '1.5', marginBottom: '24px' }}>
           {message}
         </div>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button
+            ref={cancelRef}
             type="button"
-            className="btn-secondary"
+            className="btn-secondary btn-inline"
             onClick={onCancel}
-            style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px' }}
           >
             {cancelText}
           </button>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary btn-inline"
             onClick={onConfirm}
-            style={{
-              marginBottom: 0,
-              padding: '8px 16px',
-              fontSize: '13px',
-              background: isDestructive ? 'var(--red)' : 'var(--primary)',
-              borderColor: isDestructive ? 'var(--red)' : 'var(--primary)'
-            }}
+            style={isDestructive ? { background: 'var(--red)' } : undefined}
           >
             {confirmText}
           </button>
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      `}} />
     </div>
   );
 }

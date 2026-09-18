@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import s from './UserManagement.module.css';
 
 export default function UsersPage() {
     const { users, roles, addUser, updateUser, deleteUser, hasPermission } = useAuth();
-    const canDeleteUser = hasPermission('Admin', 'delete') || hasPermission('User Management', 'delete') || hasPermission(null, 'delete');
+    const canDeleteUser = hasPermission('Admin', 'delete') || hasPermission('User Management', 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -132,8 +133,13 @@ export default function UsersPage() {
     };
 
     const handleDelete = async (id: string) => {
-        await deleteUser(id);
+        const result = await deleteUser(id);
         setDeleteConfirm(null);
+        if (result.success) {
+            toast.success('User deleted.');
+        } else {
+            toast.error(result.error || 'Failed to delete user.');
+        }
     };
 
     const getInitials = (username: string) => {

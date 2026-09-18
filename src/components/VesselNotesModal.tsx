@@ -460,10 +460,6 @@ export default function VesselNotesModal({
           </div>
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-      `}} />
     </div>
   );
 }

@@ -1,5 +1,10 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+/** Absolute API URL for links opened outside fetch (e.g. public PDF routes in a new tab). */
+export function apiUrl(endpoint: string): string {
+  return `${BASE_URL}${endpoint}`;
+}
+
 // Generous because the backend host cold-starts and PDF generation is slow.
 const REQUEST_TIMEOUT_MS = 90_000;
 

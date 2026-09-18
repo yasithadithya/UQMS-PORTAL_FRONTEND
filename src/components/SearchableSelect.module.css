@@ -53,8 +53,13 @@
 }
 
 .caret {
-  font-size: 13px;
+  flex-shrink: 0;
   color: var(--muted);
+  transition: transform .2s;
+}
+
+.caretOpen {
+  transform: rotate(180deg);
 }
 
 .actions {
@@ -102,6 +107,7 @@
 .search:focus {
   outline: none;
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .list {
@@ -125,7 +131,7 @@
   transition: background .2s, color .2s;
 }
 
-.option:hover {
+.optionHighlight {
   background: rgba(148,163,184,.12);
 }
 

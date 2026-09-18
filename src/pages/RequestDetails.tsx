@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import ConfirmModal from '@/components/ConfirmModal';
 import {
   operationsService,
   requestsService,
@@ -18,6 +20,71 @@ import DragDropFileUpload from '@/components/DragDropFileUpload';
 import { formatDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
 import s from './NewRequest.module.css';
+
+const escapeHtml = (text: string) =>
+  text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+/** Keep a blob URL alive while `win` is open (so reloading that tab works), then free it. */
+const revokeWhenClosed = (win: Window | null, url: string) => {
+  if (!win) {
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+  const timer = window.setInterval(() => {
+    if (win.closed) {
+      window.clearInterval(timer);
+      URL.revokeObjectURL(url);
+    }
+  }, 5_000);
+};
+
+/**
+ * Show a PDF blob URL in a tab opened earlier (synchronously, so popup blockers allow it).
+ * When `autoPrint` is set, prints the PDF frame itself; printing the wrapper page prints blank in Chrome.
+ */
+const showPdfInWindow = (win: Window | null, pdfUrl: string, title: string, autoPrint: boolean) => {
+  if (!win) {
+    const fallbackWindow = window.open(pdfUrl, '_blank');
+    fallbackWindow?.focus();
+    revokeWhenClosed(fallbackWindow, pdfUrl);
+    return;
+  }
+
+  win.document.open();
+  win.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <style>
+          html, body { margin: 0; width: 100%; height: 100%; background: #f3f4f6; }
+          .viewer { width: 100vw; height: 100vh; border: 0; display: block; }
+        </style>
+      </head>
+      <body>
+        <iframe class="viewer" src="${pdfUrl}"></iframe>
+        <script>
+          const frame = document.querySelector('iframe');
+          frame.addEventListener('load', () => {
+            ${autoPrint ? `
+            // Give the PDF viewer a moment to render before opening the print dialog.
+            setTimeout(() => {
+              try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+              } catch (e) {
+                window.print();
+              }
+            }, 300);` : 'window.focus();'}
+          });
+        </script>
+      </body>
+    </html>
+  `);
+  win.document.close();
+  win.focus();
+  revokeWhenClosed(win, pdfUrl);
+};
 
 const getId = (value: unknown): string => {
   if (!value) return '';
@@ -119,7 +186,7 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 
 export default function RequestDetailsPage() {
   const { hasPermission } = useAuth();
-  const canDelete = hasPermission('Admin', 'delete') || hasPermission('New Request', 'delete') || hasPermission(null, 'delete');
+  const canDelete = hasPermission('Admin', 'delete') || hasPermission('New Request', 'delete');
   const params = useParams();
   const id = params.submodule || (params['*'] ? params['*'].split('/')[0] : undefined);
   const navigate = useNavigate();
@@ -140,6 +207,7 @@ export default function RequestDetailsPage() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [pendingSignedPdf, setPendingSignedPdf] = useState<File | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{ title: string; message: string; action: () => Promise<void> } | null>(null);
 
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -232,7 +300,7 @@ export default function RequestDetailsPage() {
         try {
           await requestsService.uploadRequestSignedPdf(request._id, pendingSignedPdf);
         } catch (err: any) {
-          alert(err.message || 'Request fields saved, but signed PDF upload failed.');
+          toast.error(err.message || 'Request fields saved, but signed PDF upload failed.');
         }
       }
 
@@ -243,7 +311,7 @@ export default function RequestDetailsPage() {
             pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
           );
         } catch (err: any) {
-          alert(err.message || 'Request fields saved, but document upload failed.');
+          toast.error(err.message || 'Request fields saved, but document upload failed.');
         }
       }
 
@@ -254,23 +322,28 @@ export default function RequestDetailsPage() {
       setPendingSignedPdf(null);
       setEditing(false);
     } catch (err: any) {
-      alert(err.message || 'Failed to save request.');
+      toast.error(err.message || 'Failed to save request.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteSignedPdf = async () => {
+  const handleDeleteSignedPdf = () => {
     if (!request) return;
-    if (!confirm('Are you sure you want to delete the signed PDF?')) return;
-    try {
-      await requestsService.deleteRequestSignedPdf(request._id);
-      const updated = await requestsService.getRequestById(request._id);
-      setRequest(updated.data);
-      setForm(requestToForm(updated.data));
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete signed PDF.');
-    }
+    setPendingConfirm({
+      title: 'Delete signed PDF?',
+      message: 'The signed PDF will be removed from this request.',
+      action: async () => {
+        try {
+          await requestsService.deleteRequestSignedPdf(request._id);
+          const updated = await requestsService.getRequestById(request._id);
+          setRequest(updated.data);
+          setForm(requestToForm(updated.data));
+        } catch (err: any) {
+          toast.error(err.message || 'Failed to delete signed PDF.');
+        }
+      },
+    });
   };
 
   const handleUploadSignedPdf = async (file: File | null) => {
@@ -282,26 +355,35 @@ export default function RequestDetailsPage() {
       setRequest(updated.data);
       setForm(requestToForm(updated.data));
     } catch (err: any) {
-      alert(err.message || 'Failed to upload signed PDF.');
+      toast.error(err.message || 'Failed to upload signed PDF.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteDocument = async (doc: ApiRequestDocument) => {
+  const handleDeleteDocument = (doc: ApiRequestDocument) => {
     if (!request) return;
-    if (!confirm('Delete document?')) return;
-
-    await requestsService.deleteRequestDocument(request._id, doc._id);
-    const updated = await requestsService.getRequestById(request._id);
-    setRequest(updated.data);
-    setForm(requestToForm(updated.data));
+    setPendingConfirm({
+      title: 'Delete document?',
+      message: `"${doc.name || 'This document'}" will be removed from this request.`,
+      action: async () => {
+        try {
+          await requestsService.deleteRequestDocument(request._id, doc._id);
+          const updated = await requestsService.getRequestById(request._id);
+          setRequest(updated.data);
+          setForm(requestToForm(updated.data));
+        } catch (err: any) {
+          toast.error(err.message || 'Failed to delete document.');
+        }
+      },
+    });
   };
 
   const handleSurveyPdfAction = async () => {
     if (!request || printingPdf) return;
 
     setPrintingPdf(true);
+    // Opened synchronously in the click handler so popup blockers allow it; filled once the PDF arrives.
     const previewWindow = window.open('', '_blank');
 
     try {
@@ -310,55 +392,10 @@ export default function RequestDetailsPage() {
           ? await requestsService.getRequestSurveyPdf(request._id)
           : await requestsService.printRequestSurveyPdf(request._id);
 
-      const shouldPrint = request.status !== 'print';
-
-      if (previewWindow) {
-        previewWindow.document.open();
-        previewWindow.document.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <title>Print ${request.requestNumber}</title>
-              <style>
-                html, body {
-                  margin: 0;
-                  width: 100%;
-                  height: 100%;
-                  background: #f3f4f6;
-                }
-                .viewer {
-                  width: 100vw;
-                  height: 100vh;
-                  border: 0;
-                  display: block;
-                }
-              </style>
-            </head>
-            <body>
-              <iframe class="viewer" src="${pdfUrl}"></iframe>
-              <script>
-                const frame = document.querySelector('iframe');
-                frame.addEventListener('load', () => {
-                  window.focus();
-                  ${shouldPrint ? 'window.print();' : ''}
-                });
-              </script>
-            </body>
-          </html>
-        `);
-        previewWindow.document.close();
-        previewWindow.focus();
-      } else {
-        const fallbackWindow = window.open(pdfUrl, '_blank');
-        fallbackWindow?.focus();
-      }
-
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      showPdfInWindow(previewWindow, pdfUrl, `Print ${request.requestNumber}`, request.status !== 'print');
     } catch (err: any) {
-      if (previewWindow) {
-        previewWindow.close();
-      }
-      alert(err.message || 'Failed to print request PDF.');
+      previewWindow?.close();
+      toast.error(err.message || 'Failed to print request PDF.');
     } finally {
       setPrintingPdf(false);
     }
@@ -373,7 +410,7 @@ export default function RequestDetailsPage() {
       setPreviewUrl(url);
       setShowPreviewModal(true);
     } catch (err: any) {
-      alert(err.message || 'Failed to load PDF preview.');
+      toast.error(err.message || 'Failed to load PDF preview.');
     } finally {
       setPreviewLoading(false);
     }
@@ -393,57 +430,15 @@ export default function RequestDetailsPage() {
     const printWindow = window.open('', '_blank');
     try {
       const pdfUrl = await requestsService.printRequestSurveyPdf(request._id);
-
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <title>Print ${request.requestNumber}</title>
-              <style>
-                html, body {
-                  margin: 0;
-                  width: 100%;
-                  height: 100%;
-                  background: #f3f4f6;
-                }
-                .viewer {
-                  width: 100vw;
-                  height: 100vh;
-                  border: 0;
-                  display: block;
-                }
-              </style>
-            </head>
-            <body>
-              <iframe class="viewer" src="${pdfUrl}"></iframe>
-              <script>
-                const frame = document.querySelector('iframe');
-                frame.addEventListener('load', () => {
-                  window.focus();
-                  window.print();
-                });
-              </script>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-      } else {
-        const fallbackWindow = window.open(pdfUrl, '_blank');
-        fallbackWindow?.focus();
-      }
-
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      showPdfInWindow(printWindow, pdfUrl, `Print ${request.requestNumber}`, true);
 
       const res = await requestsService.getRequestById(request._id);
       setRequest(res.data);
       setForm(requestToForm(res.data));
       handleClosePreview();
     } catch (err: any) {
-      if (printWindow) printWindow.close();
-      alert(err.message || 'Failed to print PDF.');
+      printWindow?.close();
+      toast.error(err.message || 'Failed to print PDF.');
     } finally {
       setPrintingPdf(false);
     }
@@ -455,59 +450,17 @@ export default function RequestDetailsPage() {
     const printWindow = window.open('', '_blank');
     try {
       const pdfUrl = await requestsService.printAndSendRequestSurveyPdf(request._id);
+      showPdfInWindow(printWindow, pdfUrl, `Print ${request.requestNumber}`, true);
 
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(`
-          <!doctype html>
-          <html>
-            <head>
-              <title>Print ${request.requestNumber}</title>
-              <style>
-                html, body {
-                  margin: 0;
-                  width: 100%;
-                  height: 100%;
-                  background: #f3f4f6;
-                }
-                .viewer {
-                  width: 100vw;
-                  height: 100vh;
-                  border: 0;
-                  display: block;
-                }
-              </style>
-            </head>
-            <body>
-              <iframe class="viewer" src="${pdfUrl}"></iframe>
-              <script>
-                const frame = document.querySelector('iframe');
-                frame.addEventListener('load', () => {
-                  window.focus();
-                  window.print();
-                });
-              </script>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-      } else {
-        const fallbackWindow = window.open(pdfUrl, '_blank');
-        fallbackWindow?.focus();
-      }
-
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
-
-      alert(`Request PDF has been printed & sent to client email (${request.companyEmail}) successfully.`);
+      toast.success(`Request PDF printed and sent to ${request.companyEmail}.`);
 
       const res = await requestsService.getRequestById(request._id);
       setRequest(res.data);
       setForm(requestToForm(res.data));
       handleClosePreview();
     } catch (err: any) {
-      if (printWindow) printWindow.close();
-      alert(err.message || 'Failed to print and send PDF.');
+      printWindow?.close();
+      toast.error(err.message || 'Failed to print and send PDF.');
     } finally {
       setSendingEmail(false);
     }
@@ -1068,20 +1021,34 @@ export default function RequestDetailsPage() {
               />
             </div>
 
-            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
-              <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
+            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px', flexWrap: 'wrap' }}>
+              <button className="btn-secondary btn-inline" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
                 Cancel
               </button>
-              <button className="btn-primary" type="button" onClick={handleFinalizePrint} disabled={printingPdf || sendingEmail}>
+              <button className="btn-primary btn-inline" type="button" onClick={handleFinalizePrint} disabled={printingPdf || sendingEmail}>
                 {printingPdf ? 'Printing...' : 'Print PDF'}
               </button>
-              <button className="btn-primary" type="button" onClick={handlePrintAndSend} disabled={printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
+              <button className="btn-primary btn-inline" type="button" onClick={handlePrintAndSend} disabled={printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
                 {sendingEmail ? 'Sending...' : 'Print & Send'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!pendingConfirm}
+        title={pendingConfirm?.title || ''}
+        message={pendingConfirm?.message || ''}
+        confirmText="Delete"
+        isDestructive
+        onConfirm={() => {
+          const action = pendingConfirm?.action;
+          setPendingConfirm(null);
+          action?.();
+        }}
+        onCancel={() => setPendingConfirm(null)}
+      />
     </div>
   );
 }

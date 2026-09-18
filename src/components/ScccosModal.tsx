@@ -3,6 +3,13 @@ import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
 
+// Selectable surveyors. Held in the frontend for now — there is no surveyor
+// master record to load from yet.
+const SURVEYORS = [
+  'S.A.P.M. Samarasinghe',
+  'R.M.D.G.A.D.B. Gunarathne'
+];
+
 interface ScccosModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +31,7 @@ export default function ScccosModal({
   const [nominatedDeparturePoint, setNominatedDeparturePoint] = useState(
     'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee'
   );
+  const [surveyorName, setSurveyorName] = useState(SURVEYORS[0]);
 
   // Findings statuses initialized to Satisfactory
   const [hull, setHull] = useState<'Satisfactory' | 'Not Satisfactory' | 'N/A'>('Satisfactory');
@@ -70,6 +78,7 @@ export default function ScccosModal({
       surveyFindings,
       typeOfSurvey,
       nominatedDeparturePoint,
+      surveyorName,
       dateOfIssue: new Date().toISOString()
     };
   };
@@ -223,6 +232,19 @@ export default function ScccosModal({
                 onChange={(e) => setTypeOfSurvey(e.target.value)}
                 placeholder="e.g. SSC Initial Survey"
               />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="form-label">Surveyor</label>
+              <select
+                className="form-input"
+                value={surveyorName}
+                onChange={(e) => setSurveyorName(e.target.value)}
+              >
+                {SURVEYORS.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
             </div>
 
             <div style={{ marginBottom: '20px' }}>

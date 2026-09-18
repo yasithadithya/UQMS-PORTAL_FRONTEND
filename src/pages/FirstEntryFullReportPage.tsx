@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { firstEntryService, operationsService } from '@/api';
+import { apiUrl, firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntryFullReport, ApiChecklistItem, ApiSurveyType } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -714,7 +714,7 @@ export default function FirstEntryFullReportPage() {
           <div>
             {report.dailyReportPdfGeneratedAt ? (
               <span style={{ fontSize: '13.5px', color: 'var(--secondary)', fontWeight: 500 }}>
-                📄 Daily Report PDF: <a href={report.dailyReportPdfUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
+                📄 Daily Report PDF: <a href={apiUrl(`/first-entry-full-reports/public-pdf/${report._id}`)} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
                 <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
                   (Generated: {formatDateTime(report.dailyReportPdfGeneratedAt)})
                 </span>

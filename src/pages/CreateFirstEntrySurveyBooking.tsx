@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { normalizeBuildDateText } from '@/utils/date';
 import {
@@ -21,6 +22,7 @@ import type {
 
 export default function CreateFirstEntrySurveyBooking() {
   const navigate = useNavigate();
+  const unsaved = useUnsavedChanges();
   const { id, module } = useParams<{ id?: string; module?: string }>(); // Booking ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
@@ -473,7 +475,8 @@ export default function CreateFirstEntrySurveyBooking() {
 
       if (res.success) {
         toast.success(isEdit ? 'Survey Booking updated successfully!' : 'Survey Booking created successfully!');
-        navigate(`/${activeModule}/marine`);
+        unsaved.allowNavigation();
+        navigate(`/${activeModule}/marine/first-entry?tab=survey`);
       } else {
         toast.error(res.message || 'Failed to save booking.');
       }
@@ -498,7 +501,7 @@ export default function CreateFirstEntrySurveyBooking() {
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border)', paddingBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to={`/${activeModule}/marine`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
+          <Link to={`/${activeModule}/marine/first-entry?tab=survey`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
@@ -535,7 +538,7 @@ export default function CreateFirstEntrySurveyBooking() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty}>
         {/* Vessel Association */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="card-header">Vessel Association</div>
@@ -1096,13 +1099,14 @@ export default function CreateFirstEntrySurveyBooking() {
           >
             {loading ? 'Saving...' : 'Save Survey Booking'}
           </button>
-          <Link to={`/${activeModule}/marine`} style={{ textDecoration: 'none' }}>
+          <Link to={`/${activeModule}/marine/first-entry?tab=survey`} style={{ textDecoration: 'none' }}>
             <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
               Cancel
             </button>
           </Link>
         </div>
       </form>
+      {unsaved.dialog}
     </div>
   );
 }

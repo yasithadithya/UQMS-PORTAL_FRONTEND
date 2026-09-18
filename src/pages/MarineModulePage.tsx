@@ -1,17 +1,30 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSCCCOS } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { formatDate } from '@/utils/date';
 import ScccosModal from '@/components/ScccosModal';
 import Pagination from '@/components/Pagination';
+import ConfirmModal from '@/components/ConfirmModal';
+
+export type MarineTab = 'first-entry' | 'survey' | 'reports' | 'certificates';
+const MARINE_TABS: { id: MarineTab; label: string }[] = [
+  { id: 'first-entry', label: 'First Entry' },
+  { id: 'survey', label: 'Surveys' },
+  { id: 'reports', label: 'Survey Reports' },
+  { id: 'certificates', label: 'Certificates' },
+];
+
+type PendingDelete = { kind: MarineTab; id: string; title: string; message: string } | null;
 
 export default function MarineModulePage() {
   const { hasPermission } = useAuth();
-  const canDelete = hasPermission('Admin', 'delete') || hasPermission('Marine', 'delete') || hasPermission(null, 'delete');
+  const canDelete = hasPermission('Marine', 'delete') || hasPermission('First Entry', 'delete');
   const { module } = useParams<{ module?: string }>();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Derive the base path for this First Entry module from the URL
   // e.g., /reporting/marine/first-entry => basePath = /reporting/marine/first-entry
   const basePath = (() => {
@@ -37,166 +50,121 @@ export default function MarineModulePage() {
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [certificatesError, setCertificatesError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'first-entry' | 'survey' | 'reports' | 'certificates'>('first-entry');
+  // The active tab lives in the URL so returning from a create/edit page lands on the right list.
+  const tabParam = searchParams.get('tab');
+  const activeTab: MarineTab = MARINE_TABS.some(t => t.id === tabParam) ? (tabParam as MarineTab) : 'first-entry';
+  const setActiveTab = (tab: MarineTab) => setSearchParams({ tab }, { replace: true });
 
-  // Pagination states
-  const [page, setPage] = useState(1);
+  // Pagination states. The page belongs to the tab it was set on; switching to another tab (including via back/forward) shows page 1.
+  const [pageState, setPageState] = useState<{ tab: MarineTab; page: number }>({ tab: activeTab, page: 1 });
+  const page = pageState.tab === activeTab ? pageState.page : 1;
+  const setPage = (p: number) => setPageState({ tab: activeTab, page: p });
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Every fetch takes a sequence number; responses from superseded requests are dropped.
+  const requestSeq = useRef(0);
+
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete>(null);
 
   // Scccos Modal States
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
   const [selectedBookingForScccos, setSelectedBookingForScccos] = useState<ApiFirstEntrySurveyBooking | null>(null);
   const [selectedReportIdForScccos, setSelectedReportIdForScccos] = useState<string>('');
 
-  // Reset page to 1 when tab changes
+  const loadTab = async (tab: MarineTab, currentPage: number, currentLimit: number) => {
+    const seq = ++requestSeq.current;
+    const isCurrent = () => seq === requestSeq.current;
+
+    const setTabLoading = { 'first-entry': setLoading, survey: setSurveyLoading, reports: setReportsLoading, certificates: setCertificatesLoading }[tab];
+    const setTabError = { 'first-entry': setError, survey: setSurveyError, reports: setReportsError, certificates: setCertificatesError }[tab];
+    const failMessage = {
+      'first-entry': 'Failed to fetch entries',
+      survey: 'Failed to fetch survey bookings',
+      reports: 'Failed to fetch survey reports',
+      certificates: 'Failed to fetch certificates',
+    }[tab];
+
+    try {
+      setTabLoading(true);
+      setTabError(null);
+      const params = { page: currentPage, limit: currentLimit };
+      const res =
+        tab === 'first-entry' ? await firstEntryService.getFirstEntries(params)
+        : tab === 'survey' ? await firstEntryService.getFirstEntrySurveyBookings(params)
+        : tab === 'reports' ? await firstEntryService.getFirstEntrySurveyReports(params)
+        : await firstEntryService.getScccosCertificates(params);
+      if (!isCurrent()) return;
+
+      if (res.success) {
+        if (tab === 'first-entry') setEntries(res.data as ApiFirstEntry[]);
+        else if (tab === 'survey') setSurveyBookings(res.data as ApiFirstEntrySurveyBooking[]);
+        else if (tab === 'reports') setReports(res.data as ApiFirstEntrySurveyReport[]);
+        else setCertificates(res.data as ApiSCCCOS[]);
+        setTotal(res.count || 0);
+        setTotalPages(res.pagination?.totalPages || 1);
+      } else {
+        setTabError(failMessage);
+      }
+    } catch (err: any) {
+      if (isCurrent()) setTabError(err.message || failMessage);
+    } finally {
+      if (isCurrent()) setTabLoading(false);
+    }
+  };
+
+  const reloadActiveTab = () => loadTab(activeTab, page, limit);
+
   useEffect(() => {
-    setPage(1);
-    // If page is already 1, manually fetch active tab data since page state change won't trigger page effect
-    if (page === 1) {
-      if (activeTab === 'first-entry') fetchEntries(1, limit);
-      else if (activeTab === 'survey') fetchSurveyBookings(1, limit);
-      else if (activeTab === 'reports') fetchReports(1, limit);
-      else if (activeTab === 'certificates') fetchCertificates(1, limit);
-    }
-  }, [activeTab]);
+    loadTab(activeTab, page, limit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, page, limit]);
 
-  useEffect(() => {
-    if (activeTab === 'first-entry') {
-      fetchEntries(page, limit);
-    } else if (activeTab === 'survey') {
-      fetchSurveyBookings(page, limit);
-    } else if (activeTab === 'reports') {
-      fetchReports(page, limit);
-    } else if (activeTab === 'certificates') {
-      fetchCertificates(page, limit);
-    }
-  }, [page, limit]);
+  const DELETE_ACTIONS: Record<MarineTab, { run: (id: string) => Promise<{ success: boolean; message?: string }>; done: string }> = {
+    'first-entry': { run: firstEntryService.deleteFirstEntry, done: 'First Entry deleted.' },
+    survey: { run: firstEntryService.deleteFirstEntrySurveyBooking, done: 'Survey booking deleted.' },
+    reports: { run: firstEntryService.deleteFirstEntrySurveyReport, done: 'Survey report deleted.' },
+    certificates: { run: firstEntryService.deleteScccosCertificate, done: 'Certificate deleted.' },
+  };
 
-  const fetchEntries = async (currentPage = page, currentLimit = limit) => {
+  const rowsOnPage = { 'first-entry': entries.length, survey: surveyBookings.length, reports: reports.length, certificates: certificates.length };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { kind, id } = pendingDelete;
+    setPendingDelete(null);
     try {
-      setLoading(true);
-      setError(null);
-      const res = await firstEntryService.getFirstEntries({ page: currentPage, limit: currentLimit });
-      if (res.success) {
-        setEntries(res.data);
-        setTotal(res.count || 0);
-        setTotalPages(res.pagination?.totalPages || 1);
-      } else {
-        setError('Failed to fetch entries');
+      const res = await DELETE_ACTIONS[kind].run(id);
+      if (!res.success) {
+        toast.error(res.message || 'Delete failed.');
+        return;
       }
+      toast.success(DELETE_ACTIONS[kind].done);
+      // Step back a page if this removed the last row, otherwise refetch so counts stay correct.
+      if (kind === activeTab && rowsOnPage[kind] <= 1 && page > 1) setPage(page - 1);
+      else reloadActiveTab();
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
-    } finally {
-      setLoading(false);
+      toast.error(err.message || 'Delete failed.');
     }
   };
 
-  const fetchSurveyBookings = async (currentPage = page, currentLimit = limit) => {
-    try {
-      setSurveyLoading(true);
-      setSurveyError(null);
-      const res = await firstEntryService.getFirstEntrySurveyBookings({ page: currentPage, limit: currentLimit });
-      if (res.success) {
-        setSurveyBookings(res.data);
-        setTotal(res.count || 0);
-        setTotalPages(res.pagination?.totalPages || 1);
-      } else {
-        setSurveyError('Failed to fetch survey bookings');
-      }
-    } catch (err: any) {
-      setSurveyError(err.message || 'An error occurred fetching survey bookings');
-    } finally {
-      setSurveyLoading(false);
-    }
-  };
+  const handleDelete = (id: string) => setPendingDelete({
+    kind: 'first-entry', id, title: 'Delete First Entry?',
+    message: 'This will also delete any associated Schedule II documents. This cannot be undone.',
+  });
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this First Entry? This will also delete any associated Schedule II documents.')) {
-      return;
-    }
-    try {
-      const res = await firstEntryService.deleteFirstEntry(id);
-      if (res.success) {
-        setEntries(prev => prev.filter(e => e._id !== id));
-      } else {
-        alert('Failed to delete entry');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error deleting entry');
-    }
-  };
+  const handleDeleteSurveyBooking = (id: string) => setPendingDelete({
+    kind: 'survey', id, title: 'Delete Survey Booking?', message: 'This cannot be undone.',
+  });
 
-  const handleDeleteSurveyBooking = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this Survey Booking?')) {
-      return;
-    }
-    try {
-      const res = await firstEntryService.deleteFirstEntrySurveyBooking(id);
-      if (res.success) {
-        setSurveyBookings(prev => prev.filter(b => b._id !== id));
-      } else {
-        alert('Failed to delete survey booking');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error deleting survey booking');
-    }
-  };
+  const handleDeleteReport = (id: string) => setPendingDelete({
+    kind: 'reports', id, title: 'Delete Survey Report?', message: 'This cannot be undone.',
+  });
 
-  const fetchReports = async (currentPage = page, currentLimit = limit) => {
-    try {
-      setReportsLoading(true);
-      setReportsError(null);
-      const res = await firstEntryService.getFirstEntrySurveyReports({ page: currentPage, limit: currentLimit });
-      if (res.success) {
-        setReports(res.data);
-        setTotal(res.count || 0);
-        setTotalPages(res.pagination?.totalPages || 1);
-      } else {
-        setReportsError('Failed to fetch survey reports');
-      }
-    } catch (err: any) {
-      setReportsError(err.message || 'An error occurred fetching survey reports');
-    } finally {
-      setReportsLoading(false);
-    }
-  };
-
-  const handleDeleteReport = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this Survey Report?')) {
-      return;
-    }
-    try {
-      const res = await firstEntryService.deleteFirstEntrySurveyReport(id);
-      if (res.success) {
-        setReports(prev => prev.filter(r => r._id !== id));
-      } else {
-        alert('Failed to delete survey report');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error deleting survey report');
-    }
-  };
-
-  const fetchCertificates = async (currentPage = page, currentLimit = limit) => {
-    try {
-      setCertificatesLoading(true);
-      setCertificatesError(null);
-      const res = await firstEntryService.getScccosCertificates({ page: currentPage, limit: currentLimit });
-      if (res.success) {
-        setCertificates(res.data);
-        setTotal(res.count || 0);
-        setTotalPages(res.pagination?.totalPages || 1);
-      } else {
-        setCertificatesError('Failed to fetch certificates');
-      }
-    } catch (err: any) {
-      setCertificatesError(err.message || 'An error occurred fetching certificates');
-    } finally {
-      setCertificatesLoading(false);
-    }
-  };
+  const handleDeleteCertificate = (id: string) => setPendingDelete({
+    kind: 'certificates', id, title: 'Delete SCCCOS Certificate?', message: 'This cannot be undone.',
+  });
 
   const handleDownloadCertificate = async (id: string, certificateNumber: string) => {
     try {
@@ -210,7 +178,7 @@ export default function MarineModulePage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert('Failed to download certificate: ' + err.message);
+      toast.error('Failed to download certificate: ' + err.message);
     }
   };
 
@@ -220,26 +188,10 @@ export default function MarineModulePage() {
       if (res.success && res.data) {
         handleDownloadCertificate(res.data._id, res.data.certificateNumber);
       } else {
-        alert('Could not find the certificate record for this Survey Report.');
+        toast.error('Could not find the certificate record for this Survey Report.');
       }
     } catch (err: any) {
-      alert('Failed to retrieve certificate: ' + err.message);
-    }
-  };
-
-  const handleDeleteCertificate = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this SCCCOS Certificate?')) {
-      return;
-    }
-    try {
-      const res = await firstEntryService.deleteScccosCertificate(id);
-      if (res.success) {
-        setCertificates(prev => prev.filter(c => c._id !== id));
-      } else {
-        alert('Failed to delete certificate');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error deleting certificate');
+      toast.error('Failed to retrieve certificate: ' + err.message);
     }
   };
 
@@ -295,71 +247,30 @@ export default function MarineModulePage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--separator)', marginBottom: '24px', gap: '20px' }}>
-        <button
-          onClick={() => setActiveTab('first-entry')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'first-entry' ? '2px solid var(--primary)' : '2px solid transparent',
-            color: activeTab === 'first-entry' ? 'var(--label)' : 'var(--muted)',
-            fontSize: '14px',
-            fontWeight: 600,
-            padding: '12px 4px',
-            cursor: 'pointer',
-            transition: 'all var(--transition)'
-          }}
-        >
-          First Entry
-        </button>
-        <button
-          onClick={() => setActiveTab('survey')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'survey' ? '2px solid var(--primary)' : '2px solid transparent',
-            color: activeTab === 'survey' ? 'var(--label)' : 'var(--muted)',
-            fontSize: '14px',
-            fontWeight: 600,
-            padding: '12px 4px',
-            cursor: 'pointer',
-            transition: 'all var(--transition)'
-          }}
-        >
-          Surveys
-        </button>
-        <button
-          onClick={() => setActiveTab('reports')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'reports' ? '2px solid var(--primary)' : '2px solid transparent',
-            color: activeTab === 'reports' ? 'var(--label)' : 'var(--muted)',
-            fontSize: '14px',
-            fontWeight: 600,
-            padding: '12px 4px',
-            cursor: 'pointer',
-            transition: 'all var(--transition)'
-          }}
-        >
-          Survey Reports
-        </button>
-        <button
-          onClick={() => setActiveTab('certificates')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'certificates' ? '2px solid var(--primary)' : '2px solid transparent',
-            color: activeTab === 'certificates' ? 'var(--label)' : 'var(--muted)',
-            fontSize: '14px',
-            fontWeight: 600,
-            padding: '12px 4px',
-            cursor: 'pointer',
-            transition: 'all var(--transition)'
-          }}
-        >
-          Certificates
-        </button>
+      <div role="tablist" aria-label="First Entry sections" style={{ display: 'flex', borderBottom: '1px solid var(--separator)', marginBottom: '24px', gap: '20px', overflowX: 'auto' }}>
+        {MARINE_TABS.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid var(--primary)' : '2px solid transparent',
+              color: activeTab === tab.id ? 'var(--label)' : 'var(--muted)',
+              fontSize: '14px',
+              fontWeight: 600,
+              padding: '12px 4px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all var(--transition)'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
@@ -369,12 +280,11 @@ export default function MarineModulePage() {
             <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
               <div style={{ display: 'inline-block', width: '24px', height: '24px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '12px' }} />
               <p style={{ fontSize: '14px' }}>Loading First Entries...</p>
-              <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { to { transform: rotate(360deg); } }` }} />
             </div>
           ) : error ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{error}</p>
-              <button className="btn-secondary" onClick={() => fetchEntries()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={reloadActiveTab} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : entries.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -530,7 +440,7 @@ export default function MarineModulePage() {
           ) : surveyError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{surveyError}</p>
-              <button className="btn-secondary" onClick={() => fetchSurveyBookings()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={reloadActiveTab} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : surveyBookings.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -670,7 +580,7 @@ export default function MarineModulePage() {
           ) : reportsError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{reportsError}</p>
-              <button className="btn-secondary" onClick={() => fetchReports()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={reloadActiveTab} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : reports.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -842,7 +752,7 @@ export default function MarineModulePage() {
           ) : certificatesError ? (
             <div className="card" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
               <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500 }}>{certificatesError}</p>
-              <button className="btn-secondary" onClick={() => fetchCertificates()} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
+              <button className="btn-secondary" onClick={reloadActiveTab} style={{ marginTop: '12px', minWidth: '120px' }}>Retry</button>
             </div>
           ) : certificates.length === 0 ? (
             <div className="card animate-in" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
@@ -951,17 +861,18 @@ export default function MarineModulePage() {
         }}
         booking={selectedBookingForScccos}
         surveyReportId={selectedReportIdForScccos}
-        onSuccess={() => {
-          fetchCertificates();
-        }}
+        onSuccess={reloadActiveTab}
       />
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .table-row-hover:hover {
-          background: rgba(148, 163, 184, .02);
-        }
-      `}} />
+      <ConfirmModal
+        isOpen={!!pendingDelete}
+        title={pendingDelete?.title || ''}
+        message={pendingDelete?.message || ''}
+        confirmText="Delete"
+        isDestructive
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

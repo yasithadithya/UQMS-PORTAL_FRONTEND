@@ -1,26 +1,29 @@
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { AccessDenied, NotFound } from '@/components/StatusPage';
+import { getParentId, resolveModuleTrail, toSlug } from '@/utils/modules';
 import NewRequestPage from './NewRequest';
 import CreateRequestPage from './CreateRequest';
 import RequestDetailsPage from './RequestDetails';
 import MarineModulePage from './MarineModulePage';
 import HRModulePage from './hr/HRModulePage';
 
+export function ModulesLoading() {
+    return (
+        <div aria-busy="true" aria-label="Loading">
+            <div className="skeleton" style={{ width: '220px', height: '28px', marginBottom: '12px' }} />
+            <div className="skeleton" style={{ width: '340px', maxWidth: '100%', height: '14px', marginBottom: '28px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+                {[0, 1, 2].map(i => <div key={i} className="skeleton" style={{ height: '150px', borderRadius: 'var(--radius-lg)' }} />)}
+            </div>
+        </div>
+    );
+}
+
 export default function GenericModulePage() {
     const { module } = useParams();
     const location = useLocation();
-    const { modules, user } = useAuth();
-
-    const formatName = (name: string | undefined) => {
-        if (!name) return '';
-        return name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    };
-
-    // --- Helper to get parentId consistently ---
-    const getParentId = (mod: any): string | null => {
-        if (!mod.parentId) return null;
-        return typeof mod.parentId === 'object' ? mod.parentId._id : mod.parentId;
-    };
+    const { modules, modulesLoaded, modulesError, refreshModules, isAdmin, canAccessModule } = useAuth();
 
     // Parse all path segments after the first /
     const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -28,8 +31,26 @@ export default function GenericModulePage() {
 
     const normalizedModule = module?.toLowerCase() || '';
 
+    // Until the module tree loads we can't tell a real page from a 404, so don't guess.
+    if (!modulesLoaded) {
+        return <ModulesLoading />;
+    }
+
+    if (modulesError && modules.length === 0) {
+        return (
+            <div className="card" role="alert" style={{ padding: '24px', textAlign: 'center', borderColor: 'var(--red)' }}>
+                <p style={{ color: 'var(--red)', fontSize: '14px', fontWeight: 500, marginBottom: '12px' }}>Couldn't load modules: {modulesError}</p>
+                <button type="button" className="btn-secondary btn-inline" onClick={refreshModules}>Retry</button>
+            </div>
+        );
+    }
+
     // --- Special case: New Request routes ---
     if (normalizedModule === 'new-request') {
+        const newRequestModule = modules.find(m => !getParentId(m) && toSlug(m.name) === 'new-request');
+        if (newRequestModule && !canAccessModule(newRequestModule._id)) {
+            return <AccessDenied />;
+        }
         if (pathSegments.length >= 2 && pathSegments[1] === 'create') {
             return <CreateRequestPage />;
         }
@@ -40,79 +61,50 @@ export default function GenericModulePage() {
     }
 
     // --- Walk the module tree based on path segments ---
-    // Start by finding the root module matching the first segment
-    let currentModule = modules.find(m => {
-        return !getParentId(m) && m.name.toLowerCase().replace(/\s+/g, '-') === pathSegments[0]?.toLowerCase();
-    });
+    const { trail, matched } = resolveModuleTrail(modules, pathSegments);
+    if (matched === 0 || matched < pathSegments.length) {
+        return <NotFound />;
+    }
+    const currentModule = trail[trail.length - 1];
+    const breadcrumbs = trail.map((m, i) => ({
+        name: m.name,
+        href: '/' + pathSegments.slice(0, i + 1).join('/')
+    }));
 
-    // Walk deeper for each subsequent path segment
-    const breadcrumbs: { name: string; href: string }[] = [];
-    if (currentModule) {
-        breadcrumbs.push({ name: currentModule.name, href: `/${pathSegments[0]}` });
-
-        for (let i = 1; i < pathSegments.length; i++) {
-            const segment = pathSegments[i].toLowerCase();
-            const childModule = modules.find(m => {
-                return getParentId(m) === currentModule!._id && m.name.toLowerCase().replace(/\s+/g, '-') === segment;
-            });
-            if (childModule) {
-                currentModule = childModule;
-                breadcrumbs.push({
-                    name: childModule.name,
-                    href: '/' + pathSegments.slice(0, i + 1).join('/')
-                });
-            } else {
-                // Segment doesn't match any child module — could be a special route
-                break;
-            }
-        }
+    // Every level of the path must be readable, not just the page itself (URLs can be typed directly).
+    if (trail.some(m => !canAccessModule(m._id))) {
+        return <AccessDenied />;
     }
 
     // --- Special case: First Entry sub-sub-module (under Marine) renders the tab-based page ---
-    if (currentModule && currentModule.name.toLowerCase() === 'first entry') {
+    if (currentModule.name.toLowerCase() === 'first entry') {
         return <MarineModulePage />;
     }
 
     // --- Special case: HR Module renders the custom HR page ---
-    if (currentModule && currentModule.name.toLowerCase() === 'hr') {
+    if (currentModule.name.toLowerCase() === 'hr') {
         return <HRModulePage currentModule={currentModule} />;
     }
 
-    // --- Access control ---
-    const hasAccess = (moduleName: string) => {
-        if (!user || !user.role || typeof user.role !== 'object') return false;
-        if (user.role.roleName.toLowerCase() === 'admin') return true;
-        
-        const rolePerms = user.role.permissions || [];
-        const mod = modules.find(m => m.name.toLowerCase() === moduleName.toLowerCase());
-        if (!mod) return false;
-        
-        const perm = rolePerms.find((p: any) => p.module === mod._id || (p.module && p.module._id === mod._id));
-        return !!(perm && perm.actions && perm.actions.includes('read'));
-    };
-
     // --- Find children of the current module ---
-    let subModulesToDisplay: { name: string, href: string, desc?: string }[] = [];
-    
-    if (currentModule) {
-        const children = modules.filter(m => getParentId(m) === currentModule!._id);
-        children.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const subModulesToDisplay: { name: string, href: string, desc?: string }[] = [];
 
-        children.forEach(child => {
-            if (hasAccess(child.name)) {
-                const childSlug = child.name.toLowerCase().replace(/\s+/g, '-');
-                const currentPath = breadcrumbs[breadcrumbs.length - 1]?.href || `/${normalizedModule}`;
-                subModulesToDisplay.push({
-                    name: child.name,
-                    href: `${currentPath}/${childSlug}`,
-                    desc: child.description || `Access the ${child.name} features`
-                });
-            }
-        });
-    }
+    const children = modules.filter(m => getParentId(m) === currentModule._id);
+    children.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    children.forEach(child => {
+        if (canAccessModule(child._id)) {
+            const currentPath = breadcrumbs[breadcrumbs.length - 1]?.href || `/${normalizedModule}`;
+            subModulesToDisplay.push({
+                name: child.name,
+                href: `${currentPath}/${toSlug(child.name)}`,
+                desc: child.description || `Access the ${child.name} features`
+            });
+        }
+    });
 
     // Handle Admin static sub-pages
-    if (normalizedModule === 'admin' && user?.role && (user.role as any).roleName?.toLowerCase() === 'admin' && pathSegments.length === 1) {
+    if (normalizedModule === 'admin' && isAdmin && pathSegments.length === 1) {
         subModulesToDisplay.push(
             { name: 'User Management', href: '/users', desc: 'Manage system users and assignments' },
             { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions' },
@@ -121,13 +113,13 @@ export default function GenericModulePage() {
         );
     }
 
-    const displayTitle = breadcrumbs.map(b => b.name).join(' / ') || formatName(module);
+    const displayTitle = breadcrumbs.map(b => b.name).join(' / ');
 
     return (
         <div className="animate-in">
             {/* Breadcrumb navigation */}
             {breadcrumbs.length > 1 && (
-                <nav style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                <nav aria-label="Breadcrumb" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', flexWrap: 'wrap' }}>
                     {breadcrumbs.map((crumb, i) => (
                         <span key={crumb.href} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {i > 0 && <span style={{ color: 'var(--muted)', opacity: 0.5 }}>›</span>}
@@ -146,18 +138,15 @@ export default function GenericModulePage() {
             <h2 className="section-header" style={{ marginBottom: '8px' }}>{displayTitle}</h2>
             <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '24px' }}>
                 {subModulesToDisplay.length > 0
-                    ? `Select a sub-module below to access ${currentModule?.name || formatName(module)} features.`
+                    ? `Select a sub-module below to access ${currentModule.name} features.`
                     : `This is a dynamically generated page for the ${displayTitle} module.`}
             </p>
 
             {subModulesToDisplay.length > 0 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
                     {subModulesToDisplay.map(sub => (
-                        <Link key={sub.href} to={sub.href} style={{ textDecoration: 'none' }}>
-                            <div className="card" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'pointer' }}
-                                 onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.08)'; }}
-                                 onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05), 0 10px 20px -5px rgba(0,0,0,0.04)'; }}
-                            >
+                        <Link key={sub.href} to={sub.href} className="module-card-link">
+                            <div className="card module-card" style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary-subtle)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '16px' }}>
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

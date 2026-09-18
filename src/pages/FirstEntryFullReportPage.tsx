@@ -283,7 +283,7 @@ export default function FirstEntryFullReportPage() {
       }
     } catch (err: any) {
       toast.error('Failed to generate Full Report: ' + err.message);
-      navigate(basePath);
+      navigate(`${basePath}?tab=reports`);
     }
   };
 
@@ -648,7 +648,7 @@ export default function FirstEntryFullReportPage() {
         <div className={s.emptyState}>
           <h3>First Entry Full Report Not Found</h3>
           <p>We could not retrieve or generate a full checklist report for this survey report.</p>
-          <Link to={basePath}>
+          <Link to={`${basePath}?tab=reports`}>
             <button className="btn-primary" style={{ marginTop: '16px' }}>
               Go Back
             </button>
@@ -661,7 +661,7 @@ export default function FirstEntryFullReportPage() {
 
   return (
     <div className={s.container}>
-      <Link to={basePath} className={s.backLink}>
+      <Link to={`${basePath}?tab=reports`} className={s.backLink}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>

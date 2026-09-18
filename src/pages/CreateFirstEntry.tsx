@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import ConfirmModal from '@/components/ConfirmModal';
 import SearchableSelect from '@/components/SearchableSelect';
@@ -22,6 +23,7 @@ import type {
 
 export default function CreateFirstEntry() {
   const navigate = useNavigate();
+  const unsaved = useUnsavedChanges();
   const { id, module } = useParams<{ id?: string; module?: string }>(); // FirstEntry ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
@@ -117,6 +119,10 @@ export default function CreateFirstEntry() {
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [existingVesselId, setExistingVesselId] = useState<string | null>(null);
   const [existingScheduleIIId, setExistingScheduleIIId] = useState<string | null>(null);
+  // Records created by a save that failed part-way; a retry updates them instead of creating duplicates.
+  const [createdVesselId, setCreatedVesselId] = useState<string | null>(null);
+  const [createdFirstEntryId, setCreatedFirstEntryId] = useState<string | null>(null);
+  const savingRef = useRef(false);
   const [scheduleEmailSent, setScheduleEmailSent] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showEmailConfirm, setShowEmailConfirm] = useState(false);
@@ -397,6 +403,9 @@ export default function CreateFirstEntry() {
   };
 
   const performSave = async () => {
+    // Guard against double-submits (e.g. double-clicking "Save Anyway") creating duplicate records.
+    if (savingRef.current) return;
+    savingRef.current = true;
     try {
       setLoading(true);
       setShowWarningModal(false);
@@ -463,16 +472,20 @@ export default function CreateFirstEntry() {
 
       if (isEdit && existingVesselId) {
         await vesselsService.updateVessel(existingVesselId, vesselPayload);
+      } else if (createdVesselId) {
+        await vesselsService.updateVessel(createdVesselId, vesselPayload);
+        finalVesselId = createdVesselId;
       } else {
         const vRes = await vesselsService.createVessel(vesselPayload);
         if (!vRes.success) throw new Error(vRes.message);
         finalVesselId = vRes.data._id;
+        setCreatedVesselId(finalVesselId);
       }
 
       if (!finalVesselId) throw new Error('Vessel could not be verified.');
 
       // Save/Update FirstEntry
-      let finalFirstEntryId = id;
+      let finalFirstEntryId = id || createdFirstEntryId || undefined;
       const firstEntryPayload = {
         request: selectedRequestId,
         vessel: finalVesselId,
@@ -481,12 +494,13 @@ export default function CreateFirstEntry() {
         quotationComments: !isQuoted ? quotationComments.trim() : undefined,
       };
 
-      if (isEdit && id) {
-        await firstEntryService.updateFirstEntry(id, firstEntryPayload);
+      if (finalFirstEntryId) {
+        await firstEntryService.updateFirstEntry(finalFirstEntryId, firstEntryPayload);
       } else {
         const feRes = await firstEntryService.createFirstEntry(firstEntryPayload);
         if (!feRes.success) throw new Error(feRes.message);
         finalFirstEntryId = feRes.data._id;
+        setCreatedFirstEntryId(finalFirstEntryId);
       }
 
       if (!finalFirstEntryId) throw new Error('First Entry could not be verified.');
@@ -499,11 +513,12 @@ export default function CreateFirstEntry() {
             documents: attachedDocuments,
           });
         } else {
-          await firstEntryService.createScheduleII({
+          const schedRes = await firstEntryService.createScheduleII({
             firstEntryId: finalFirstEntryId,
             status: 'attached',
             documents: attachedDocuments,
           });
+          if (schedRes.success && schedRes.data?._id) setExistingScheduleIIId(schedRes.data._id);
         }
       } else {
         // If Schedule II is cleared
@@ -513,10 +528,12 @@ export default function CreateFirstEntry() {
       }
 
       toast.success(isEdit ? 'First Entry updated successfully!' : 'First Entry created successfully!');
-      navigate(`/${activeModule}/marine`);
+      unsaved.allowNavigation();
+      navigate(`/${activeModule}/marine/first-entry?tab=first-entry`);
     } catch (err: any) {
       toast.error('Failed to save entries: ' + err.message);
     } finally {
+      savingRef.current = false;
       setLoading(false);
     }
   };
@@ -561,7 +578,7 @@ export default function CreateFirstEntry() {
     <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Page Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-        <Link to={`/${activeModule}/marine`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)' }}>
+        <Link to={`/${activeModule}/marine/first-entry?tab=first-entry`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
@@ -577,7 +594,7 @@ export default function CreateFirstEntry() {
         </div>
       </div>
 
-      <form onSubmit={handleSaveClick}>
+      <form onSubmit={handleSaveClick} onChangeCapture={unsaved.markDirty}>
         {/* SECTION 1: Request Association */}
         <div className="card" style={{ marginBottom: '24px' }}>
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
@@ -1419,7 +1436,7 @@ export default function CreateFirstEntry() {
           >
             {loading ? 'Saving...' : 'Save First Entry'}
           </button>
-          <Link to={`/${activeModule}/marine`} style={{ textDecoration: 'none' }}>
+          <Link to={`/${activeModule}/marine/first-entry?tab=first-entry`} style={{ textDecoration: 'none' }}>
             <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
               Cancel
             </button>
@@ -1485,10 +1502,6 @@ export default function CreateFirstEntry() {
               </button>
             </div>
           </div>
-          <style dangerouslySetInnerHTML={{
-            __html: `
-            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-          `}} />
         </div>
       )}
 
@@ -1500,6 +1513,7 @@ export default function CreateFirstEntry() {
         onConfirm={performSendEmail}
         onCancel={() => setShowEmailConfirm(false)}
       />
+      {unsaved.dialog}
     </div>
   );
 }

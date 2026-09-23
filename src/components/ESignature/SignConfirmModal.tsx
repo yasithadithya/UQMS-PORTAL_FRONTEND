@@ -82,7 +82,7 @@ export default function SignConfirmModal({
         </p>
 
         <div className={s.stampPreview} aria-label="Signature stamp preview">
-          <img src="/logo.png" alt="" className={s.stampSeal} />
+          <img src="/sign_logo.png" alt="" className={s.stampSeal} />
           <div className={s.stampLines}>
             <span>For {preview.companyName}</span>
             <span>Electronically Signed By: {signer?.name || preview.signerName || '-'}</span>

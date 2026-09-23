@@ -1672,7 +1672,7 @@ export default function EditSurveyReport() {
           <div style={{ marginTop: '24px', maxWidth: '460px' }}>
             {eSignature ? (
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                <img src="/logo.png" alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                <img src="/sign_logo.png" alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
                 <div style={{ fontStyle: 'italic', fontSize: '13px', lineHeight: 1.4 }}>
                   <div>For {eSignature.companyName}</div>
                   <div>Electronically Signed By: {eSignature.signedByName}</div>

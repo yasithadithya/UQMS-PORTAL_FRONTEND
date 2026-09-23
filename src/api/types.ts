@@ -587,6 +587,8 @@ export type SignableDocType = 'survey-report' | 'docking-cert' | 'scccos' | 'dai
 export interface ApiESignature {
   signedBy: string;
   signedByName: string;
+  /** Admin who applied the signature on the surveyor's behalf, if any. */
+  appliedBy?: string;
   companyName: string;
   location: string;
   circularRef: string;
@@ -616,6 +618,8 @@ export interface ApiSignatureStatus {
   /** Details the stamp will carry if the current user signs now. */
   preview: {
     signerName: string;
+    /** Whose details the stamp can carry; more than one only for admin / UQMS admin. */
+    signerOptions: { id: string; name: string; isSelf: boolean }[];
     companyName: string;
     circularRef: string;
     location: string;

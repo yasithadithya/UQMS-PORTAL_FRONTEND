@@ -58,7 +58,7 @@ export const formatTime = (value?: string | Date | null) => {
 
 /**
  * Electronic signature stamps state their date format explicitly as dd/mm/yyyy
- * (FAL.5/Circ.39 style), so they are the one exception to yyyy/mm/dd.
+ * (IMO electronic certificate style), so they are the one exception to yyyy/mm/dd.
  */
 export const formatSigningDate = (value?: string | Date | null) => {
   const parts = toParts(value);

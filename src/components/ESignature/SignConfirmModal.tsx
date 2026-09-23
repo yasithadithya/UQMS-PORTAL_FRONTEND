@@ -28,8 +28,12 @@ export default function SignConfirmModal({
 }: SignConfirmModalProps) {
   const titleId = useId();
   const locationId = useId();
+  const signerSelectId = useId();
   const locationRef = useRef<HTMLInputElement>(null);
   const [location, setLocation] = useState(preview.location);
+  const [signerId, setSignerId] = useState(preview.signerOptions[0]?.id || '');
+  const signer = preview.signerOptions.find((option) => option.id === signerId);
+  const onBehalf = !!signer && !signer.isSelf;
   const [signing, setSigning] = useState(false);
   const onCancelRef = useRef(onCancel);
   onCancelRef.current = onCancel;
@@ -53,7 +57,7 @@ export default function SignConfirmModal({
     if (!trimmedLocation || signing) return;
     try {
       setSigning(true);
-      const res = await eSignatureService.sign(docType, docId, trimmedLocation);
+      const res = await eSignatureService.sign(docType, docId, trimmedLocation, signerId || undefined);
       toast.success(res.message || `${documentLabel} signed electronically.`);
       onSigned(res.data);
     } catch (err: any) {
@@ -81,13 +85,38 @@ export default function SignConfirmModal({
           <img src="/logo.png" alt="" className={s.stampSeal} />
           <div className={s.stampLines}>
             <span>For {preview.companyName}</span>
-            <span>Electronically Signed By: {preview.signerName || '-'}</span>
+            <span>Electronically Signed By: {signer?.name || preview.signerName || '-'}</span>
             <span>Location: {(trimmedLocation || '-').toUpperCase()}</span>
             <span>Signing Date: {formatSigningDate(new Date())} (dd/mm/yyyy)</span>
             <span>Signed Electronically in accordance</span>
             <span>with {preview.circularRef}</span>
           </div>
         </div>
+
+        {(onBehalf || preview.signerOptions.length > 1) && (
+          <div style={{ marginBottom: '14px' }}>
+            <label htmlFor={signerSelectId} className="form-label">Sign as</label>
+            <select
+              id={signerSelectId}
+              className="form-input"
+              value={signerId}
+              onChange={(e) => setSignerId(e.target.value)}
+              disabled={signing}
+            >
+              {preview.signerOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}{option.isSelf ? ' (you)' : ' — assigned surveyor'}
+                </option>
+              ))}
+            </select>
+            {onBehalf && (
+              <p className={s.dialogHint}>
+                You are applying this signature on behalf of the assigned surveyor. Your account is recorded as the one
+                who applied it.
+              </p>
+            )}
+          </div>
+        )}
 
         <label htmlFor={locationId} className="form-label">Signing location</label>
         <input

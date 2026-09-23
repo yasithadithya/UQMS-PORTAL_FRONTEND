@@ -7,11 +7,11 @@ export const eSignatureService = {
     return request<{ success: boolean; data: ApiSignatureStatus }>(`/e-signatures/${docType}/${id}`);
   },
 
-  /** Signs as the logged-in assigned surveyor; the document is locked afterwards. */
-  sign: (docType: SignableDocType, id: string, location: string) => {
+  /** Signs the document (locked afterwards). Admin / UQMS admin may pass an assigned surveyor to sign as. */
+  sign: (docType: SignableDocType, id: string, location: string, signerId?: string) => {
     return request<{ success: boolean; message: string; data: ApiSignatureStatus }>(`/e-signatures/${docType}/${id}/sign`, {
       method: 'POST',
-      body: JSON.stringify({ location }),
+      body: JSON.stringify({ location, signerId }),
     });
   },
 

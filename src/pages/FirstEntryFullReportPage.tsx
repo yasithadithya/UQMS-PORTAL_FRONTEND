@@ -8,8 +8,19 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ScccosModal from '@/components/ScccosModal';
 import DockingSurveyModal from '@/components/DockingSurveyModal';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
+import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
+import type { SignableDocType } from '@/api';
 import s from './FirstEntryFullReportPage.module.css';
-import { formatDate, formatDateTime } from '@/utils/date';
+import { formatDate, formatDateTime, formatSigningDate } from '@/utils/date';
+
+/** A stored document opened in the signing viewer. */
+type OpenSignableDocument = {
+  docType: SignableDocType;
+  docId: string;
+  title: string;
+  fetchPdf: () => Promise<Blob>;
+  downloadFileName: string;
+};
 
 export default function FirstEntryFullReportPage() {
   const { id, module } = useParams<{ id: string; module?: string }>();
@@ -44,6 +55,7 @@ export default function FirstEntryFullReportPage() {
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
   const [isDockingSurveyModalOpen, setIsDockingSurveyModalOpen] = useState(false);
   const [dockingSurveyCertExists, setDockingSurveyCertExists] = useState(false);
+  const [openDocument, setOpenDocument] = useState<OpenSignableDocument | null>(null);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
 
   // Remarks section states
@@ -578,20 +590,30 @@ export default function FirstEntryFullReportPage() {
     }
   };
 
+  const handleViewDailyReport = () => {
+    if (!report) return;
+    setOpenDocument({
+      docType: 'daily-report',
+      docId: report._id,
+      title: 'Daily Visit Report',
+      fetchPdf: () => firstEntryService.getDailyReportPdfBlob(report._id),
+      downloadFileName: report.dailyReportPdfFilename || `daily-visit-report-${report._id}.pdf`,
+    });
+  };
+
   const handleViewCos = async () => {
     if (!surveyReport?._id) return;
     try {
       const res = await firstEntryService.getScccosCertificateBySurveyReportId(surveyReport._id);
       if (res.success && res.data) {
-        const pdfBlob = await firstEntryService.getScccosFinalBlob(res.data._id);
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const certificate = res.data;
+        setOpenDocument({
+          docType: 'scccos',
+          docId: certificate._id,
+          title: `SSC Certificate of Survey — ${certificate.certificateNumber}`,
+          fetchPdf: () => firstEntryService.getScccosFinalBlob(certificate._id),
+          downloadFileName: `scc_certificate_${certificate.certificateNumber.replace(/\s+/g, '_')}.pdf`,
+        });
       } else {
         toast.error('Could not find the certificate record.');
       }
@@ -605,15 +627,14 @@ export default function FirstEntryFullReportPage() {
     try {
       const res = await firstEntryService.getDockingSurveyCertBySurveyReportId(surveyReport._id);
       if (res.success && res.data) {
-        const pdfBlob = await firstEntryService.getDockingSurveyFinalBlob(res.data._id);
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `docking_survey_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const certificate = res.data;
+        setOpenDocument({
+          docType: 'docking-cert',
+          docId: certificate._id,
+          title: `Docking Survey Certificate — ${certificate.certificateNumber}`,
+          fetchPdf: () => firstEntryService.getDockingSurveyFinalBlob(certificate._id),
+          downloadFileName: `docking_survey_${certificate.certificateNumber.replace(/\s+/g, '_')}.pdf`,
+        });
       } else {
         toast.error('Could not find the certificate record.');
       }
@@ -718,6 +739,15 @@ export default function FirstEntryFullReportPage() {
                 <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
                   (Generated: {formatDateTime(report.dailyReportPdfGeneratedAt)})
                 </span>
+                {report.eSignature ? (
+                  <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: 'var(--green)', fontWeight: 600 }}>
+                    ✓ Signed electronically by {report.eSignature.signedByName} on {formatSigningDate(report.eSignature.signedAt)}
+                  </span>
+                ) : (
+                  <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: 'var(--orange)', fontWeight: 600 }}>
+                    Not signed yet
+                  </span>
+                )}
               </span>
             ) : (
               <span style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
@@ -725,11 +755,21 @@ export default function FirstEntryFullReportPage() {
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {report.dailyReportPdfGeneratedAt && (
+              <button
+                className="btn-secondary"
+                onClick={handleViewDailyReport}
+                style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px', width: 'auto', minWidth: 'unset' }}
+              >
+                {report.eSignature ? 'View Signed Daily Report' : 'View & Sign Daily Report'}
+              </button>
+            )}
             <button
               className="btn-primary"
               onClick={handlePreviewDailyReport}
-              disabled={previewLoading || generatingPdf}
+              disabled={previewLoading || generatingPdf || !!report.eSignature}
+              title={report.eSignature ? 'The daily report is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
               style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px', width: 'auto', minWidth: 'unset' }}
             >
               {previewLoading ? 'Loading Preview...' : 'Preview & Generate Daily Report'}
@@ -1426,6 +1466,23 @@ export default function FirstEntryFullReportPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {openDocument && (
+        <SignableDocumentModal
+          key={`${openDocument.docType}-${openDocument.docId}`}
+          isOpen
+          onClose={() => setOpenDocument(null)}
+          title={openDocument.title}
+          docType={openDocument.docType}
+          docId={openDocument.docId}
+          fetchPdf={openDocument.fetchPdf}
+          downloadFileName={openDocument.downloadFileName}
+          onStatusChange={(status) => {
+            if (openDocument.docType !== 'daily-report') return;
+            setReport((prev) => (prev ? { ...prev, eSignature: status.eSignature || undefined } : prev));
+          }}
+        />
       )}
 
       {isScccosModalOpen && booking && (

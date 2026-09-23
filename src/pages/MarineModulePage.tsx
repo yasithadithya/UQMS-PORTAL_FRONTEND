@@ -8,6 +8,7 @@ import { formatDate } from '@/utils/date';
 import ScccosModal from '@/components/ScccosModal';
 import Pagination from '@/components/Pagination';
 import ConfirmModal from '@/components/ConfirmModal';
+import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
 
 export type MarineTab = 'first-entry' | 'survey' | 'reports' | 'certificates';
 const MARINE_TABS: { id: MarineTab; label: string }[] = [
@@ -39,6 +40,7 @@ export default function MarineModulePage() {
   const [surveyBookings, setSurveyBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
   const [reports, setReports] = useState<ApiFirstEntrySurveyReport[]>([]);
   const [certificates, setCertificates] = useState<ApiSCCCOS[]>([]);
+  const [viewingCertificate, setViewingCertificate] = useState<ApiSCCCOS | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [surveyLoading, setSurveyLoading] = useState(false);
@@ -186,7 +188,7 @@ export default function MarineModulePage() {
     try {
       const res = await firstEntryService.getScccosCertificateBySurveyReportId(reportId);
       if (res.success && res.data) {
-        handleDownloadCertificate(res.data._id, res.data.certificateNumber);
+        setViewingCertificate(res.data);
       } else {
         toast.error('Could not find the certificate record for this Survey Report.');
       }
@@ -800,6 +802,13 @@ export default function MarineModulePage() {
                         <td style={{ padding: '16px 20px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: '8px' }}>
                             <button
+                              onClick={() => setViewingCertificate(cert)}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0 }}
+                            >
+                              {cert.eSignature ? 'View Signed' : 'View & Sign'}
+                            </button>
+                            <button
                               onClick={() => handleDownloadCertificate(cert._id, cert.certificateNumber)}
                               className="btn-secondary"
                               style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '65px', marginBottom: 0, color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
@@ -863,6 +872,24 @@ export default function MarineModulePage() {
         surveyReportId={selectedReportIdForScccos}
         onSuccess={reloadActiveTab}
       />
+
+      {viewingCertificate && (
+        <SignableDocumentModal
+          key={viewingCertificate._id}
+          isOpen
+          onClose={() => setViewingCertificate(null)}
+          title={`SSC Certificate of Survey — ${viewingCertificate.certificateNumber}`}
+          docType="scccos"
+          docId={viewingCertificate._id}
+          fetchPdf={() => firstEntryService.getScccosFinalBlob(viewingCertificate._id)}
+          downloadFileName={`scc_certificate_${viewingCertificate.certificateNumber.replace(/\s+/g, '_')}.pdf`}
+          onStatusChange={(status) => {
+            setCertificates((prev) => prev.map((c) => (
+              c._id === viewingCertificate._id ? { ...c, eSignature: status.eSignature || undefined } : c
+            )));
+          }}
+        />
+      )}
 
       <ConfirmModal
         isOpen={!!pendingDelete}

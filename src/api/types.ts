@@ -390,6 +390,7 @@ export interface ApiFirstEntryFullReport {
   dailyReportPdfSize?: number;
   dailyReportPdfEtag?: string;
   dailyReportPdfGeneratedAt?: string;
+  eSignature?: ApiESignature;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt?: string;
@@ -421,6 +422,7 @@ export interface ApiSCCCOS {
   surveyorName?: string;
   dateOfIssue: string;
   issuedBy: ApiUser | string;
+  eSignature?: ApiESignature;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt: string;
@@ -467,6 +469,7 @@ export interface ApiDockingSurveyCert {
   overboardValves: string;
   anodes: string;
   dateOfIssue: string;
+  eSignature?: ApiESignature;
   
   issuedBy: ApiUser | string;
   createdBy?: ApiUser | string;
@@ -570,11 +573,55 @@ export interface ApiSurveyReport {
     certifyingBody: string;
   };
   status: 'Draft' | 'Approved';
+  eSignature?: ApiESignature;
   createdBy?: ApiUser | string;
   updatedBy?: ApiUser | string;
   createdAt?: string;
   updatedAt?: string;
 }
 
+/** Documents that carry an electronic signature field. */
+export type SignableDocType = 'survey-report' | 'docking-cert' | 'scccos' | 'daily-report';
 
+/** Electronic signature applied by the assigned surveyor; its presence locks the document. */
+export interface ApiESignature {
+  signedBy: string;
+  signedByName: string;
+  /** Admin who applied the signature on the surveyor's behalf, if any. */
+  appliedBy?: string;
+  companyName: string;
+  location: string;
+  circularRef: string;
+  signedAt: string;
+}
 
+/** Signature field position in the PDF, in PDF points with a top-left origin; `page` is zero-based. */
+export interface ApiSignatureField {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageWidth: number;
+  pageHeight: number;
+}
+
+export interface ApiSignatureStatus {
+  documentLabel: string;
+  signed: boolean;
+  eSignature: ApiESignature | null;
+  signatureField: ApiSignatureField | null;
+  canSign: boolean;
+  canRevoke: boolean;
+  /** Why the current user cannot sign, when canSign is false. */
+  reason: string | null;
+  /** Details the stamp will carry if the current user signs now. */
+  preview: {
+    signerName: string;
+    /** Whose details the stamp can carry; more than one only for admin / UQMS admin. */
+    signerOptions: { id: string; name: string; isSelf: boolean }[];
+    companyName: string;
+    circularRef: string;
+    location: string;
+  } | null;
+}

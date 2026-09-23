@@ -202,6 +202,10 @@ export const firstEntryService = {
   getDailyReportPdfPreview: (id: string) => {
     return requestBlob(`/first-entry-full-reports/${id}/daily-report-preview`);
   },
+  /** The generated (stored) Daily Visit Report PDF, including its signature stamp once signed. */
+  getDailyReportPdfBlob: (id: string) => {
+    return requestBlob(`/first-entry-full-reports/${id}/daily-report-pdf`);
+  },
   addGeneralRemark: (reportId: string, text: string) => {
     return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks`, {
       method: 'POST',

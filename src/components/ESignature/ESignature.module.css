@@ -1,0 +1,279 @@
+/* ── Full-screen document modal ───────────────────────── */
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation: fadeIn 0.2s ease;
+}
+
+.fullscreenHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.fullscreenTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.closeBtn:hover {
+  color: var(--label);
+  background: var(--fill);
+}
+
+/* ── Viewer ───────────────────────────────────────────── */
+.viewer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.statusSigned {
+  color: var(--green);
+  background: var(--green-subtle);
+}
+
+.statusPending {
+  color: var(--orange);
+  background: var(--orange-subtle);
+}
+
+.pages {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-subtle);
+}
+
+.page {
+  position: relative;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.message {
+  margin: auto;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.refreshing {
+  position: sticky;
+  bottom: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+/* ── Signature field overlay ──────────────────────────── */
+.field {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.fieldActive {
+  border: 2px dashed #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  cursor: pointer;
+  animation: fieldPulse 1.8s ease-in-out infinite;
+  transition: background var(--transition);
+}
+
+.fieldActive:hover,
+.fieldActive:focus-visible {
+  background: rgba(37, 99, 235, 0.2);
+  outline: none;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+}
+
+.fieldLocked {
+  border: 2px dashed #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  cursor: not-allowed;
+}
+
+.fieldLabel {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e3a8a;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.fieldLocked .fieldLabel {
+  font-weight: 600;
+  color: #475569;
+}
+
+@keyframes fieldPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fieldActive { animation: none; }
+}
+
+/* ── Sign confirmation dialog ─────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 0;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+}
+
+.dialogTitle {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--label);
+}
+
+.dialogText {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+
+/* The stamp preview mirrors the printed stamp, so it stays on a paper-white background in both themes. */
+.stampPreview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2937;
+}
+
+.stampSeal {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.stampLines {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.dialogHint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--orange);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+@media (max-width: 480px) {
+  .stampPreview {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

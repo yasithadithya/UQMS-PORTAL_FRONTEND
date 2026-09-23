@@ -57,6 +57,16 @@ export const formatTime = (value?: string | Date | null) => {
 };
 
 /**
+ * Electronic signature stamps state their date format explicitly as dd/mm/yyyy
+ * (IMO electronic certificate style), so they are the one exception to yyyy/mm/dd.
+ */
+export const formatSigningDate = (value?: string | Date | null) => {
+  const parts = toParts(value);
+
+  return parts ? `${parts.day}/${parts.month}/${parts.year}` : '-';
+};
+
+/**
  * Build Date is a free-text field; older records were entered as DD/MM/YYYY or MM/YYYY.
  * Reorders them to YYYY/MM/DD only when the 4-digit year is clearly in the last segment.
  */

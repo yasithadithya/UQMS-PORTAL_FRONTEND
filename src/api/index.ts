@@ -16,3 +16,4 @@ export * from './services/notes.service';
 export * from './services/vesselEquipmentRecord.service';
 export * from './services/surveyReport.service';
 export * from './services/hr.service';
+export * from './services/eSignature.service';

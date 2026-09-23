@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { surveyReportService, vesselEquipmentRecordService } from '@/api';
+import type { ApiESignature } from '@/api';
+import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
+import { formatSigningDate } from '@/utils/date';
 
 interface IFireRow {
   location: string;
@@ -283,6 +286,9 @@ export default function EditSurveyReport() {
   });
 
   const [status, setStatus] = useState<'Draft' | 'Approved'>('Draft');
+  const [eSignature, setESignature] = useState<ApiESignature | null>(null);
+  const [showSignModal, setShowSignModal] = useState(false);
+  const isSigned = !!eSignature;
 
   const [totalPersonsOnboard, setTotalPersonsOnboard] = useState(0);
   const [maxPassengers, setMaxPassengers] = useState(0);
@@ -420,6 +426,7 @@ export default function EditSurveyReport() {
           setMinManning(report.minManning ?? 0);
 
           setStatus(report.status || 'Draft');
+          setESignature(report.eSignature || null);
         }
 
         // 2. Fetch Equipment Checklist
@@ -655,8 +662,12 @@ export default function EditSurveyReport() {
   };
 
   const handlePreviewPdf = async () => {
-    toast.info('Saving changes before exporting PDF...');
-    const savedId = await handleSave();
+    // A signed report is locked, so download the signed copy as it is.
+    let savedId = existingReportId;
+    if (!isSigned) {
+      toast.info('Saving changes before exporting PDF...');
+      savedId = await handleSave();
+    }
     if (!savedId) return;
 
     try {
@@ -1658,16 +1669,27 @@ export default function EditSurveyReport() {
             SIGNED: Date of issue: {' '}
             <input type="date" className="paper-input" value={signature.dateOfIssue} onChange={e => setSignature(p => ({ ...p, dateOfIssue: e.target.value }))} />
           </p>
-          <div style={{ marginTop: '40px' }}>
-            <p className="paper-paragraph" style={{ margin: 0 }}>....................................................................</p>
-            <p className="paper-paragraph" style={{ margin: 0, fontWeight: 700 }}>
-              <input type="text" className="paper-input" value={signature.surveyorName} onChange={e => setSignature(p => ({ ...p, surveyorName: e.target.value }))} placeholder="SURVEYOR NAME INITIALS" style={{ width: '250px', fontWeight: 800 }} />
-            </p>
-            <p className="paper-paragraph" style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>
-              <input type="text" className="paper-input" value={signature.surveyorTitle} onChange={e => setSignature(p => ({ ...p, surveyorTitle: e.target.value }))} style={{ width: '150px' }} />
-            </p>
-            <p className="paper-paragraph" style={{ margin: 0, fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>
-              <input type="text" className="paper-input" value={signature.certifyingBody} onChange={e => setSignature(p => ({ ...p, certifyingBody: e.target.value }))} style={{ width: '300px' }} />
+          <div style={{ marginTop: '24px', maxWidth: '460px' }}>
+            {eSignature ? (
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                <img src="/logo.png" alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                <div style={{ fontStyle: 'italic', fontSize: '13px', lineHeight: 1.4 }}>
+                  <div>For {eSignature.companyName}</div>
+                  <div>Electronically Signed By: {eSignature.signedByName}</div>
+                  <div>Location: {eSignature.location.toUpperCase()}</div>
+                  <div>Signing Date: {formatSigningDate(eSignature.signedAt)} (dd/mm/yyyy)</div>
+                  <div>Signed Electronically in accordance with {eSignature.circularRef}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: '18px', border: '2px dashed var(--border-hover)', borderRadius: '8px', color: 'var(--muted)', fontSize: '13px', textAlign: 'center' }}>
+                {status === 'Approved'
+                  ? 'Electronic signature pending. Open "View & Sign" to sign as the assigned surveyor.'
+                  : 'The assigned surveyor signs electronically after the report is approved.'}
+              </div>
+            )}
+            <p className="paper-paragraph" style={{ margin: '10px 0 0', paddingTop: '6px', borderTop: '1px solid var(--label)', fontWeight: 700 }}>
+              Surveyor to Universal Quality Management Systems (Pvt) Ltd
             </p>
           </div>
         </div>
@@ -1706,6 +1728,17 @@ export default function EditSurveyReport() {
           {downloading ? 'Downloading PDF...' : 'Preview & Print PDF'}
         </button>
 
+        {status === 'Approved' && existingReportId && (
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => setShowSignModal(true)}
+            style={{ minWidth: '160px', marginBottom: 0 }}
+          >
+            {isSigned ? 'View Signed Report' : 'View & Sign'}
+          </button>
+        )}
+
         <Link to={`/${activeModule}/marine/first-entry/survey-report/edit/${id}`} style={{ textDecoration: 'none' }}>
           <button type="button" className="btn-secondary" style={{ minWidth: '120px', marginBottom: 0 }}>
             Back
@@ -1713,6 +1746,18 @@ export default function EditSurveyReport() {
         </Link>
       </div>
 
+      {showSignModal && existingReportId && (
+        <SignableDocumentModal
+          isOpen
+          onClose={() => setShowSignModal(false)}
+          title={`Survey Report — ${vessel?.vesselName || 'Vessel'}`}
+          docType="survey-report"
+          docId={existingReportId}
+          fetchPdf={() => surveyReportService.getSurveyReportPdfBlob(existingReportId)}
+          downloadFileName={`Survey_Report_${vessel?.vesselName || 'Vessel'}.pdf`}
+          onStatusChange={(next) => setESignature(next.eSignature)}
+        />
+      )}
     </div>
   );
 }

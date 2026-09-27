@@ -1,4 +1,7 @@
 import React, { useState, useRef } from 'react';
+import clsx from 'clsx';
+import { UploadCloud } from 'lucide-react';
+import s from './DragDropFileUpload.module.css';
 
 interface DragDropFileUploadProps {
   onFilesSelected: (files: FileList | null) => void;
@@ -9,22 +12,25 @@ interface DragDropFileUploadProps {
   text?: React.ReactNode;
   subText?: React.ReactNode;
   containerStyle?: React.CSSProperties;
+  /** A custom class renders only `text` inside it (a compact trigger); omit it for the standard drop zone. */
   className?: string;
 }
 
+/** Click-or-drop file picker. The invisible native input covers the area, so it works with keyboard and touch too. */
 export default function DragDropFileUpload({
   onFilesSelected,
   multiple = false,
   accept = "*",
   disabled = false,
-  icon = "+",
+  icon,
   text = <span>Upload files</span>,
   subText,
-  containerStyle = {},
-  className = "upload-area",
+  containerStyle,
+  className,
 }: DragDropFileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isDropzone = !className;
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -55,7 +61,7 @@ export default function DragDropFileUpload({
     e.stopPropagation();
     if (disabled) return;
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       // Create a new DataTransfer object to simulate a FileList
       const dt = new DataTransfer();
@@ -64,9 +70,9 @@ export default function DragDropFileUpload({
       } else {
         dt.items.add(e.dataTransfer.files[0]);
       }
-      
+
       onFilesSelected(dt.files);
-      
+
       // Reset input value to allow selecting the same file again if needed
       if (inputRef.current) {
         inputRef.current.files = dt.files;
@@ -81,27 +87,23 @@ export default function DragDropFileUpload({
 
   return (
     <div
-      className={`${className} ${isDragging ? 'dragging' : ''}`}
-      style={{
-        position: 'relative',
-        transition: 'all 0.2s ease',
-        borderColor: isDragging ? 'var(--primary)' : undefined,
-        backgroundColor: isDragging ? 'rgba(37, 99, 235, 0.05)' : undefined,
-        opacity: disabled ? 0.6 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-        ...containerStyle,
-      }}
+      className={clsx(isDropzone ? s.dropzone : className, s.root, isDragging && s.dragging, disabled && s.disabled)}
+      style={containerStyle}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {className === 'upload-area' ? (
+      {isDropzone ? (
         <>
-          <div className="upload-icon">{icon}</div>
-          <div className="upload-text">
-            {text} {subText && <span style={{ color: 'var(--muted)', fontSize: '0.9em' }}>{subText}</span>}
-          </div>
+          <span className={s.icon} aria-hidden="true">{icon ?? <UploadCloud />}</span>
+          <span className={s.text}>
+            <span className={s.primary}>{text}</span>
+            <span className={s.secondary}>
+              {isDragging ? 'Drop to add' : 'Drag and drop, or click to browse'}
+              {subText && <> · {subText}</>}
+            </span>
+          </span>
         </>
       ) : (
         <>{text}</>
@@ -109,18 +111,11 @@ export default function DragDropFileUpload({
       <input
         ref={inputRef}
         type="file"
+        className={s.input}
         multiple={multiple}
         accept={accept}
         onChange={handleChange}
         disabled={disabled}
-        style={{
-          opacity: 0,
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          cursor: disabled ? 'default' : 'pointer',
-        }}
       />
     </div>
   );

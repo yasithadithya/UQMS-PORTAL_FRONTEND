@@ -1,4 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { RotateCw } from 'lucide-react';
+import { Button, Card, ErrorState } from '@/ui';
+import s from './StatusPage.module.css';
 
 interface Props {
   children: ReactNode;
@@ -30,16 +33,19 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
 
+    // Rendered outside the router at the top level, so this uses plain buttons rather than links.
     return (
-      <div role="alert" className="card" style={{ maxWidth: '520px', margin: '64px auto', textAlign: 'center', padding: '32px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--label)', marginBottom: '8px' }}>Something went wrong</h2>
-        <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
-          This page hit an unexpected error. Your other work is not affected. Try reloading, or go back to the dashboard.
-        </p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className="btn-primary btn-inline" onClick={() => window.location.reload()}>Reload page</button>
-          <button type="button" className="btn-secondary btn-inline" onClick={() => { window.location.href = '/'; }}>Go to dashboard</button>
-        </div>
+      <div className={s.wrap}>
+        <Card padding="none">
+          <ErrorState
+            title="Something went wrong"
+            message="This page hit an unexpected error. Your other work is not affected. Reload the page, or go back to the dashboard."
+          />
+          <div className={s.actions}>
+            <Button variant="primary" icon={<RotateCw />} onClick={() => window.location.reload()}>Reload page</Button>
+            <Button onClick={() => { window.location.href = '/'; }}>Go to dashboard</Button>
+          </div>
+        </Card>
       </div>
     );
   }

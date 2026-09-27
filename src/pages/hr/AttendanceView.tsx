@@ -4,6 +4,7 @@ import { hrService } from '../../api';
 import { Badge, Modal, EmptyRow, FilterBar, Field } from './hrShared';
 import s from './hr.module.css';
 
+import { Button, Input, Select } from '@/ui';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function AttendanceView({ basePath }: { basePath: string }) {
@@ -99,29 +100,29 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
     <div>
       <FilterBar>
         <Field label="Select Employee" className={s.filterField} full>
-          <select className="form-input" value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(e.target.value)}>
+          <Select value={selectedEmployeeId} onChange={e => setSelectedEmployeeId(e.target.value)}>
             <option value="">-- Select Employee --</option>
             {employees.map(emp => (
               <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Month" className={s.filterField}>
-          <select className="form-input" value={month} onChange={e => setMonth(Number(e.target.value))}>
+          <Select value={month} onChange={e => setMonth(Number(e.target.value))}>
             {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Year" className={s.filterField}>
-          <select className="form-input" value={year} onChange={e => setYear(Number(e.target.value))}>
+          <Select value={year} onChange={e => setYear(Number(e.target.value))}>
             {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          </Select>
         </Field>
-        <button className="btn-primary" onClick={() => handleClock('in')} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
+        <Button variant="primary" onClick={() => handleClock('in')} disabled={!selectedEmployeeId || clockLoading}>
           Clock In
-        </button>
-        <button className="btn-secondary" onClick={() => handleClock('out')} disabled={!selectedEmployeeId || clockLoading} style={{ marginBottom: 0 }}>
+        </Button>
+        <Button variant="secondary" onClick={() => handleClock('out')} disabled={!selectedEmployeeId || clockLoading}>
           Clock Out
-        </button>
+        </Button>
         <button className={s.actionBtn} onClick={() => setManualOpen(true)} disabled={!selectedEmployeeId}>
           + Manual Entry
         </button>
@@ -164,9 +165,9 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
                   <td>{log.overtimeHours ? log.overtimeHours.toFixed(2) : '-'}</td>
                   <td>
                     <Badge status={log.status} />
-                    {log.isManualEntry && <span className={s.cellSub} style={{ display: 'inline', marginLeft: '6px' }}>(manual)</span>}
+                    {log.isManualEntry && <span className={s.cellSubInline}>(manual)</span>}
                   </td>
-                  <td style={{ maxWidth: '200px' }}>{log.notes || '—'}</td>
+                  <td className={s.clip}>{log.notes || '—'}</td>
                 </tr>
               ))}
               {logs.length === 0 && (
@@ -183,28 +184,28 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
           onClose={() => setManualOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setManualOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={submitManual}>Save Entry</button>
+              <Button variant="secondary" onClick={() => setManualOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={submitManual}>Save Entry</Button>
             </>
           }
         >
           <div className={s.modalGrid}>
             <Field label="Date" required>
-              <input className="form-input" type="date" value={manual.date} onChange={e => setManual({ ...manual, date: e.target.value })} />
+              <Input type="date" value={manual.date} onChange={e => setManual({ ...manual, date: e.target.value })} />
             </Field>
             <Field label="Status">
-              <select className="form-input" value={manual.status} onChange={e => setManual({ ...manual, status: e.target.value })}>
+              <Select value={manual.status} onChange={e => setManual({ ...manual, status: e.target.value })}>
                 {['Present', 'Absent', 'Late', 'HalfDay', 'OnLeave', 'Holiday'].map(st => <option key={st} value={st}>{st}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="Clock In">
-              <input className="form-input" type="time" value={manual.clockIn} onChange={e => setManual({ ...manual, clockIn: e.target.value })} />
+              <Input type="time" value={manual.clockIn} onChange={e => setManual({ ...manual, clockIn: e.target.value })} />
             </Field>
             <Field label="Clock Out">
-              <input className="form-input" type="time" value={manual.clockOut} onChange={e => setManual({ ...manual, clockOut: e.target.value })} />
+              <Input type="time" value={manual.clockOut} onChange={e => setManual({ ...manual, clockOut: e.target.value })} />
             </Field>
             <Field label="Notes" full>
-              <input className="form-input" type="text" value={manual.notes} onChange={e => setManual({ ...manual, notes: e.target.value })} placeholder="Reason for manual entry" />
+              <Input type="text" value={manual.notes} onChange={e => setManual({ ...manual, notes: e.target.value })} placeholder="Reason for manual entry" />
             </Field>
           </div>
         </Modal>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
-import ConfirmModal from '@/components/ConfirmModal';
 
+import { ConfirmDialog } from '@/ui';
 /**
  * Warns before leaving a form with unsaved edits, both for in-app navigation and tab close/reload.
  *
@@ -44,13 +44,13 @@ export function useUnsavedChanges() {
   }, [dirty]);
 
   const dialog = (
-    <ConfirmModal
-      isOpen={blocker.state === 'blocked'}
+    <ConfirmDialog
+      open={blocker.state === 'blocked'}
       title="Discard unsaved changes?"
       message="You have changes on this page that haven't been saved. If you leave now they will be lost."
       confirmText="Leave page"
       cancelText="Keep editing"
-      isDestructive
+      destructive
       onConfirm={() => blocker.proceed?.()}
       onCancel={() => blocker.reset?.()}
     />

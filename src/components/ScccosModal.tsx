@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { AlertTriangle, Eye, FileDown, FileText, RefreshCw } from 'lucide-react';
+import { Button, EmptyState, Field, Input, Modal, Select, Textarea } from '@/ui';
+import d from './DocumentFormModal.module.css';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
@@ -19,14 +22,18 @@ interface ScccosModalProps {
   onSuccess?: () => void;
 }
 
-export default function ScccosModal({
-  isOpen,
+export default function ScccosModal(props: ScccosModalProps) {
+  // Mount the dialog only while open, so its form state starts fresh each time and hooks never run conditionally.
+  if (!props.isOpen || !props.booking) return null;
+  return <ScccosDialog {...props} booking={props.booking} />;
+}
+
+function ScccosDialog({
   onClose,
   booking,
   surveyReportId,
   onSuccess
-}: ScccosModalProps) {
-  if (!isOpen || !booking) return null;
+}: ScccosModalProps & { booking: NonNullable<ScccosModalProps['booking']> }) {
 
   const [typeOfSurvey, setTypeOfSurvey] = useState('SSC Initial Survey');
   const [nominatedDeparturePoint, setNominatedDeparturePoint] = useState(
@@ -152,309 +159,119 @@ export default function ScccosModal({
     }
   };
 
+  type Finding = 'Satisfactory' | 'Not Satisfactory' | 'N/A';
+  const FINDINGS: { label: string; value: Finding; set: (v: Finding) => void }[] = [
+    { label: 'Hull', value: hull, set: setHull },
+    { label: 'Machinery', value: machinery, set: setMachinery },
+    { label: 'Life saving appliances (LSA)', value: lsa, set: setLsa },
+    { label: 'Firefighting appliances (FFA)', value: ffa, set: setFfa },
+    { label: 'Navigational equipment', value: navigation, set: setNavigation },
+    { label: 'Radio installations', value: radio, set: setRadio },
+  ];
+  const OPTIONS: { value: Finding; label: string; tone: string }[] = [
+    { value: 'Satisfactory', label: 'Satisfactory', tone: d.optGood },
+    { value: 'Not Satisfactory', label: 'Not satisfactory', tone: d.optBad },
+    { value: 'N/A', label: 'N/A', tone: d.optNa },
+  ];
+
+  const vesselName = typeof booking.vesselId === 'object' && booking.vesselId ? (booking.vesselId as any).vesselName : booking.shipName;
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '24px',
-      animation: 'fadeIn 0.2s ease'
-    }}>
-      <div className="card animate-in" style={{
-        maxWidth: '1200px',
-        width: '100%',
-        height: '90vh',
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        boxShadow: 'var(--shadow-xl)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        padding: 0
-      }}>
-        {/* Modal Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '18px 24px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)'
-        }}>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--label)', margin: 0, letterSpacing: '-0.02em' }}>
-              SMALL CRAFT CODE CERTIFICATE OF SURVEY (SSC COS)
-            </h3>
-            <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '4px 0 0 0', fontWeight: 500 }}>
-              Specify survey findings and generate the statutory survey certificate.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              fontWeight: 'bold',
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              lineHeight: '1',
-              padding: '4px'
-            }}
-          >
-            &times;
-          </button>
-        </div>
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        dismissible={!generating}
+        size="xl"
+        flush
+        className={d.dialog}
+        title="Small Craft Code Certificate of Survey"
+        description={`${vesselName || 'Vessel'} · record the survey findings and generate the SSC COS.`}
+        footer={
+          <>
+            <Button onClick={onClose} disabled={generating}>Close</Button>
+            <Button icon={<RefreshCw />} onClick={handlePreview} loading={previewLoading} disabled={generating}>
+              {previewUrl ? 'Update preview' : 'Preview'}
+            </Button>
+            <Button
+              variant="primary"
+              icon={<FileDown />}
+              onClick={handleRequestGenerate}
+              loading={generating}
+              disabled={!allStatusFixed}
+              title={allStatusFixed ? undefined : 'Every finding must be Satisfactory or N/A first'}
+            >
+              Save & generate PDF
+            </Button>
+          </>
+        }
+      >
+        <div className={d.split}>
+          <div className={d.formPane}>
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>Certificate details</h3>
+              <div className={d.stack}>
+                <Field label="Type of survey"><Input placeholder="e.g. SSC Initial Survey" value={typeOfSurvey} onChange={e => setTypeOfSurvey(e.target.value)} /></Field>
+                <Field label="Surveyor">
+                  <Select value={surveyorName} onChange={e => setSurveyorName(e.target.value)}>
+                    {SURVEYORS.map(name => <option key={name} value={name}>{name}</option>)}
+                  </Select>
+                </Field>
+                <Field label="Nominated departure point">
+                  <Textarea rows={3} value={nominatedDeparturePoint} onChange={e => setNominatedDeparturePoint(e.target.value)} />
+                </Field>
+              </div>
+            </section>
 
-        {/* Modal Body */}
-        <div style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '450px 1fr',
-          overflow: 'hidden'
-        }}>
-          {/* Left Panel: Form Inputs */}
-          <div style={{
-            padding: '24px',
-            borderRight: '1px solid var(--border)',
-            overflowY: 'auto',
-            background: 'var(--surface)'
-          }}>
-            {/* Survey Details */}
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              Certificate Details
-            </h4>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label">Type of Survey</label>
-              <input
-                type="text"
-                className="form-input"
-                value={typeOfSurvey}
-                onChange={(e) => setTypeOfSurvey(e.target.value)}
-                placeholder="e.g. SSC Initial Survey"
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label">Surveyor</label>
-              <select
-                className="form-input"
-                value={surveyorName}
-                onChange={(e) => setSurveyorName(e.target.value)}
-              >
-                {SURVEYORS.map((name) => (
-                  <option key={name} value={name}>{name}</option>
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>Survey findings</h3>
+              <ul className={d.findings}>
+                {FINDINGS.map(f => (
+                  <li key={f.label} className={d.finding}>
+                    <span className={d.findingLabel}>{f.label}</span>
+                    <div className={d.segmented} role="radiogroup" aria-label={f.label}>
+                      {OPTIONS.map(o => {
+                        const on = f.value === o.value;
+                        return (
+                          <button key={o.value} type="button" role="radio" aria-checked={on}
+                            className={`${d.opt} ${on ? `${d.optOn} ${o.tone}` : ''}`} onClick={() => f.set(o.value)}>
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </li>
                 ))}
-              </select>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label className="form-label">Nominated Departure Point</label>
-              <textarea
-                className="form-input"
-                style={{ height: '70px', resize: 'none' }}
-                value={nominatedDeparturePoint}
-                onChange={(e) => setNominatedDeparturePoint(e.target.value)}
-                placeholder="Departure Point details"
-              />
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-
-            {/* Findings Status Section */}
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              Survey Findings Status
-            </h4>
-
-            {/* Hull */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Hull</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={hull} onChange={(e: any) => setHull(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* Machinery */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Machinery</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={machinery} onChange={(e: any) => setMachinery(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* LSA */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Life Saving Appliances (LSA)</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={lsa} onChange={(e: any) => setLsa(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* FFA */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Firefighting Appliances (FFA)</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={ffa} onChange={(e: any) => setFfa(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* Navigation */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Navigational Equipment</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={navigation} onChange={(e: any) => setNavigation(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* Radio */}
-            <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>Radio Installations</span>
-              <select className="form-input" style={{ width: '170px', padding: '6px 8px', height: 'auto', marginBottom: 0 }} value={radio} onChange={(e: any) => setRadio(e.target.value)}>
-                <option value="Satisfactory">Satisfactory</option>
-                <option value="Not Satisfactory">Not Satisfactory</option>
-                <option value="N/A">N/A</option>
-              </select>
-            </div>
-
-            {/* Warning when findings are not fixed */}
-            {!allStatusFixed && (
-              <div style={{
-                marginTop: '20px',
-                padding: '12px 16px',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: '8px',
-                color: 'var(--red)',
-                fontSize: '12px',
-                fontWeight: 500,
-                lineHeight: '1.5'
-              }}>
-                <strong>⚠️ Verification Required:</strong>
-                <div style={{ marginTop: '4px' }}>
-                  All survey findings must be fixed/resolved (Satisfactory or N/A) before you can save and generate the certificate PDF.
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Panel: PDF Preview */}
-          <div style={{
-            background: 'var(--bg-subtle)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
-            {previewUrl ? (
-              <iframe
-                src={previewUrl}
-                title="SCCCOS PDF Preview"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none'
-                }}
-              />
-            ) : (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--muted)',
-                padding: '40px',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📄</div>
-                <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
-                  No Preview Generated
-                </h4>
-                <p style={{ fontSize: '13px', maxWidth: '320px', lineHeight: '1.5', margin: '0 0 20px 0' }}>
-                  Click "Generate Preview" to review the PDF layout before finalizing the certificate.
+              </ul>
+              {!allStatusFixed && (
+                <p className={d.warning} role="status">
+                  <AlertTriangle aria-hidden="true" />
+                  Every finding must be Satisfactory or N/A before the certificate can be generated.
                 </p>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handlePreview}
-                  disabled={previewLoading}
-                  style={{ minWidth: '150px' }}
-                >
-                  {previewLoading ? 'Loading...' : 'Generate Preview'}
-                </button>
+              )}
+            </section>
+          </div>
+
+          <div className={d.previewPane}>
+            {previewUrl ? (
+              <iframe src={previewUrl} title="SSC certificate preview" className={d.preview} />
+            ) : (
+              <div className={d.previewEmpty}>
+                <EmptyState
+                  icon={<FileText />}
+                  title="No preview yet"
+                  description="Generate a preview to check the certificate layout before saving."
+                  action={<Button icon={<Eye />} onClick={handlePreview} loading={previewLoading}>Generate preview</Button>}
+                />
               </div>
             )}
           </div>
         </div>
-
-        {/* Modal Footer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px',
-          padding: '16px 24px',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--surface)'
-        }}>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-            disabled={generating}
-            style={{ marginBottom: 0, padding: '10px 20px', borderRadius: '10px' }}
-          >
-            Close
-          </button>
-
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handlePreview}
-            disabled={previewLoading || generating}
-            style={{ marginBottom: 0, padding: '10px 20px', borderRadius: '10px', color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
-          >
-            {previewLoading ? 'Loading Preview...' : 'Update Preview'}
-          </button>
-
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleRequestGenerate}
-            disabled={generating || !allStatusFixed}
-            style={{
-              marginBottom: 0,
-              padding: '10px 20px',
-              borderRadius: '10px',
-              opacity: allStatusFixed ? 1 : 0.5,
-              cursor: allStatusFixed ? 'pointer' : 'not-allowed'
-            }}
-            title={!allStatusFixed ? 'Please resolve all findings status to generate the PDF' : ''}
-          >
-            {generating ? 'Generating PDF...' : 'Save & Generate PDF'}
-          </button>
-        </div>
-      </div>
+      </Modal>
       <AdditionalRemarksModal
         isOpen={remarksOpen}
         initialValue={additionalRemarks}
-        confirmText="Save & Generate PDF"
+        confirmText="Save & generate PDF"
         onCancel={() => setRemarksOpen(false)}
         onConfirm={(remarks) => {
           setAdditionalRemarks(remarks);
@@ -462,6 +279,6 @@ export default function ScccosModal({
           handleGenerate(remarks);
         }}
       />
-    </div>
+    </>
   );
 }

@@ -1,277 +1,194 @@
-import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import clsx from 'clsx';
+import { ChevronsLeft, ChevronsRight, ChevronsUpDown, Home, LogOut, Menu as MenuIcon, Moon, Search, Sun, UserRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getParentId, toSlug } from '@/utils/modules';
-import { isNavigable } from '@/utils/permissions';
-import s from './AppShell.module.css';
+import { Drawer, IconButton, Menu, Tooltip } from '@/ui';
+import { useNavigation, useNavLocation } from '@/navigation/useNavigation';
+import { NavRail, NavTree } from './shell/NavTree';
+import { CommandPalette } from './shell/CommandPalette';
+import { toggleTheme, usePersisted, useTheme } from './shell/useTheme';
+import s from './shell/Shell.module.css';
 
-const defaultIcon = (
-    <svg viewBox="0 0 26 26" fill="none">
-        <rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-        <rect x="15" y="4" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-        <rect x="4" y="15" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-        <rect x="15" y="15" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-);
+// Phones get a bottom tab bar: Home + this many top-level sections + "Menu".
+const PHONE_TABS = 3;
 
-const iconMap: Record<string, React.ReactNode> = {
-    'dashboard': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <path d="M4 12.5L13 4l9 8.5V22a1 1 0 01-1 1H5a1 1 0 01-1-1V12.5z" stroke="currentColor" strokeWidth="1.8" fill="none" />
-            <rect x="10" y="16" width="6" height="7" rx=".5" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-    ),
-    'reporting': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <rect x="4" y="3" width="18" height="20" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M9 9h8M9 13h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="19" cy="19" r="5" fill="currentColor" stroke="none" opacity=".2" />
-            <path d="M19 17v4M17 19h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-    ),
-    'hr': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <circle cx="13" cy="10" r="4" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M5 22c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-    ),
-    'admin': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    'finance': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <path d="M12 4v18M8 8h6a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    'new-request': (
-        <svg viewBox="0 0 26 26" fill="none">
-            <rect x="4" y="4" width="18" height="20" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M8 10h10M8 14h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="18.5" cy="18.5" r="4" fill="currentColor" opacity=".18" />
-            <path d="M18.5 16.8v3.4M16.8 18.5h3.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-    )
-};
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+const SHORTCUT = isMac ? '⌘K' : 'Ctrl K';
 
-const sunIcon = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="5"></circle>
-        <line x1="12" y1="1" x2="12" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="23"></line>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-        <line x1="1" y1="12" x2="3" y2="12"></line>
-        <line x1="21" y1="12" x2="23" y2="12"></line>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-    </svg>
-);
+export default function AppShell({ children }: { children: ReactNode }) {
+  const nav = useNavigation();
+  const loc = useNavLocation();
+  const { modulesLoaded } = useAuth();
 
-const moonIcon = (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-    </svg>
-);
+  const [collapsed, setCollapsed] = usePersisted('uqms.sidebar.collapsed', false);
+  const [expanded, setExpanded] = usePersisted<string[]>('uqms.nav.expanded', []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
-const logoutIcon = (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-        <path d="M6 15H4a1 1 0 01-1-1V4a1 1 0 011-1h2M12 12l3-3-3-3M7 9h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
+  // Open the group that contains the current page (e.g. after following a link from elsewhere).
+  const activeGroupId = nav.items.find(i => i.kind === 'group' && i.isActive(loc))?.id;
+  useEffect(() => {
+    if (activeGroupId && !expanded.includes(activeGroupId)) setExpanded([...expanded, activeGroupId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGroupId]);
 
-const moreIcon = (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" />
-    </svg>
-);
+  // Close the phone menu whenever the page changes.
+  useEffect(() => { setMenuOpen(false); }, [loc]);
 
-// The bottom tab bar fits about five items on a phone; anything beyond goes into a "More" sheet.
-const MAX_MOBILE_TABS = 4;
-
-// Admin tools live at top-level URLs but belong to the Admin section.
-const ADMIN_PAGES = ['/users', '/roles', '/modules', '/checklist-management'];
-
-type Theme = 'light' | 'dark';
-
-/** index.html applies the saved (or system) theme before first paint; start from what it chose. */
-const currentTheme = (): Theme =>
-    document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-
-type NavTab = { label: string; href: string; icon: React.ReactNode };
-
-export default function AppShell({ children }: { children: React.ReactNode }) {
-    const { pathname } = useLocation();
-    const { user, logout, modules, modulesLoaded, canAccessModule } = useAuth();
-
-    const displayName = user?.username || 'User';
-    const displayRole = user?.role?.roleName || 'User';
-    const displayInitials = user?.initials || 'U';
-
-    const [theme, setTheme] = useState<Theme>(currentTheme);
-    const [moreOpen, setMoreOpen] = useState(false);
-
-    useEffect(() => {
-        document.documentElement.setAttribute('data-theme', theme);
-    }, [theme]);
-
-    // Close the mobile "More" sheet whenever the route changes.
-    useEffect(() => { setMoreOpen(false); }, [pathname]);
-
-    const toggleTheme = () => {
-        const next: Theme = theme === 'dark' ? 'light' : 'dark';
-        setTheme(next);
-        try { localStorage.setItem('theme', next); } catch { /* storage unavailable */ }
+  // Ctrl/⌘+K opens the command palette from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(o => !o);
+      }
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
-    // Dynamically build tabs from modules DB
-    const topModules = modules.filter(m => !getParentId(m) && isNavigable(m)).sort((a, b) => (a.order || 0) - (b.order || 0));
-    const visibleTabs: NavTab[] = [
-        { label: 'Dashboard', href: '/', icon: iconMap['dashboard'] },
-        ...topModules
-            .filter(mod => canAccessModule(mod._id))
-            .map(mod => {
-                const slug = toSlug(mod.name);
-                return { label: mod.name, href: `/${slug}`, icon: iconMap[slug] || defaultIcon };
-            }),
-    ];
+  const toggleGroup = (id: string) =>
+    setExpanded(expanded.includes(id) ? expanded.filter(x => x !== id) : [...expanded, id]);
 
-    // A section stays highlighted on its nested pages, e.g. /reporting/marine/first-entry highlights Reporting.
-    const isActive = (href: string) => {
-        if (href === '/') return pathname === '/';
-        if (href === '/admin' && ADMIN_PAGES.some(p => pathname === p || pathname.startsWith(`${p}/`))) return true;
-        return pathname === href || pathname.startsWith(`${href}/`);
-    };
+  const phoneTabs = nav.items.filter(i => i.id !== 'dashboard').slice(0, PHONE_TABS);
+  const dashboard = nav.items[0];
 
-    const mobileNeedsMore = visibleTabs.length > MAX_MOBILE_TABS;
-    const mobileTabs = mobileNeedsMore ? visibleTabs.slice(0, MAX_MOBILE_TABS - 1) : visibleTabs;
-    const overflowTabs = mobileNeedsMore ? visibleTabs.slice(MAX_MOBILE_TABS - 1) : [];
-    const overflowActive = overflowTabs.some(t => isActive(t.href));
+  return (
+    <div className={clsx(s.shell, collapsed && s.collapsed)}>
+      <a href="#main" className={s.skipLink}>Skip to content</a>
 
-    const themeLabel = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+      {/* ===== Sidebar (≥1024px) ===== */}
+      <aside className={s.sidebar} aria-label="Sidebar">
+        <Link to="/" className={s.brand} aria-label="UQMS home">
+          <img src="/logo-mark.png" alt="" className={s.brandLogo} />
+          <span className={s.brandText}>
+            <span className={s.brandName}>UQMS</span>
+            <span className={s.brandSub}>Management System</span>
+          </span>
+        </Link>
 
-    return (
-        <div className={s.shell}>
-            {/* ===== SIDEBAR (visible on desktop) ===== */}
-            <aside className={s.sidebar}>
-                <div className={s.sidebarBrand}>
-                    <div className={s.sidebarTitle}>UQMS</div>
-                    <div className={s.sidebarSub}>UQMS Management System</div>
-                </div>
-
-                <nav className={s.sidebarNav} aria-label="Main">
-                    {visibleTabs.map((tab) => (
-                        <Link
-                            key={tab.href}
-                            to={tab.href}
-                            className={`${s.sidebarTab} ${isActive(tab.href) ? s.sidebarTabActive : ''}`}
-                            aria-current={isActive(tab.href) ? 'page' : undefined}
-                        >
-                            {tab.icon}
-                            {tab.label}
-                        </Link>
-                    ))}
-                    {!modulesLoaded && [0, 1, 2].map(i => (
-                        <div key={i} className="skeleton" style={{ height: '36px', margin: '6px 4px' }} aria-hidden="true" />
-                    ))}
-                </nav>
-
-                <div className={s.sidebarFooter}>
-                    <div className={s.sidebarUser}>
-                        <Link to="/profile" className={s.sidebarUserLink} title="View Profile">
-                            <div className={s.sidebarAvatar}>{displayInitials}</div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div className={s.sidebarUserName}>{displayName}</div>
-                                <div className={s.sidebarUserRole}>{displayRole}</div>
-                            </div>
-                        </Link>
-                        <button type="button" className={s.themeBtn} onClick={toggleTheme} title={themeLabel} aria-label={themeLabel}>
-                            {theme === 'dark' ? sunIcon : moonIcon}
-                        </button>
-                        <button type="button" className={s.logoutBtn} onClick={logout} title="Sign out" aria-label="Sign out">
-                            {logoutIcon}
-                        </button>
-                    </div>
-                </div>
-            </aside>
-
-            {/* ===== MAIN CONTENT ===== */}
-            <div className={s.main}>
-                {/* Mobile top bar: the sidebar (with theme + sign out) is hidden on phones */}
-                <header className={s.mobileHeader}>
-                    <div className={s.sidebarTitle}>UQMS</div>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        <button type="button" className={s.themeBtn} onClick={toggleTheme} aria-label={themeLabel}>
-                            {theme === 'dark' ? sunIcon : moonIcon}
-                        </button>
-                        <button type="button" className={s.logoutBtn} onClick={logout} aria-label="Sign out">
-                            {logoutIcon}
-                        </button>
-                    </div>
-                </header>
-
-                {/* Page Content */}
-                <main className={s.content}>
-                    {children}
-                </main>
-            </div>
-
-            {/* ===== BOTTOM TAB BAR (visible on mobile) ===== */}
-            {moreOpen && (
-                <>
-                    <div className={s.moreBackdrop} onClick={() => setMoreOpen(false)} aria-hidden="true" />
-                    <div className={s.moreSheet} role="menu" aria-label="More sections">
-                        {overflowTabs.map(tab => (
-                            <Link
-                                key={tab.href}
-                                to={tab.href}
-                                role="menuitem"
-                                className={`${s.moreItem} ${isActive(tab.href) ? s.tabActive : ''}`}
-                            >
-                                {tab.icon}
-                                {tab.label}
-                            </Link>
-                        ))}
-                    </div>
-                </>
-            )}
-            <nav className={s.tabBar} aria-label="Main">
-                {mobileTabs.map((tab) => (
-                    <Link
-                        key={tab.href}
-                        to={tab.href}
-                        className={`${s.tab} ${isActive(tab.href) ? s.tabActive : ''}`}
-                        aria-current={isActive(tab.href) ? 'page' : undefined}
-                    >
-                        {tab.icon}
-                        <span className={s.tabLabel}>{tab.label}</span>
-                    </Link>
-                ))}
-                {mobileNeedsMore && (
-                    <button
-                        type="button"
-                        className={`${s.tab} ${overflowActive || moreOpen ? s.tabActive : ''}`}
-                        onClick={() => setMoreOpen(o => !o)}
-                        aria-expanded={moreOpen}
-                        aria-haspopup="menu"
-                    >
-                        {moreIcon}
-                        <span className={s.tabLabel}>More</span>
-                    </button>
-                )}
-                <Link
-                    to="/profile"
-                    className={`${s.tab} ${isActive('/profile') ? s.tabActive : ''} ${s.mobileOnlyTab}`}
-                >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                    </svg>
-                    <span className={s.tabLabel}>Profile</span>
-                </Link>
-            </nav>
+        <div className={s.searchWrap}>
+          {collapsed ? (
+            <IconButton label={`Search (${SHORTCUT})`} icon={<Search />} onClick={() => setPaletteOpen(true)} className={s.railSearch} />
+          ) : (
+            <button type="button" className={s.searchButton} onClick={() => setPaletteOpen(true)}>
+              <Search aria-hidden="true" />
+              <span>Search or jump to…</span>
+              <kbd>{SHORTCUT}</kbd>
+            </button>
+          )}
         </div>
-    );
+
+        <nav className={s.sidebarNav} aria-label="Main">
+          {collapsed
+            ? <NavRail items={nav.items} loc={loc} />
+            : <NavTree items={nav.items} loc={loc} expanded={expanded} onToggle={toggleGroup} loading={!modulesLoaded} />}
+        </nav>
+
+        <div className={s.sidebarFooter}>
+          <UserMenu compact={collapsed} />
+          <Tooltip content={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right">
+            <button
+              type="button"
+              className={s.collapseBtn}
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={collapsed}
+            >
+              {collapsed ? <ChevronsRight aria-hidden="true" /> : <ChevronsLeft aria-hidden="true" />}
+            </button>
+          </Tooltip>
+        </div>
+      </aside>
+
+      {/* ===== Main column ===== */}
+      <div className={s.main}>
+        {/* Top bar (<1024px): menu, brand, search, account */}
+        <header className={s.topbar}>
+          <IconButton label="Open menu" icon={<MenuIcon />} onClick={() => setMenuOpen(true)} noTooltip className={s.topbarMenu} />
+          <Link to="/" className={s.topbarBrand} aria-label="UQMS home">
+            <img src="/logo-mark.png" alt="" className={s.brandLogo} />
+            <span className={s.brandName}>UQMS</span>
+          </Link>
+          <div className={s.topbarEnd}>
+            <IconButton label="Search" icon={<Search />} onClick={() => setPaletteOpen(true)} noTooltip />
+            <UserMenu compact />
+          </div>
+        </header>
+
+        <main id="main" className={s.content} tabIndex={-1}>
+          <div className={s.contentInner}>{children}</div>
+        </main>
+      </div>
+
+      {/* ===== Bottom tab bar (<768px) ===== */}
+      <nav className={s.tabBar} aria-label="Quick navigation">
+        <Link to="/" className={clsx(s.tab, dashboard?.isActive(loc) && s.tabActive)} aria-current={dashboard?.isActive(loc) ? 'page' : undefined}>
+          <Home aria-hidden="true" />
+          <span>Home</span>
+        </Link>
+        {phoneTabs.map(item => {
+          const active = item.isActive(loc);
+          return (
+            <Link key={item.id} to={item.to} className={clsx(s.tab, active && s.tabActive)} aria-current={active ? 'page' : undefined}>
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+        <button type="button" className={clsx(s.tab, menuOpen && s.tabActive)} onClick={() => setMenuOpen(true)} aria-haspopup="dialog">
+          <MenuIcon aria-hidden="true" />
+          <span>Menu</span>
+        </button>
+      </nav>
+
+      {/* ===== Phone/tablet menu ===== */}
+      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" side="left" width={320}>
+        <nav aria-label="Main" className={s.drawerNav}>
+          <NavTree items={nav.items} loc={loc} expanded={expanded} onToggle={toggleGroup} onNavigate={() => setMenuOpen(false)} loading={!modulesLoaded} />
+        </nav>
+      </Drawer>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} nav={nav} />
+    </div>
+  );
+}
+
+/** Account menu: profile, theme, sign out. Full row in the sidebar, avatar-only when compact. */
+function UserMenu({ compact }: { compact?: boolean }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const name = user?.username || 'User';
+  const role = user?.role?.roleName || 'User';
+
+  const trigger = compact ? (
+    <button type="button" className={s.avatarButton} aria-label={`Account: ${name}`}>
+      <span className={s.avatar} aria-hidden="true">{user?.initials || 'U'}</span>
+    </button>
+  ) : (
+    <button type="button" className={s.userButton} aria-label={`Account: ${name}`}>
+      <span className={s.avatar} aria-hidden="true">{user?.initials || 'U'}</span>
+      <span className={s.userText}>
+        <span className={s.userName}>{name}</span>
+        <span className={s.userRole}>{role}</span>
+      </span>
+      <ChevronsUpDown className={s.userChevron} aria-hidden="true" />
+    </button>
+  );
+
+  return (
+    <Menu
+      trigger={trigger}
+      side={compact ? 'bottom' : 'top'}
+      align={compact ? 'end' : 'start'}
+      items={[
+        { label: 'My profile', icon: <UserRound />, onSelect: () => navigate('/profile') },
+        { label: theme === 'dark' ? 'Light theme' : 'Dark theme', icon: theme === 'dark' ? <Sun /> : <Moon />, onSelect: toggleTheme },
+        'separator',
+        { label: 'Sign out', icon: <LogOut />, danger: true, onSelect: logout },
+      ]}
+    />
+  );
 }

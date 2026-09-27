@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { PageHeader, Badge, Modal, EmptyRow, FilterBar, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 const CATEGORIES = ['NIC', 'Passport', 'Contract', 'Certificate', 'Medical', 'Other'];
 
 const isExpiringSoon = (d?: string) => {
@@ -92,14 +92,14 @@ export default function EmployeeDocuments() {
 
       <FilterBar>
         <Field label="Employee" className={s.filterField}>
-          <select className="form-input" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
+          <Select value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
             <option value="">-- Select Employee --</option>
             {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-          </select>
+          </Select>
         </Field>
-        <button className="btn-primary" style={{ marginBottom: 0 }} disabled={!employeeId} onClick={() => setUploadOpen(true)}>
+        <Button variant="primary"  disabled={!employeeId} onClick={() => setUploadOpen(true)}>
           + Upload Document
-        </button>
+        </Button>
       </FilterBar>
 
       {loading ? <p className={s.mutedNote}>Loading documents...</p> : employeeId ? (
@@ -124,7 +124,7 @@ export default function EmployeeDocuments() {
                   </td>
                   <td><Badge status="Scheduled" label={doc.category} /></td>
                   <td>{formatDate(doc.createdAt)}</td>
-                  <td style={{ color: isExpired(doc.expiryDate) ? 'var(--red)' : isExpiringSoon(doc.expiryDate) ? 'var(--orange)' : undefined, fontWeight: doc.expiryDate ? 600 : 400 }}>
+                  <td className={isExpired(doc.expiryDate) ? s.textDanger : isExpiringSoon(doc.expiryDate) ? s.textWarning : undefined}>
                     {doc.expiryDate ? `${formatDate(doc.expiryDate)}${isExpired(doc.expiryDate) ? ' (expired)' : isExpiringSoon(doc.expiryDate) ? ' (soon)' : ''}` : '—'}
                   </td>
                   <td>{doc.size ? `${(doc.size / 1024).toFixed(0)} KB` : '—'}</td>
@@ -153,39 +153,39 @@ export default function EmployeeDocuments() {
           onClose={() => setUploadOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setUploadOpen(false)} disabled={uploading}>Cancel</button>
-              <button className="btn-primary" onClick={upload} disabled={uploading}>{uploading ? 'Uploading...' : 'Upload'}</button>
+              <Button variant="secondary" onClick={() => setUploadOpen(false)} disabled={uploading}>Cancel</Button>
+              <Button variant="primary" onClick={upload} disabled={uploading}>{uploading ? 'Uploading...' : 'Upload'}</Button>
             </>
           }
         >
           <Field label="File (PDF, Word, Excel, or image — max 15 MB)" required>
-            <input className="form-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <Input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/jpeg,image/png,image/webp" onChange={e => setFile(e.target.files?.[0] || null)} />
           </Field>
           <Field label="Title" required>
-            <input className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Employment Contract 2026" />
+            <Input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Employment Contract 2026" />
           </Field>
           <div className={s.modalGrid}>
             <Field label="Category">
-              <select className="form-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+              <Select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="Expiry Date">
-              <input className="form-input" type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
+              <Input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
             </Field>
           </div>
           <Field label="Notes">
-            <input className="form-input" type="text" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+            <Input type="text" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
           </Field>
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteId}
+      <ConfirmDialog
+        open={!!deleteId}
         title="Delete Document"
         message="Delete this document? The stored file is removed too."
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteId(null)}
         onConfirm={remove}
       />

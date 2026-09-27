@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
@@ -13,133 +13,13 @@ import {
   type ApiVesselCode,
 } from '@/api';
 import Pagination from '@/components/Pagination';
+import SearchableMultiSelect from '@/components/SearchableMultiSelect';
+import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
+import {
+  Badge, Button, Checkbox, ConfirmDialog, DataTable, Drawer, Field, FormGrid, IconButton, Input, Modal, PageHeader, SearchInput, Select,
+  Textarea, Toolbar, type Column,
+} from '@/ui';
 import s from './ChecklistManagement.module.css';
-
-// Predefined options requested by user
-
-// Premium click outside hook to close dropdowns
-function useOutsideClick(ref: React.RefObject<HTMLElement>, callback: () => void) {
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        callback();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [ref, callback]);
-}
-
-interface MultiSelectDropdownProps<T> {
-  label: string;
-  options: T[];
-  selectedValues: string[];
-  onChange: (values: string[]) => void;
-  getOptionId: (option: T) => string;
-  getOptionLabel: (option: T) => string;
-  placeholder: string;
-}
-
-function MultiSelectDropdown<T>({
-  label,
-  options,
-  selectedValues,
-  onChange,
-  getOptionId,
-  getOptionLabel,
-  placeholder,
-}: MultiSelectDropdownProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useOutsideClick(containerRef, () => setIsOpen(false));
-
-  const handleToggleOption = (id: string) => {
-    if (selectedValues.includes(id)) {
-      onChange(selectedValues.filter((v) => v !== id));
-    } else {
-      onChange([...selectedValues, id]);
-    }
-  };
-
-  const handleSelectAll = () => {
-    onChange(options.map((opt) => getOptionId(opt)));
-  };
-
-  const handleClearAll = () => {
-    onChange([]);
-  };
-
-  // Label display logic
-  const getTriggerText = () => {
-    if (selectedValues.length === 0) {
-      return <span className={s.triggerPlaceholder}>{placeholder}</span>;
-    }
-    if (selectedValues.length === options.length) {
-      return `All ${label}s Selected`;
-    }
-    if (selectedValues.length > 2) {
-      return `${selectedValues.length} ${label}s Selected`;
-    }
-    
-    return selectedValues
-      .map((val) => {
-        const opt = options.find((o) => getOptionId(o) === val);
-        return opt ? getOptionLabel(opt) : '';
-      })
-      .filter(Boolean)
-      .join(', ');
-  };
-
-  return (
-    <div className={s.multiSelectContainer} ref={containerRef}>
-      <div className={s.multiSelectTrigger} onClick={() => setIsOpen(!isOpen)}>
-        <span className={s.triggerText}>{getTriggerText()}</span>
-        <svg
-          className={`${s.arrow} ${isOpen ? s.arrowOpen : ''}`}
-          viewBox="0 0 10 6"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="2 2 5 5 8 2" />
-        </svg>
-      </div>
-
-      {isOpen && (
-        <div className={s.dropdownPanel}>
-          <div className={s.dropdownActions}>
-            <button type="button" className={s.dropdownActionLink} onClick={handleSelectAll}>
-              Select All
-            </button>
-            <button type="button" className={s.dropdownActionLink} onClick={handleClearAll}>
-              Clear All
-            </button>
-          </div>
-          {options.map((opt) => {
-            const id = getOptionId(opt);
-            const isChecked = selectedValues.includes(id);
-            return (
-              <div key={id} className={s.optionItem} onClick={() => handleToggleOption(id)}>
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => {}} // Controlled via parent click
-                  className={s.checkboxInput}
-                />
-                <span className={s.optionLabel}>{getOptionLabel(opt)}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ChecklistManagement() {
   const { can } = useAuth();
@@ -174,6 +54,8 @@ export default function ChecklistManagement() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [formErrors, setFormErrors] = useState<{ item?: string; surveys?: string }>({});
 
   // Form payload states (using array states for all select dropdowns)
   const [formItemText, setFormItemText] = useState('');
@@ -252,6 +134,7 @@ export default function ChecklistManagement() {
 
   const openAddModal = () => {
     setEditingQuestion(null);
+    setFormErrors({});
     setFormItemText('');
     setFormDescription('');
     setFormAdditionalFields([]);
@@ -265,6 +148,7 @@ export default function ChecklistManagement() {
 
   const openEditModal = (q: ApiChecklistQuestion) => {
     setEditingQuestion(q);
+    setFormErrors({});
     setFormItemText(q.item);
     setFormDescription(q.description || '');
     setFormAdditionalFields(q.additionalFields || []);
@@ -284,14 +168,11 @@ export default function ChecklistManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formItemText.trim()) {
-      toast.error('Item text is required.');
-      return;
-    }
-    if (formSurveyCategories.length === 0) {
-      toast.error('At least one survey category must be selected.');
-      return;
-    }
+    const found: { item?: string; surveys?: string } = {};
+    if (!formItemText.trim()) found.item = 'Enter the item text.';
+    if (formSurveyCategories.length === 0) found.surveys = 'Select at least one survey category.';
+    setFormErrors(found);
+    if (found.item || found.surveys) return;
 
     try {
       setSaving(true);
@@ -349,516 +230,215 @@ export default function ChecklistManagement() {
     }
   };
 
-  const getSurveyLabels = (q: ApiChecklistQuestion) => {
-    if (!q.surveyCategories || q.surveyCategories.length === 0) return <span className={s.badgeEmpty}>All</span>;
-    return q.surveyCategories.map((c: any) => {
-      const name = typeof c === 'object' ? c.name : c;
-      return (
-        <span key={name} className={`${s.badge} ${s.badgeCategory}`}>
-          {name}
-        </span>
-      );
-    });
+  const nameOf = (v: any, key: 'name' | 'AreaCategory') => (typeof v === 'object' && v ? v[key] : v);
+  const badgeList = (values: any[] | undefined, key: 'name' | 'AreaCategory', allLabel: string) =>
+    !values || values.length === 0
+      ? <span className={s.muted}>{allLabel}</span>
+      : <span className={s.badges}>{values.map((v) => <Badge key={nameOf(v, key)}>{nameOf(v, key)}</Badge>)}</span>;
+
+  const surveyOptions = surveyTypes.map((o) => ({ id: o._id, label: `${o.name} (${o.code})` }));
+  const boatOptions = boatTypes.map((o) => ({ id: o._id, label: o.name }));
+  const areaOptions = areaOperations.map((o) => ({ id: o._id, label: o.AreaCategory }));
+
+  const activeFilters = [filterSurveyCategories.length > 0, filterBoatTypes.length > 0, filterAreaOperations.length > 0, !!filterVesselCode, !!filterQCategory].filter(Boolean).length;
+  const clearFilters = () => {
+    setFilterSurveyCategories([]);
+    setFilterBoatTypes([]);
+    setFilterAreaOperations([]);
+    setFilterVesselCode('');
+    setFilterQCategory('');
   };
 
-  const getAreaLabels = (q: ApiChecklistQuestion) => {
-    if (!q.areaOfOperations || q.areaOfOperations.length === 0) return <span className={s.badgeEmpty}>All Areas</span>;
-    return q.areaOfOperations.map((a: any) => {
-      const name = typeof a === 'object' ? a.AreaCategory : a;
-      return (
-        <span key={name} className={`${s.badge} ${s.badgeArea}`}>
-          {name}
+  const columns: Column<ApiChecklistQuestion>[] = [
+    {
+      key: 'item', header: 'Item', primary: true,
+      cell: (q) => (
+        <span className={s.itemCell}>
+          <span>{q.item}</span>
+          {q.description && <span className={s.itemDesc}>{q.description}</span>}
         </span>
-      );
-    });
-  };
+      ),
+    },
+    { key: 'category', header: 'Category', nowrap: true, cell: (q) => <Badge tone={q.qCategory ? 'accent' : 'neutral'}>{q.qCategory || 'General'}</Badge> },
+    { key: 'vessel', header: 'Vessel code', nowrap: true, cell: (q) => q.vesselCode || <span className={s.muted}>All</span> },
+    {
+      key: 'surveys', header: 'Surveys', hideOnMobile: true,
+      cell: (q) => (q.surveyCategories?.length ? `${q.surveyCategories.length} ${q.surveyCategories.length === 1 ? 'survey' : 'surveys'}` : <span className={s.muted}>All</span>),
+    },
+  ];
 
-  const getBoatLabels = (q: ApiChecklistQuestion) => {
-    if (!q.boatTypes || q.boatTypes.length === 0) return <span className={s.badgeEmpty}>All Boats</span>;
-    return q.boatTypes.map((b: any) => {
-      const name = typeof b === 'object' ? b.name : b;
-      return (
-        <span key={name} className={`${s.badge} ${s.badgeBoat}`}>
-          {name}
-        </span>
-      );
-    });
-  };
+  const createButton = canCreate && <Button variant="primary" icon={<Plus />} onClick={openAddModal}>Add item</Button>;
 
   return (
-    <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Top Banner Bar */}
-      <div className={s.topBar}>
-        <div>
-          <h2 className="section-header" style={{ marginBottom: '4px' }}>Checklist Items</h2>
-          <p style={{ fontSize: '13px', color: 'var(--muted)' }}>
-            Manage checklist items and filter criteria mapping for survey check sheets.
-          </p>
-        </div>
-        <button className={s.addBtn} onClick={openAddModal} disabled={!canCreate}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
-          </svg>
-          Add Item
-        </button>
-      </div>
+    <div className="animate-in">
+      <PageHeader
+        breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Checklists' }]}
+        title="Checklist items"
+        description="Questions on the survey check sheet, and which surveys, boats, areas and vessel codes each one applies to."
+        actions={createButton}
+      />
 
-      {/* Filter Section (Multiple Selection Dropdowns) */}
-      <div className={s.filterSection}>
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Search Item text</label>
-          <input
-            className="form-input"
-            style={{ marginBottom: 0 }}
-            placeholder="Type search words..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <Toolbar
+        attached
+        search={<SearchInput value={search} onChange={setSearch} placeholder="Search item text…" />}
+        filters={
+          <>
+            <Button icon={<SlidersHorizontal />} onClick={() => setFiltersOpen(true)}>
+              Filters{activeFilters > 0 && <Badge tone="accent" className={s.filterCount}>{activeFilters}</Badge>}
+            </Button>
+            {activeFilters > 0 && <Button variant="ghost" onClick={clearFilters}>Clear filters</Button>}
+          </>
+        }
+        end={!loading && `${total} ${total === 1 ? 'item' : 'items'}`}
+      />
+      <DataTable
+        attached
+        caption="Checklist items"
+        columns={columns}
+        rows={questions}
+        getRowId={(q) => q._id || q.item}
+        loading={loading}
+        onRowClick={(q) => setViewingQuestion(q)}
+        empty={{
+          icon: <ListChecks />,
+          title: search || activeFilters ? 'No matching items' : 'No checklist items yet',
+          description: search || activeFilters ? 'Try a different search or clear the filters.' : undefined,
+          action: search || activeFilters ? <Button onClick={() => { setSearch(''); clearFilters(); }}>Clear search and filters</Button> : createButton,
+        }}
+        rowActions={(q) => (
+          <>
+            <IconButton label={`Edit ${q.item}`} icon={<Pencil />} size="sm" onClick={() => openEditModal(q)} disabled={!canUpdate} />
+            <IconButton label={`Delete ${q.item}`} icon={<Trash2 />} size="sm" variant="dangerGhost" onClick={() => setDeleteConfirmId(q._id || null)} disabled={!canDelete} />
+          </>
+        )}
+        footer={<Pagination page={page} limit={limit} total={total} totalPages={totalPages} onPageChange={setPage} onLimitChange={setLimit} />}
+      />
 
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Survey Category</label>
-          <MultiSelectDropdown
-            label="Category"
-            options={surveyTypes}
-            selectedValues={filterSurveyCategories}
-            onChange={setFilterSurveyCategories}
-            getOptionId={(opt) => opt._id}
-            getOptionLabel={(opt) => `${opt.name} (${opt.code})`}
-            placeholder="Select Categories..."
-          />
+      {/* Filters */}
+      <Drawer
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filter checklist items"
+        width={420}
+        footer={
+          <>
+            <Button onClick={clearFilters} disabled={!activeFilters}>Clear</Button>
+            <Button variant="primary" onClick={() => setFiltersOpen(false)}>Show results</Button>
+          </>
+        }
+      >
+        <div className={s.stack}>
+          <SearchableMultiSelect label="Survey categories" value={filterSurveyCategories} options={surveyOptions} placeholder="Any survey" onChange={setFilterSurveyCategories} />
+          <SearchableMultiSelect label="Boat types" value={filterBoatTypes} options={boatOptions} placeholder="Any boat type" onChange={setFilterBoatTypes} />
+          <SearchableMultiSelect label="Areas of operation" value={filterAreaOperations} options={areaOptions} placeholder="Any area" onChange={setFilterAreaOperations} />
+          <Field label="Vessel code">
+            <Select value={filterVesselCode} onChange={(e) => setFilterVesselCode(e.target.value)}>
+              <option value="">Any vessel code</option>
+              {vesselCodes.map((vc) => <option key={vc._id} value={vc.code}>{vc.code}</option>)}
+            </Select>
+          </Field>
+          <Field label="Item category">
+            <Input placeholder="e.g. Hull" value={filterQCategory} onChange={(e) => setFilterQCategory(e.target.value)} />
+          </Field>
         </div>
+      </Drawer>
 
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Boat Type</label>
-          <MultiSelectDropdown
-            label="Boat Type"
-            options={boatTypes}
-            selectedValues={filterBoatTypes}
-            onChange={setFilterBoatTypes}
-            getOptionId={(opt) => opt._id}
-            getOptionLabel={(opt) => opt.name}
-            placeholder="Select Boat Types..."
-          />
-        </div>
-
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Area of Operations</label>
-          <MultiSelectDropdown
-            label="Area"
-            options={areaOperations}
-            selectedValues={filterAreaOperations}
-            onChange={setFilterAreaOperations}
-            getOptionId={(opt) => opt._id}
-            getOptionLabel={(opt) => opt.AreaCategory}
-            placeholder="Select Areas..."
-          />
-        </div>
-
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Vessel Code</label>
-          <select
-            className="form-input"
-            style={{ marginBottom: 0, cursor: 'pointer' }}
-            value={filterVesselCode}
-            onChange={(e) => setFilterVesselCode(e.target.value)}
-          >
-            <option value="">All Vessel Codes</option>
-            {vesselCodes.map((vc) => (
-              <option key={vc._id} value={vc.code}>
-                {vc.code}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className={s.filterField}>
-          <label className={s.filterLabel}>Q Category</label>
-          <input
-            className="form-input"
-            style={{ marginBottom: 0 }}
-            placeholder="HULL..."
-            value={filterQCategory}
-            onChange={(e) => setFilterQCategory(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* List Table */}
-      {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
-          <div
-            style={{
-              display: 'inline-block',
-              width: '32px',
-              height: '32px',
-              border: '3px solid var(--border)',
-              borderTopColor: 'var(--primary)',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              marginBottom: '16px',
-            }}
-          />
-          <p>Fetching checklist items...</p>
-        </div>
-      ) : questions.length === 0 ? (
-        <div className={s.emptyState}>
-          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📝</div>
-          <h3>No Checklist Items Found</h3>
-          <p style={{ marginTop: '8px' }}>
-            No checklist items match the current query criteria. Click "Add Item" to construct one.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className={s.tableWrap}>
-          <table className={s.table}>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Item Category</th>
-                <th style={{ width: '150px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questions.map((q) => (
-                <tr key={q._id} className={s.clickableRow} onClick={() => setViewingQuestion(q)}>
-                  <td>
-                    <div className={s.questionText}>{q.item}</div>
-                    {q.vesselCode && (
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '11px', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'var(--muted)', background: 'rgba(148,163,184,.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>
-                          Vessel Code: <strong style={{ color: 'var(--label)' }}>{q.vesselCode}</strong>
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={q.qCategory ? s.categoryTag : s.categoryTagEmpty}>
-                      {q.qCategory || 'General'}
-                    </span>
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    <div className={s.actions}>
-                      <button className={s.actionBtn} onClick={() => setViewingQuestion(q)} title="View Details">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      </button>
-                      <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Item" disabled={!canUpdate}>
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                          <path
-                            d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                      <button
-                        className={`${s.actionBtn} ${s.deleteBtn}`}
-                        onClick={() => setDeleteConfirmId(q._id || null)}
-                        title="Delete Item"
-                        disabled={!canDelete}
-                      >
-                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                          <path
-                            d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+      {/* Add / Edit */}
+      <Modal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        dismissible={!saving}
+        size="lg"
+        title={editingQuestion ? 'Edit checklist item' : 'Add checklist item'}
+        footer={
+          <>
+            <Button onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
+            <Button type="submit" form="checklist-form" variant="primary" loading={saving}>{editingQuestion ? 'Save changes' : 'Add item'}</Button>
+          </>
+        }
+      >
+        <form id="checklist-form" onSubmit={handleSave} noValidate className={s.stack}>
+          <Field label="Item text" required error={formErrors.item}>
+            <Textarea rows={2} placeholder="e.g. Lifeboats functional" value={formItemText} autoFocus
+              onChange={(e) => { setFormItemText(e.target.value); setFormErrors((p) => ({ ...p, item: undefined })); }} />
+          </Field>
+          <Field label="Description" hint="Guidance shown to the surveyor under the item.">
+            <Textarea rows={2} placeholder="e.g. Ensure emergency batteries are fully charged." value={formDescription} onChange={(e) => setFormDescription(e.target.value)} />
+          </Field>
+          <fieldset className={s.fieldset}>
+            <legend className={s.legend}>Additional fields the surveyor fills in</legend>
+            <div className={s.checks}>
+              {['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'].map((field) => (
+                <Checkbox
+                  key={field}
+                  label={field}
+                  checked={formAdditionalFields.includes(field)}
+                  onChange={(e) => setFormAdditionalFields(e.target.checked ? [...formAdditionalFields, field] : formAdditionalFields.filter((f) => f !== field))}
+                />
               ))}
-            </tbody>
-          </table>
-        </div>
-        <Pagination
-          page={page}
-          limit={limit}
-          total={total}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          onLimitChange={setLimit}
-        />
-        </>
-      )}
-
-      {/* Add / Edit Modal */}
-      {showModal && (
-        <div className={s.overlay} onClick={() => setShowModal(false)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={handleSave}>
-              <div className={s.modalHeader}>
-                <h3 className={s.modalTitle}>
-                  {editingQuestion ? 'Edit Checklist Item' : 'Add Checklist Item'}
-                </h3>
-                <button type="button" className={s.closeBtn} onClick={() => setShowModal(false)}>
-                  ✕
-                </button>
-              </div>
-
-              <div className={s.modalBody}>
-                <label className="form-label">Item text *</label>
-                <textarea
-                  className="form-input form-textarea"
-                  placeholder="e.g. Lifeboats functional"
-                  value={formItemText}
-                  onChange={(e) => setFormItemText(e.target.value)}
-                  rows={2}
-                  required
-                />
-
-                <label className="form-label">Description (Optional)</label>
-                <textarea
-                  className="form-input form-textarea"
-                  placeholder="e.g. Ensure emergency batteries are fully charged and systems operational."
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  rows={2}
-                />
-
-                <label className="form-label">Additional Fields Required</label>
-                <div style={{ display: 'flex', gap: '20px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                  {['Model', 'Serial Number', 'Qty', 'Capacity', 'Type', 'Last Service'].map((field) => (
-                    <label key={field} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', color: 'var(--label)' }}>
-                      <input
-                        type="checkbox"
-                        checked={formAdditionalFields.includes(field)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormAdditionalFields([...formAdditionalFields, field]);
-                          } else {
-                            setFormAdditionalFields(formAdditionalFields.filter((f) => f !== field));
-                          }
-                        }}
-                        className={s.checkboxInput}
-                      />
-                      {field}
-                    </label>
-                  ))}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label className="form-label">Vessel Code (Optional)</label>
-                    <select
-                      className="form-input"
-                      style={{ marginBottom: 0, cursor: 'pointer' }}
-                      value={formVesselCode}
-                      onChange={(e) => setFormVesselCode(e.target.value)}
-                    >
-                      <option value="">-- Applies to all --</option>
-                      {vesselCodes.map((vc) => (
-                        <option key={vc._id} value={vc.code}>
-                          {vc.code} - {vc.description}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Q Category (Optional)</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ marginBottom: 0 }}
-                      placeholder="e.g. Hull"
-                      value={formQCategory}
-                      onChange={(e) => setFormQCategory(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <label className="form-label">Survey Categories *</label>
-                <MultiSelectDropdown
-                  label="Category"
-                  options={surveyTypes}
-                  selectedValues={formSurveyCategories}
-                  onChange={setFormSurveyCategories}
-                  getOptionId={(opt) => opt._id}
-                  getOptionLabel={(opt) => `${opt.name} (${opt.code})`}
-                  placeholder="Select Survey Categories..."
-                />
-
-                <label className="form-label">Boat Types (Optional)</label>
-                <MultiSelectDropdown
-                  label="Boat Type"
-                  options={boatTypes}
-                  selectedValues={formBoatTypes}
-                  onChange={setFormBoatTypes}
-                  getOptionId={(opt) => opt._id}
-                  getOptionLabel={(opt) => opt.name}
-                  placeholder="Applies to all boat types if empty"
-                />
-
-                <label className="form-label">Area of Operations (Optional)</label>
-                <MultiSelectDropdown
-                  label="Area"
-                  options={areaOperations}
-                  selectedValues={formAreaOperations}
-                  onChange={setFormAreaOperations}
-                  getOptionId={(opt) => opt._id}
-                  getOptionLabel={(opt) => opt.AreaCategory}
-                  placeholder="Applies to all areas if empty"
-                />
-
-
-              </div>
-
-              <div className={s.modalFooter}>
-                <button type="button" className="btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </form>
+            </div>
+          </fieldset>
+          <FormGrid columns={2}>
+            <Field label="Vessel code">
+              <Select value={formVesselCode} onChange={(e) => setFormVesselCode(e.target.value)}>
+                <option value="">All vessel codes</option>
+                {vesselCodes.map((vc) => <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>)}
+              </Select>
+            </Field>
+            <Field label="Item category" hint="Groups items on the check sheet">
+              <Input placeholder="e.g. Hull" value={formQCategory} onChange={(e) => setFormQCategory(e.target.value)} />
+            </Field>
+          </FormGrid>
+          <div>
+            <SearchableMultiSelect label="Survey categories" required value={formSurveyCategories} options={surveyOptions} placeholder="Select survey categories"
+              onChange={(v) => { setFormSurveyCategories(v); setFormErrors((p) => ({ ...p, surveys: undefined })); }} />
+            {formErrors.surveys && <p className={s.fieldError} role="alert">{formErrors.surveys}</p>}
           </div>
-        </div>
-      )}
+          <SearchableMultiSelect label="Boat types" value={formBoatTypes} options={boatOptions} placeholder="All boat types" onChange={setFormBoatTypes} />
+          <SearchableMultiSelect label="Areas of operation" value={formAreaOperations} options={areaOptions} placeholder="All areas" onChange={setFormAreaOperations} />
+        </form>
+      </Modal>
 
-      {/* View Details Modal */}
-      {viewingQuestion && (
-        <div className={s.overlay} onClick={() => setViewingQuestion(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
-            <div className={s.modalHeader}>
-              <h3 className={s.modalTitle}>Checklist Item Details</h3>
-              <button type="button" className={s.closeBtn} onClick={() => setViewingQuestion(null)}>
-                ✕
-              </button>
-            </div>
+      {/* View */}
+      <Modal
+        open={!!viewingQuestion}
+        onClose={() => setViewingQuestion(null)}
+        size="md"
+        title="Checklist item"
+        footer={
+          <>
+            <Button onClick={() => setViewingQuestion(null)}>Close</Button>
+            {canUpdate && viewingQuestion && (
+              <Button variant="primary" icon={<Pencil />} onClick={() => { const q = viewingQuestion; setViewingQuestion(null); openEditModal(q); }}>Edit item</Button>
+            )}
+          </>
+        }
+      >
+        {viewingQuestion && (
+          <dl className={s.details}>
+            <div className={s.detailFull}><dt>Item</dt><dd className={s.itemText}>{viewingQuestion.item}</dd></div>
+            {viewingQuestion.description && <div className={s.detailFull}><dt>Description</dt><dd className={s.pre}>{viewingQuestion.description}</dd></div>}
+            <div><dt>Category</dt><dd><Badge tone={viewingQuestion.qCategory ? 'accent' : 'neutral'}>{viewingQuestion.qCategory || 'General'}</Badge></dd></div>
+            <div><dt>Vessel code</dt><dd>{viewingQuestion.vesselCode || <span className={s.muted}>All vessel codes</span>}</dd></div>
+            {viewingQuestion.additionalFields && viewingQuestion.additionalFields.length > 0 && (
+              <div className={s.detailFull}><dt>Additional fields</dt><dd className={s.badges}>{viewingQuestion.additionalFields.map((f) => <Badge key={f} tone="info">{f}</Badge>)}</dd></div>
+            )}
+            <div className={s.detailFull}><dt>Survey categories</dt><dd>{badgeList(viewingQuestion.surveyCategories as any[], 'name', 'All surveys')}</dd></div>
+            <div className={s.detailFull}><dt>Boat types</dt><dd>{badgeList(viewingQuestion.boatTypes as any[], 'name', 'All boat types')}</dd></div>
+            <div className={s.detailFull}><dt>Areas of operation</dt><dd>{badgeList(viewingQuestion.areaOfOperations as any[], 'AreaCategory', 'All areas')}</dd></div>
+          </dl>
+        )}
+      </Modal>
 
-            <div className={s.modalBody}>
-              <div className={s.detailSection}>
-                <div className={s.detailLabel}>Item Text</div>
-                <div className={s.detailValueQuestion}>{viewingQuestion.item}</div>
-              </div>
-
-              {viewingQuestion.description && (
-                <div className={s.detailSection}>
-                  <div className={s.detailLabel}>Description</div>
-                  <div className={s.detailValueQuestion} style={{ fontSize: '13.5px', whiteSpace: 'pre-wrap' }}>
-                    {viewingQuestion.description}
-                  </div>
-                </div>
-              )}
-
-              {viewingQuestion.additionalFields && viewingQuestion.additionalFields.length > 0 && (
-                <div className={s.detailSection}>
-                  <div className={s.detailLabel}>Additional Fields Required</div>
-                  <div className={s.badgeList}>
-                    {viewingQuestion.additionalFields.map((field) => (
-                      <span key={field} className={`${s.badge} ${s.badgeField}`}>
-                        {field}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className={s.detailGrid}>
-                <div className={s.detailItem}>
-                  <div className={s.detailLabel}>Item Category</div>
-                  <div className={s.detailValue}>
-                    <span className={viewingQuestion.qCategory ? s.categoryTag : s.categoryTagEmpty}>
-                      {viewingQuestion.qCategory || 'General'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={s.detailItem}>
-                  <div className={s.detailLabel}>Vessel Code</div>
-                  <div className={s.detailValue}>
-                    {viewingQuestion.vesselCode ? (
-                      <span className={s.vesselCodeBadge}>{viewingQuestion.vesselCode}</span>
-                    ) : (
-                      <span className={s.badgeEmpty}>Applies to all vessel codes</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailLabel}>Survey Categories</div>
-                <div className={s.badgeList}>
-                  {getSurveyLabels(viewingQuestion)}
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailLabel}>Boat Types</div>
-                <div className={s.badgeList}>
-                  {getBoatLabels(viewingQuestion)}
-                </div>
-              </div>
-
-              <div className={s.detailSection}>
-                <div className={s.detailLabel}>Area of Operations</div>
-                <div className={s.badgeList}>
-                  {getAreaLabels(viewingQuestion)}
-                </div>
-              </div>
-
-
-            </div>
-
-            <div className={s.modalFooter}>
-              <button type="button" className="btn-secondary" onClick={() => setViewingQuestion(null)}>
-                Close
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  const q = viewingQuestion;
-                  setViewingQuestion(null);
-                  openEditModal(q);
-                }}
-              >
-                Edit Item
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className={s.overlay} onClick={() => setDeleteConfirmId(null)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '365px' }}>
-            <div className={s.modalBody} style={{ textAlign: 'center', padding: '28px 24px' }}>
-              <div style={{ fontSize: '42px', marginBottom: '14px' }}>⚠️</div>
-              <h3 className={s.modalTitle} style={{ marginBottom: '8px' }}>
-                Delete Item?
-              </h3>
-              <p style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
-                This checklist item will be removed permanently.
-              </p>
-            </div>
-            <div className={s.modalFooter}>
-              <button type="button" className="btn-secondary" onClick={() => setDeleteConfirmId(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn-primary"
-                style={{ background: 'var(--red)', marginBottom: 0 }}
-                onClick={handleDelete}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!deleteConfirmId}
+        title="Delete checklist item?"
+        message="It will no longer appear on new check sheets. This can't be undone."
+        confirmText="Delete item"
+        destructive
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import ConfirmModal from '@/components/ConfirmModal';
 import {
   operationsService,
   requestsService,
@@ -20,7 +19,12 @@ import DragDropFileUpload from '@/components/DragDropFileUpload';
 import { formatDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
-import s from './NewRequest.module.css';
+import { Check, ExternalLink, Eye, FileText, Pencil, Printer, Send, Trash2, X } from 'lucide-react';
+import {
+  Badge, Button, ButtonLink, Card, ConfirmDialog, EmptyState, ErrorState, Field, FormGrid, FormSection, IconButton, Input,
+  LoadingBlock, Modal, PageHeader, Section, Select, StatusBadge, StickyActionBar, buttonClassName, type Tone,
+} from '@/ui';
+import s from './RequestDetails.module.css';
 
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -111,6 +115,15 @@ const makeId = () => {
 
 const getFileBaseName = (filename: string) => filename.replace(/\.[^/.]+$/, '');
 
+/** "application/pdf" -> "PDF", "image/png" -> "PNG image". */
+const fileKind = (contentType?: string) => {
+  if (!contentType) return 'File';
+  if (contentType === 'application/pdf') return 'PDF';
+  const [type, sub] = contentType.split('/');
+  if (type === 'image' && sub) return `${sub.toUpperCase()} image`;
+  return sub ? sub.toUpperCase() : 'File';
+};
+
 const formatBytes = (value?: number) => {
   if (value === undefined) return '-';
   if (value < 1024) return `${value} B`;
@@ -120,16 +133,12 @@ const formatBytes = (value?: number) => {
   return `${mb.toFixed(1)} MB`;
 };
 
-const requestStatusLabel = (status: ApiRequest['status']) => {
-  if (status === 'print') return 'Print';
-  if (status === 'reject') return 'Reject';
-  return 'Active';
-};
-
-const requestStatusClass = (status: ApiRequest['status']) => {
-  if (status === 'print') return `${s.statusBadge} ${s.statusPrint}`;
-  if (status === 'reject') return `${s.statusBadge} ${s.statusReject}`;
-  return `${s.statusBadge} ${s.statusActive}`;
+/** Request statuses as the business uses them, with their badge color (same as the request list). */
+const STATUS: Record<ApiRequest['status'], { label: string; tone: Tone }> = {
+  active: { label: 'Active', tone: 'info' },
+  print: { label: 'Print', tone: 'warning' },
+  reject: { label: 'Reject', tone: 'danger' },
+  success: { label: 'Success', tone: 'success' },
 };
 
 const requestToForm = (request: ApiRequest): RequestPayload => ({
@@ -154,12 +163,12 @@ const requestToForm = (request: ApiRequest): RequestPayload => ({
 
 const vesselLabel = (request: ApiRequest) => {
   const vesselType = request.vesselType as Partial<ApiVesselType>;
-  return vesselType?.name ? `${vesselType.group} - ${vesselType.name}` : '-';
+  return vesselType?.name ? `${vesselType.group} - ${vesselType.name}` : '';
 };
 
 const areaLabel = (request: ApiRequest) => {
   const area = request.areaOfOperation as Partial<ApiAreaOfOperation>;
-  return area?.description ? `${area.AreaCategory} - ${area.description}` : '-';
+  return area?.description ? `${area.AreaCategory} - ${area.description}` : '';
 };
 
 const surveyLabel = (survey: ApiRequest['surveyTypes'][number]) => {
@@ -167,21 +176,47 @@ const surveyLabel = (survey: ApiRequest['surveyTypes'][number]) => {
   return survey.code ? `${survey.code} - ${survey.name}` : survey.name;
 };
 
-function DetailField({ label, value }: { label: string; value?: ReactNode }) {
+function DetailField({ label, value, full }: { label: string; value?: ReactNode; full?: boolean }) {
   return (
-    <div className={s.detailField}>
+    <div className={full ? `${s.field} ${s.fieldFull}` : s.field}>
       <dt>{label}</dt>
-      <dd>{value || '-'}</dd>
+      <dd>{value || <span className={s.empty}>—</span>}</dd>
     </div>
   );
 }
 
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className={s.detailSection}>
-      <h3 className={s.detailSectionTitle}>{title}</h3>
-      <dl className={s.detailGrid}>{children}</dl>
-    </section>
+    <Section title={title}>
+      <dl className={s.fields}>{children}</dl>
+    </Section>
+  );
+}
+
+type DocItem = { key: string; name: string; meta: string; url?: string; onDelete?: () => void; deleteDisabled?: boolean };
+
+/** Attached files: name, type/size, open link and delete. */
+function DocList({ items }: { items: DocItem[] }) {
+  return (
+    <ul className={s.docList}>
+      {items.map(doc => (
+        <li key={doc.key} className={s.docRow}>
+          <span className={s.docIcon} aria-hidden="true"><FileText /></span>
+          <span className={s.docText}>
+            <span className={s.docName}>{doc.name}</span>
+            <span className={s.docMeta}>{doc.meta}</span>
+          </span>
+          {doc.url && (
+            <a className={buttonClassName({ variant: 'ghost', size: 'sm' })} href={doc.url} target="_blank" rel="noreferrer">
+              <ExternalLink aria-hidden="true" /><span>Open</span>
+            </a>
+          )}
+          {doc.onDelete && (
+            <IconButton label={`Delete ${doc.name}`} icon={<Trash2 />} size="sm" variant="dangerGhost" onClick={doc.onDelete} disabled={doc.deleteDisabled} />
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -514,605 +549,305 @@ export default function RequestDetailsPage() {
   }, [previewUrl]);
 
   if (!id) {
-    return <div className={s.emptyState}>Request id missing.</div>;
+    return <EmptyState title="Request not found" description="The link is missing a request id." action={<ButtonLink to="/new-request">All requests</ButtonLink>} />;
   }
 
   const documents = request?.documents || [];
   const awaitingReview = request?.approvalStatus === 'pending';
   const isRejectedWebRequest = request?.approvalStatus === 'rejected';
+  const locked = request ? request.status !== 'active' : true;
+  const setField = <K extends keyof RequestPayload>(key: K, value: RequestPayload[K]) =>
+    setForm(prev => (prev ? { ...prev, [key]: value } : prev));
+
+  const status = request ? (STATUS[request.status] ?? STATUS.active) : null;
+
+  const headerMeta = request && (
+    <>
+      {awaitingReview
+        ? <StatusBadge status="pending" label="Pending review" />
+        : status && <StatusBadge status={request.status} label={status.label} tone={status.tone} />}
+      {request.source === 'web' && <Badge tone="info">Web</Badge>}
+    </>
+  );
+
+  const headerActions = request && !editing && (
+    <>
+      {awaitingReview && (
+        <>
+          <Button variant="dangerGhost" onClick={() => handleReviewWebRequest('reject')} disabled={!canReview || reviewing}>Reject</Button>
+          <Button variant="primary" icon={<Check />} onClick={() => handleReviewWebRequest('accept')} disabled={!canReview} loading={reviewing}>Accept</Button>
+        </>
+      )}
+      {!awaitingReview && !isRejectedWebRequest && (
+        request.status === 'print' ? (
+          <Button icon={<FileText />} onClick={handleSurveyPdfAction} loading={printingPdf}>View PDF</Button>
+        ) : (
+          <Button icon={<Eye />} onClick={handlePreviewPdfAction} loading={previewLoading}>Preview PDF</Button>
+        )
+      )}
+      {!awaitingReview && !isRejectedWebRequest && canReview && (
+        <Button variant="primary" icon={<Pencil />} onClick={handleEdit}>Edit</Button>
+      )}
+    </>
+  );
+
+  const docItems: DocItem[] = documents.map(doc => ({
+    key: doc._id,
+    name: doc.name,
+    meta: [fileKind(doc.contentType), formatBytes(doc.size), doc.uploadedAt && `Uploaded ${formatDate(doc.uploadedAt)}`].filter(Boolean).join(' · '),
+    url: doc.url,
+    onDelete: () => handleDeleteDocument(doc),
+    deleteDisabled: !canDelete || request?.status === 'print',
+  }));
+
+  const signedItem: DocItem[] = request?.signedPdf ? [{
+    key: 'signed',
+    name: request.signedPdf.name,
+    meta: ['PDF', formatBytes(request.signedPdf.size), request.signedPdf.uploadedAt && `Uploaded ${formatDate(request.signedPdf.uploadedAt)}`].filter(Boolean).join(' · '),
+    url: request.signedPdf.url,
+    onDelete: handleDeleteSignedPdf,
+    deleteDisabled: !canDelete,
+  }] : [];
 
   return (
     <div className="animate-in">
-      <div className={s.detailTopBar}>
-        <div className={s.detailTitleBlock}>
-          <div className={s.detailTitleRow}>
-            <h2 className="section-header">{request ? request.requestNumber : 'Request'}</h2>
-            {request && (awaitingReview ? (
-              <span className={`${s.statusBadge} ${s.statusPending}`}>Pending Review</span>
-            ) : (
-              <span className={requestStatusClass(request.status)}>{requestStatusLabel(request.status)}</span>
-            ))}
-          </div>
-          <p className={s.detailSubtitle}>
-            {request ? `${request.companyName} / ${request.vesselName}` : 'Loading request information'}
-          </p>
-        </div>
-
-        <div className={s.detailActions}>
-          <button className="btn-secondary" type="button" onClick={() => navigate(-1)}>
-            Back
-          </button>
-          {request && awaitingReview && (
-            <>
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={() => handleReviewWebRequest('reject')}
-                disabled={!canReview || reviewing}
-                style={{ color: 'var(--red)' }}
-              >
-                Reject
-              </button>
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={() => handleReviewWebRequest('accept')}
-                disabled={!canReview || reviewing}
-                style={{ background: 'var(--green)' }}
-              >
-                {reviewing ? 'Saving...' : 'Accept'}
-              </button>
-            </>
-          )}
-          {request && !awaitingReview && !isRejectedWebRequest && (
-            request.status === 'print' ? (
-              <button className="btn-secondary" type="button" onClick={handleSurveyPdfAction} disabled={printingPdf}>
-                {printingPdf ? 'Preparing PDF...' : 'View Pdf'}
-              </button>
-            ) : (
-              <button className="btn-secondary" type="button" onClick={handlePreviewPdfAction} disabled={previewLoading}>
-                {previewLoading ? 'Loading Preview...' : 'Preview PDF'}
-              </button>
-            )
-          )}
-          {request && !editing && !awaitingReview && !isRejectedWebRequest && canReview && (
-            <button className="btn-primary" type="button" onClick={handleEdit}>
-              Edit
-            </button>
-          )}
-        </div>
-      </div>
-
-      {pageError && (
-        <div className={s.detailError}>
-          {pageError}
-        </div>
-      )}
+      <PageHeader
+        back={{ href: '/new-request', label: 'All requests' }}
+        title={request ? request.requestNumber : 'Request'}
+        meta={headerMeta}
+        description={request ? [request.companyName, request.vesselName].filter(Boolean).join(' · ') : undefined}
+        actions={headerActions}
+      />
 
       {loading ? (
-        <div className="card">Loading request details...</div>
+        <LoadingBlock label="Loading request…" />
+      ) : pageError && !request ? (
+        <Card padding="none"><ErrorState message={pageError} onRetry={loadRequest} /></Card>
       ) : !request || !form ? (
-        <div className={s.emptyState}>Request details could not be found.</div>
-      ) : (
-        <>
-          <div className={s.summaryGrid}>
-            <div className={s.summaryTile}>
-              <span>Job No</span>
-              <strong>{request.jobNumber || (awaitingReview ? 'On acceptance' : '-')}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>UQMS</span>
-              <strong>{request.uqmsNumber || '-'}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>IMO</span>
-              <strong>{request.imoNumber || '-'}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>MMSI</span>
-              <strong>{request.mmsiNumber || '-'}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>Sector</span>
-              <strong>{request.sector}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>Documents</span>
-              <strong>{documents.length}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>Created</span>
-              <strong>{formatDate(request.createdAt)}</strong>
-            </div>
-            <div className={s.summaryTile}>
-              <span>Updated</span>
-              <strong>{formatDate(request.updatedAt)}</strong>
-            </div>
-          </div>
+        <Card padding="none"><EmptyState title="Request not found" description="It may have been deleted." action={<ButtonLink to="/new-request">All requests</ButtonLink>} /></Card>
+      ) : !editing ? (
+        <div className={s.layout}>
+          <div className={s.main}>
+            <DetailSection title="Vessel">
+              <DetailField label="Vessel name" value={request.vesselName} />
+              <DetailField label="Vessel code" value={request.vesselCode} />
+              <DetailField label="Vessel type" value={vesselLabel(request)} />
+              <DetailField label="IMO number" value={request.imoNumber} />
+              <DetailField label="MMSI number" value={request.mmsiNumber} />
+              <DetailField label="Sector" value={<span className={s.capitalize}>{request.sector}</span>} />
+            </DetailSection>
 
-          {!editing ? (
-            <div className={s.detailLayout}>
-              <DetailSection title="Vessel">
-                <DetailField label="Vessel name" value={request.vesselName} />
-                <DetailField label="Vessel code" value={request.vesselCode} />
-                <DetailField label="Vessel type" value={vesselLabel(request)} />
-                <DetailField label="IMO number" value={request.imoNumber} />
-                <DetailField label="MMSI number" value={request.mmsiNumber} />
-                <DetailField label="Sector" value={request.sector} />
-              </DetailSection>
+            <DetailSection title="Company & contact">
+              <DetailField label="Company" value={request.companyName} />
+              <DetailField label="Company email" value={request.companyEmail && <a href={`mailto:${request.companyEmail}`}>{request.companyEmail}</a>} />
+              <DetailField label="Contact person" value={request.contactPersonName} />
+              <DetailField label="Contact number" value={request.contactPersonNumber && <a href={`tel:${request.contactPersonNumber}`}>{request.contactPersonNumber}</a>} />
+              <DetailField label="Registered address" value={request.registerdAddress} full />
+              <DetailField label="Invoicing address" value={request.invoicingAddress} full />
+            </DetailSection>
 
-              <DetailSection title="Company & Contact">
-                <DetailField label="Company" value={request.companyName} />
-                <DetailField label="Company email" value={request.companyEmail} />
-                <DetailField label="Contact person" value={request.contactPersonName} />
-                <DetailField label="Contact number" value={request.contactPersonNumber} />
-              </DetailSection>
-
-              <DetailSection title="Operation & Survey">
-                <DetailField label="Area of operation" value={areaLabel(request)} />
-                <DetailField
-                  label="Survey types"
-                  value={
-                    (request.surveyTypes || []).length > 0 ? (
-                      <div className={s.selectedList}>
-                        {(request.surveyTypes || []).map((survey, index) => (
-                          <span
-                            key={typeof survey === 'string' ? `${survey}-${index}` : survey._id}
-                            className={s.selectedItem}
-                          >
-                            {surveyLabel(survey)}
-                          </span>
-                        ))}
-                      </div>
-                    ) : '-'
-                  }
-                />
-              </DetailSection>
-
-              <DetailSection title="Addresses">
-                <DetailField label="Registered address" value={request.registerdAddress} />
-                <DetailField label="Invoicing address" value={request.invoicingAddress} />
-              </DetailSection>
-
-              <section className={s.documentPanel}>
-                <div className={s.detailSectionHeader}>
-                  <h3 className={s.detailSectionTitle}>Documents</h3>
-                  <span>{documents.length} attached</span>
-                </div>
-
-                {documents.length === 0 ? (
-                  <div className={s.emptyState}>No documents attached.</div>
-                ) : (
-                  <div className={s.docList}>
-                    {documents.map((doc) => (
-                      <div key={doc._id} className={s.docRow}>
-                        <div className={s.docInfo}>
-                          <div className={s.docName}>{doc.name}</div>
-                          <div className={s.docMeta}>
-                            {doc.contentType || 'file'} - {formatBytes(doc.size)}
-                            {doc.uploadedAt ? ` - Uploaded ${formatDate(doc.uploadedAt)}` : ''}
-                          </div>
-                        </div>
-                        <div className={s.docActions}>
-                          {doc.url && (
-                            <a className={s.linkBtn} href={doc.url} target="_blank" rel="noreferrer">
-                              View
-                            </a>
-                          )}
-                          <button
-                            className={`${s.actionBtn} ${s.deleteBtn}`}
-                            type="button"
-                            onClick={() => handleDeleteDocument(doc)}
-                            disabled={!canDelete || request.status === 'print'}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
+            <DetailSection title="Operation & surveys">
+              <DetailField label="Area of operation" value={areaLabel(request)} full />
+              <DetailField
+                label="Survey types"
+                full
+                value={(request.surveyTypes || []).length > 0 && (
+                  <span className={s.tags}>
+                    {(request.surveyTypes || []).map((survey, index) => (
+                      <Badge key={typeof survey === 'string' ? `${survey}-${index}` : survey._id}>{surveyLabel(survey)}</Badge>
                     ))}
-                  </div>
+                  </span>
                 )}
-              </section>
-
-              <section className={s.documentPanel}>
-                <div className={s.detailSectionHeader}>
-                  <h3 className={s.detailSectionTitle}>Signed Request PDF</h3>
-                </div>
-
-                {request.signedPdf ? (
-                  <div className={s.docList}>
-                    <div className={s.docRow}>
-                      <div className={s.docInfo}>
-                        <div className={s.docName}>{request.signedPdf.name}</div>
-                        <div className={s.docMeta}>
-                          {request.signedPdf.contentType || 'application/pdf'} - {formatBytes(request.signedPdf.size)}
-                          {request.signedPdf.uploadedAt ? ` - Uploaded ${formatDate(request.signedPdf.uploadedAt)}` : ''}
-                        </div>
-                      </div>
-                      <div className={s.docActions}>
-                        {request.signedPdf.url && (
-                          <a className={s.linkBtn} href={request.signedPdf.url} target="_blank" rel="noreferrer">
-                            View
-                          </a>
-                        )}
-                        <button
-                          className={`${s.actionBtn} ${s.deleteBtn}`}
-                          type="button"
-                          onClick={handleDeleteSignedPdf}
-                          disabled={!canDelete}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-
-                    <DragDropFileUpload
-                      onFilesSelected={(files) => {
-                        if (files && files[0]) {
-                          handleUploadSignedPdf(files[0]);
-                        }
-                      }}
-                      multiple={false}
-                      accept=".pdf"
-                      disabled={saving}
-                      text={<span>Replace Signed PDF</span>}
-                      icon="↻"
-                      containerStyle={{ marginTop: '12px' }}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <div className={s.emptyState} style={{ marginBottom: '12px' }}>No signed PDF uploaded yet.</div>
-                    <DragDropFileUpload
-                      onFilesSelected={(files) => {
-                        if (files && files[0]) {
-                          handleUploadSignedPdf(files[0]);
-                        }
-                      }}
-                      multiple={false}
-                      accept=".pdf"
-                      disabled={saving}
-                      text={<span>Upload Signed PDF</span>}
-                    />
-                  </div>
-                )}
-              </section>
-            </div>
-          ) : (
-            <div className={s.editCard}>
-              <section className={s.detailSection}>
-                <h3 className={s.detailSectionTitle}>Request Details</h3>
-                <div className={s.formGrid}>
-                  <div>
-                    <label className="form-label">UQMS Number (Optional)</label>
-                    <input
-                      className="form-input"
-                      value={form.uqmsNumber || ''}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, uqmsNumber: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">IMO Number (Optional)</label>
-                    <input
-                      className="form-input"
-                      value={form.imoNumber || ''}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, imoNumber: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">MMSI Number (Optional)</label>
-                    <input
-                      className="form-input"
-                      value={form.mmsiNumber || ''}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, mmsiNumber: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Vessel Code (Optional)</label>
-                    <select
-                      className="form-input"
-                      value={form.vesselCode || ''}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, vesselCode: e.target.value } : prev))}
-                      style={{ width: '100%', cursor: 'pointer' }}
-                      disabled={request.status !== 'active'}
-                    >
-                      <option value="">-- Select Vessel Code --</option>
-                      {vesselCodes.map(vc => (
-                        <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Vessel Name</label>
-                    <input
-                      className="form-input"
-                      value={form.vesselName}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, vesselName: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Company Name</label>
-                    <input
-                      className="form-input"
-                      value={form.companyName}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, companyName: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Contact Person Name</label>
-                    <input
-                      className="form-input"
-                      value={form.contactPersonName}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, contactPersonName: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Contact Person Number</label>
-                    <input
-                      className="form-input"
-                      value={form.contactPersonNumber}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, contactPersonNumber: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Registered Address</label>
-                    <input
-                      className="form-input"
-                      value={form.registerdAddress || ''}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, registerdAddress: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Invoicing Address</label>
-                    <input
-                      className="form-input"
-                      value={form.invoicingAddress}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, invoicingAddress: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Company Email</label>
-                    <input
-                      className="form-input"
-                      type="email"
-                      value={form.companyEmail}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, companyEmail: e.target.value } : prev))}
-                      disabled={request.status !== 'active'}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Sector</label>
-                    <select
-                      className="form-input"
-                      value={form.sector}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, sector: e.target.value as 'marine' | 'industrial' } : prev))}
-                      disabled={request.status !== 'active'}
-                    >
-                      <option value="marine">Marine</option>
-                      <option value="industrial">Industrial</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label">Status</label>
-                    <select
-                      className="form-input"
-                      value={form.status}
-                      onChange={(e) => setForm((prev) => (prev ? { ...prev, status: e.target.value as ApiRequest['status'] } : prev))}
-                      disabled={request.status !== 'active'}
-                    >
-                      <option value="active">Active</option>
-                      <option value="print">Print</option>
-                      <option value="reject">Reject</option>
-                      <option value="success">Success</option>
-                    </select>
-                  </div>
-                  <SearchableSelect
-                    label="Vessel Type"
-                    value={form.vesselType}
-                    options={vesselOptions}
-                    placeholder="Select vessel"
-                    onChange={(value) => setForm((prev) => (prev ? { ...prev, vesselType: value } : prev))}
-                    disabled={request.status !== 'active'}
-                  />
-                  <SearchableSelect
-                    label="Area of Operation"
-                    value={form.areaOfOperation}
-                    options={areaOptions}
-                    placeholder="Select area"
-                    onChange={(value) => setForm((prev) => (prev ? { ...prev, areaOfOperation: value } : prev))}
-                    disabled={request.status !== 'active'}
-                  />
-                  <SearchableMultiSelect
-                    label="Survey Types"
-                    value={form.surveyTypes}
-                    options={surveyOptions}
-                    placeholder="Select survey types"
-                    onChange={(value) => setForm((prev) => (prev ? { ...prev, surveyTypes: value } : prev))}
-                    disabled={request.status !== 'active'}
-                  />
-                </div>
-              </section>
-
-              <section className={s.detailSection} style={{ marginTop: '20px' }}>
-                <h3 className={s.detailSectionTitle}>Documents</h3>
-
-                {/* List existing documents */}
-                {documents.length === 0 ? (
-                  <div className={s.emptyState} style={{ padding: '12px', fontSize: '13px' }}>No documents attached.</div>
-                ) : (
-                  <div className={s.docList}>
-                    {documents.map((doc) => (
-                      <div key={doc._id} className={s.docRow}>
-                        <div className={s.docInfo}>
-                          <div className={s.docName}>{doc.name}</div>
-                          <div className={s.docMeta}>
-                            {doc.contentType || 'file'} - {formatBytes(doc.size)}
-                          </div>
-                        </div>
-                        <div className={s.docActions}>
-                          {doc.url && (
-                            <a className={s.linkBtn} href={doc.url} target="_blank" rel="noreferrer">
-                              View
-                            </a>
-                          )}
-                          <button
-                            className={`${s.actionBtn} ${s.deleteBtn}`}
-                            type="button"
-                            onClick={() => handleDeleteDocument(doc)}
-                            disabled={!canDelete || request.status === 'print'}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Upload New Documents */}
-                <DragDropFileUpload
-                  onFilesSelected={handleAddFiles}
-                  multiple={true}
-                  accept=".pdf,image/*"
-                  subText="(PDF or images)"
-                  containerStyle={{ marginTop: '16px' }}
-                />
-
-                {/* Pending Documents List */}
-                {pendingDocuments.length > 0 && (
-                  <div className={s.fileList} style={{ marginTop: '12px' }}>
-                    {pendingDocuments.map((doc) => (
-                      <div key={doc.id} className={s.fileRow}>
-                        <div className={s.fileMeta}>
-                          <div className={s.fileName}>{doc.file.name}</div>
-                          <div className={s.fileSize}>{formatBytes(doc.file.size)}</div>
-                        </div>
-                        <input
-                          className="form-input"
-                          style={{ marginBottom: 0 }}
-                          type="text"
-                          placeholder="Document name"
-                          value={doc.name}
-                          onChange={(e) =>
-                            setPendingDocuments((prev) =>
-                              prev.map((item) => (item.id === doc.id ? { ...item, name: e.target.value } : item))
-                            )
-                          }
-                        />
-                        <button
-                          className={`${s.actionBtn} ${s.deleteBtn}`}
-                          type="button"
-                          onClick={() => handleRemovePending(doc.id)}
-                        >
-                          X
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section className={s.detailSection} style={{ marginTop: '20px' }}>
-                <h3 className={s.detailSectionTitle}>Signed Request PDF</h3>
-
-                {request.signedPdf ? (
-                  <div className={s.docList} style={{ marginBottom: '12px' }}>
-                    <div className={s.docRow}>
-                      <div className={s.docInfo}>
-                        <div className={s.docName}>{request.signedPdf.name}</div>
-                        <div className={s.docMeta}>
-                          {formatBytes(request.signedPdf.size)}
-                        </div>
-                      </div>
-                      <div className={s.docActions}>
-                        <button
-                          className={`${s.actionBtn} ${s.deleteBtn}`}
-                          type="button"
-                          onClick={handleDeleteSignedPdf}
-                          disabled={!canDelete}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                <DragDropFileUpload
-                  onFilesSelected={(files) => setPendingSignedPdf(files ? files[0] : null)}
-                  multiple={false}
-                  accept=".pdf"
-                  text={pendingSignedPdf ? <span>Selected: {pendingSignedPdf.name}</span> : <span>Upload Signed PDF</span>}
-                  containerStyle={{ marginTop: '12px' }}
-                />
-              </section>
-
-              <div className={s.detailFooter}>
-                <button className="btn-secondary" type="button" onClick={handleCancel} disabled={saving}>
-                  Cancel
-                </button>
-                <button className="btn-primary" type="button" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {showPreviewModal && previewUrl && request && (
-        <div className={s.overlay} style={{ padding: 0 }}>
-          <div className={s.modal} style={{ maxWidth: '100%', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }}>
-            <div className={s.modalHeader}>
-              <h3 className={s.modalTitle}>Request for Survey PDF Preview ({request.requestNumber})</h3>
-              <button className={s.closeBtn} type="button" onClick={handleClosePreview}>
-                &times;
-              </button>
-            </div>
-
-            <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
-              <iframe
-                src={previewUrl}
-                title="Survey PDF Preview"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                }}
               />
-            </div>
-
-            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px', flexWrap: 'wrap' }}>
-              <button className="btn-secondary btn-inline" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
-                Cancel
-              </button>
-              <button className="btn-primary btn-inline" type="button" onClick={handleFinalizePrint} disabled={!canReview || printingPdf || sendingEmail}>
-                {printingPdf ? 'Printing...' : 'Print PDF'}
-              </button>
-              <button className="btn-primary btn-inline" type="button" onClick={handlePrintAndSend} disabled={!canReview || printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
-                {sendingEmail ? 'Sending...' : 'Print & Send'}
-              </button>
-            </div>
+            </DetailSection>
           </div>
+
+          <aside className={s.rail}>
+            <Section title="Summary">
+              <dl className={s.summary}>
+                <DetailField label="Job no." value={request.jobNumber || (awaitingReview ? 'Assigned on acceptance' : '')} />
+                <DetailField label="UQMS no." value={request.uqmsNumber} />
+                <DetailField label="Created" value={formatDate(request.createdAt)} />
+                <DetailField label="Updated" value={formatDate(request.updatedAt)} />
+              </dl>
+            </Section>
+
+            <Section title="Documents" description={`${documents.length} attached`} padding="none">
+              {docItems.length ? <DocList items={docItems} /> : <p className={s.none}>No documents attached.</p>}
+            </Section>
+
+            <Section title="Signed request PDF" padding="sm">
+              {signedItem.length > 0 && <DocList items={signedItem} />}
+              <DragDropFileUpload
+                onFilesSelected={files => { if (files && files[0]) handleUploadSignedPdf(files[0]); }}
+                multiple={false}
+                accept=".pdf"
+                disabled={saving}
+                text={<span>{request.signedPdf ? 'Replace signed PDF' : 'Upload signed PDF'}</span>}
+                subText="PDF only"
+              />
+            </Section>
+          </aside>
+        </div>
+      ) : (
+        <div className={s.editForm}>
+          {locked && (
+            <p className={s.notice}>Only active requests can have their details changed. You can still manage documents and the signed PDF.</p>
+          )}
+
+          <FormSection title="Vessel" description="Identification of the vessel to be surveyed.">
+            <FormGrid columns={3}>
+              <Field label="Vessel name" required>
+                <Input value={form.vesselName} onChange={e => setField('vesselName', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Vessel code">
+                <Select value={form.vesselCode || ''} onChange={e => setField('vesselCode', e.target.value)} disabled={locked}>
+                  <option value="">Not set</option>
+                  {vesselCodes.map(vc => <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>)}
+                </Select>
+              </Field>
+              <Field label="Sector" required>
+                <Select value={form.sector} onChange={e => setField('sector', e.target.value as 'marine' | 'industrial')} disabled={locked}>
+                  <option value="marine">Marine</option>
+                  <option value="industrial">Industrial</option>
+                </Select>
+              </Field>
+              <Field label="UQMS number" hint="Optional">
+                <Input value={form.uqmsNumber || ''} onChange={e => setField('uqmsNumber', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="IMO number" hint="Optional">
+                <Input inputMode="numeric" value={form.imoNumber || ''} onChange={e => setField('imoNumber', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="MMSI number" hint="Optional">
+                <Input inputMode="numeric" value={form.mmsiNumber || ''} onChange={e => setField('mmsiNumber', e.target.value)} disabled={locked} />
+              </Field>
+              <SearchableSelect
+                label="Vessel type"
+                value={form.vesselType}
+                options={vesselOptions}
+                placeholder="Select vessel type"
+                onChange={value => setField('vesselType', value)}
+                disabled={locked}
+              />
+              <SearchableSelect
+                label="Area of operation"
+                value={form.areaOfOperation}
+                options={areaOptions}
+                placeholder="Select area"
+                onChange={value => setField('areaOfOperation', value)}
+                disabled={locked}
+              />
+              <Field label="Status">
+                <Select value={form.status} onChange={e => setField('status', e.target.value as ApiRequest['status'])} disabled={locked}>
+                  <option value="active">Active</option>
+                  <option value="print">Print</option>
+                  <option value="reject">Reject</option>
+                  <option value="success">Success</option>
+                </Select>
+              </Field>
+              <div className={s.fullRow}>
+                <SearchableMultiSelect
+                  label="Survey types"
+                  value={form.surveyTypes}
+                  options={surveyOptions}
+                  placeholder="Select survey types"
+                  onChange={value => setField('surveyTypes', value)}
+                  disabled={locked}
+                />
+              </div>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection title="Company & contact">
+            <FormGrid columns={2}>
+              <Field label="Company name" required>
+                <Input value={form.companyName} onChange={e => setField('companyName', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Company email" required>
+                <Input type="email" inputMode="email" value={form.companyEmail} onChange={e => setField('companyEmail', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Contact person" required>
+                <Input value={form.contactPersonName} onChange={e => setField('contactPersonName', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Contact number" required>
+                <Input type="tel" inputMode="tel" value={form.contactPersonNumber} onChange={e => setField('contactPersonNumber', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Registered address">
+                <Input value={form.registerdAddress || ''} onChange={e => setField('registerdAddress', e.target.value)} disabled={locked} />
+              </Field>
+              <Field label="Invoicing address" required>
+                <Input value={form.invoicingAddress} onChange={e => setField('invoicingAddress', e.target.value)} disabled={locked} />
+              </Field>
+            </FormGrid>
+          </FormSection>
+
+          <FormSection title="Documents" description="Existing files, plus new ones to upload when you save.">
+            {docItems.length > 0 ? <DocList items={docItems} /> : <p className={s.none}>No documents attached.</p>}
+            <DragDropFileUpload onFilesSelected={handleAddFiles} multiple accept=".pdf,image/*" subText="PDF or images" />
+            {pendingDocuments.length > 0 && (
+              <ul className={s.pendingList}>
+                {pendingDocuments.map(doc => (
+                  <li key={doc.id} className={s.pendingRow}>
+                    <span className={s.docText}>
+                      <span className={s.docName}>{doc.file.name}</span>
+                      <span className={s.docMeta}>{formatBytes(doc.file.size)} · uploads on save</span>
+                    </span>
+                    <Field label="Document name" hideLabel className={s.pendingName}>
+                      <Input
+                        placeholder="Document name"
+                        value={doc.name}
+                        onChange={e => setPendingDocuments(prev => prev.map(item => (item.id === doc.id ? { ...item, name: e.target.value } : item)))}
+                      />
+                    </Field>
+                    <IconButton label={`Remove ${doc.file.name}`} icon={<X />} size="sm" onClick={() => handleRemovePending(doc.id)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </FormSection>
+
+          <FormSection title="Signed request PDF">
+            {signedItem.length > 0 && <DocList items={signedItem} />}
+            <DragDropFileUpload
+              onFilesSelected={files => setPendingSignedPdf(files ? files[0] : null)}
+              multiple={false}
+              accept=".pdf"
+              text={<span>{pendingSignedPdf ? `Selected: ${pendingSignedPdf.name}` : request.signedPdf ? 'Replace signed PDF' : 'Upload signed PDF'}</span>}
+              subText="PDF only · uploads on save"
+            />
+          </FormSection>
+
+          <StickyActionBar dirty={pendingDocuments.length > 0 || !!pendingSignedPdf} status="Editing request">
+            <Button onClick={handleCancel} disabled={saving}>Cancel</Button>
+            <Button variant="primary" onClick={handleSave} loading={saving}>Save changes</Button>
+          </StickyActionBar>
         </div>
       )}
 
-      <ConfirmModal
-        isOpen={!!pendingConfirm}
+      <Modal
+        open={showPreviewModal && !!previewUrl && !!request}
+        onClose={handleClosePreview}
+        dismissible={!printingPdf && !sendingEmail}
+        size="xl"
+        title={`Request for survey · ${request?.requestNumber ?? ''}`}
+        description="Check the PDF, then print it or print and email it to the company."
+        footer={
+          <>
+            <Button onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>Cancel</Button>
+            <Button icon={<Printer />} onClick={handleFinalizePrint} disabled={!canReview || sendingEmail} loading={printingPdf}>Print PDF</Button>
+            <Button variant="primary" icon={<Send />} onClick={handlePrintAndSend} disabled={!canReview || printingPdf} loading={sendingEmail}>Print & send</Button>
+          </>
+        }
+      >
+        {previewUrl && <iframe src={previewUrl} title="Request PDF preview" className={s.preview} />}
+      </Modal>
+
+      <ConfirmDialog
+        open={!!pendingConfirm}
         title={pendingConfirm?.title || ''}
         message={pendingConfirm?.message || ''}
         confirmText={pendingConfirm?.confirmText || 'Delete'}
-        isDestructive={pendingConfirm?.isDestructive ?? true}
+        destructive={pendingConfirm?.isDestructive ?? true}
         onConfirm={() => {
           const action = pendingConfirm?.action;
           setPendingConfirm(null);

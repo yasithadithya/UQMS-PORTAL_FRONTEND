@@ -1,0 +1,177 @@
+.button {
+  --btn-h: var(--control-h-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ----- Sizes ----- */
+.sm {
+  --btn-h: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  gap: 6px;
+}
+
+.sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+.lg {
+  --btn-h: var(--control-h-lg);
+  padding: 0 var(--space-5);
+  font-size: var(--text-base);
+}
+
+.lg svg {
+  width: 18px;
+  height: 18px;
+}
+
+.block {
+  display: flex;
+  width: 100%;
+}
+
+/* Square, icon-only. */
+.iconOnly {
+  width: var(--btn-h);
+  padding: 0;
+}
+
+/* ----- Variants ----- */
+.primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+}
+
+.primary:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.primary:active {
+  background: var(--color-accent-pressed);
+}
+
+.secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.secondary:hover {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.ghost:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.ghost[data-state='open'] {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+.danger {
+  background: var(--color-danger-solid);
+  color: #fff;
+  border-color: var(--color-danger-solid);
+}
+
+.danger:hover {
+  filter: brightness(1.08);
+}
+
+/* Destructive but low-emphasis, e.g. a row's Delete. */
+.dangerGhost {
+  background: transparent;
+  color: var(--color-danger-fg);
+}
+
+.dangerGhost:hover {
+  background: var(--color-danger-bg);
+}
+
+/* ----- Loading ----- */
+.loading {
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.loading > :not(.spinner) {
+  visibility: hidden;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin .7s linear infinite;
+}
+
+.primary.loading .spinner { color: var(--color-on-accent); }
+.secondary.loading .spinner,
+.ghost.loading .spinner { color: var(--color-text-primary); }
+.danger.loading .spinner { color: #fff; }
+.dangerGhost.loading .spinner { color: var(--color-danger-fg); }
+
+/* Touch devices: 44px minimum hit area. */
+@media (pointer: coarse) {
+  .button:not(.sm) {
+    --btn-h: var(--control-h-lg);
+  }
+
+  .sm {
+    min-height: var(--control-h-sm);
+  }
+
+  .sm::after {
+    content: '';
+    position: absolute;
+    inset: -7px 0;
+  }
+}

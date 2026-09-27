@@ -21,6 +21,9 @@ export const MODULE_KEYS = {
   hrPerformance: 'hr.performance',
   hrTraining: 'hr.training',
   hrAnnouncements: 'hr.announcements',
+  finance: 'finance',
+  financeQuotations: 'finance.quotations',
+  financeFeeStructure: 'finance.fee-structure',
   admin: 'admin',
   adminUsers: 'admin.users',
   adminRoles: 'admin.roles',
@@ -38,6 +41,8 @@ export const HR_KEYS: ModuleKey[] = [
   MODULE_KEYS.hrEmployees, MODULE_KEYS.hrAttendance, MODULE_KEYS.hrLeave, MODULE_KEYS.hrPayroll,
   MODULE_KEYS.hrPerformance, MODULE_KEYS.hrTraining, MODULE_KEYS.hrAnnouncements,
 ];
+
+export const FINANCE_KEYS: ModuleKey[] = [MODULE_KEYS.financeQuotations, MODULE_KEYS.financeFeeStructure];
 
 export const ACTION_LABELS: Record<string, string> = {
   create: 'Create',

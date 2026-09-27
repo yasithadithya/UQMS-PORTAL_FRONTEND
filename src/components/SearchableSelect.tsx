@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown, X } from 'lucide-react';
 import s from './SearchableSelect.module.css';
 
 export type SearchOption = {
@@ -13,6 +14,8 @@ type Props = {
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
+  /** Shows the required marker next to the label. */
+  required?: boolean;
   allowClear?: boolean;
   onChange: (value: string) => void;
   onSearchChange?: (query: string) => void;
@@ -25,6 +28,7 @@ export default function SearchableSelect({
   placeholder = 'Select',
   searchPlaceholder = 'Search...',
   disabled,
+  required,
   allowClear,
   onChange,
   onSearchChange,
@@ -132,7 +136,7 @@ export default function SearchableSelect({
 
   return (
     <div className={s.wrapper} ref={wrapperRef} onKeyDown={handleKeyDown}>
-      {label && <span id={labelId} className={s.label}>{label}</span>}
+      {label && <span id={labelId} className={s.label}>{label}{required && <span className={s.required} aria-hidden="true"> *</span>}</span>}
       <button
         ref={controlRef}
         type="button"
@@ -158,12 +162,10 @@ export default function SearchableSelect({
                 onChange('');
               }}
             >
-              &times;
+              <X aria-hidden="true" />
             </span>
           )}
-          <svg className={`${s.caret} ${open ? s.caretOpen : ''}`} width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronDown className={`${s.caret} ${open ? s.caretOpen : ''}`} aria-hidden="true" />
         </div>
       </button>
 

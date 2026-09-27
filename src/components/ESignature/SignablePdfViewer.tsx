@@ -4,7 +4,8 @@ import { toast } from 'react-toastify';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { eSignatureService } from '@/api';
 import type { ApiSignatureStatus, SignableDocType } from '@/api';
-import ConfirmModal from '@/components/ConfirmModal';
+import { CheckCircle2, Download, PenLine } from 'lucide-react';
+import { Button, ConfirmDialog, ErrorState, LoadingBlock } from '@/ui';
 import { formatSigningDate } from '@/utils/date';
 import SignConfirmModal from './SignConfirmModal';
 import s from './ESignature.module.css';
@@ -141,7 +142,8 @@ export default function SignablePdfViewer({
       <div className={s.toolbar}>
         {status?.signed && status.eSignature ? (
           <span className={`${s.statusBadge} ${s.statusSigned}`}>
-            ✓ Signed electronically by {status.eSignature.signedByName} on {formatSigningDate(status.eSignature.signedAt)}
+            <CheckCircle2 aria-hidden="true" />
+            Signed electronically by {status.eSignature.signedByName} on {formatSigningDate(status.eSignature.signedAt)}
           </span>
         ) : status ? (
           <span className={`${s.statusBadge} ${s.statusPending}`}>
@@ -152,30 +154,21 @@ export default function SignablePdfViewer({
         )}
         <div className={s.toolbarActions}>
           {status?.canRevoke && (
-            <button
-              type="button"
-              className="btn-secondary btn-inline"
-              onClick={() => setShowRevokeConfirm(true)}
-              disabled={revoking || loading}
-              style={{ color: 'var(--red)' }}
-            >
-              {revoking ? 'Revoking...' : 'Revoke signature'}
-            </button>
+            <Button variant="dangerGhost" size="sm" onClick={() => setShowRevokeConfirm(true)} loading={revoking} disabled={loading}>
+              Revoke signature
+            </Button>
           )}
-          <button type="button" className="btn-secondary btn-inline" onClick={handleDownload} disabled={!pdfBlob || loading}>
+          <Button variant="secondary" size="sm" icon={<Download />} onClick={handleDownload} disabled={!pdfBlob || loading}>
             Download PDF
-          </button>
+          </Button>
         </div>
       </div>
 
       <div ref={containerRef} className={s.pages}>
-        {loading && !pdf && <div className={s.message}>Loading document…</div>}
+        {loading && !pdf && <div className={s.message}><LoadingBlock label="Loading document…" /></div>}
         {error && (
           <div className={s.message}>
-            <p>{error}</p>
-            <button type="button" className="btn-secondary btn-inline" onClick={load}>
-              Try again
-            </button>
+            <ErrorState title="Couldn't open the document" message={error} onRetry={load} />
           </div>
         )}
         {pdf && pageWidth > 0 &&
@@ -208,14 +201,14 @@ export default function SignablePdfViewer({
         />
       )}
 
-      <ConfirmModal
-        isOpen={showRevokeConfirm}
+      <ConfirmDialog
+        open={showRevokeConfirm}
         title="Revoke electronic signature?"
         message="The signature stamp will be removed and the document unlocked for editing. The assigned surveyor will need to sign it again."
         confirmText="Revoke"
         onConfirm={handleRevoke}
         onCancel={() => setShowRevokeConfirm(false)}
-        isDestructive
+        destructive
       />
     </div>
   );
@@ -288,7 +281,7 @@ function SignatureFieldOverlay({ left, top, width, height, canSign, reason, onCl
 
   return (
     <button type="button" className={`${s.field} ${s.fieldActive}`} style={style} onClick={onClick}>
-      <span className={s.fieldLabel}>✎ Click here to sign</span>
+      <span className={s.fieldLabel}><PenLine aria-hidden="true" /> Click here to sign</span>
     </button>
   );
 }

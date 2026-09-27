@@ -1,0 +1,47 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.notes {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.note {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.noteDeleted {
+  border-style: dashed;
+  border-color: var(--color-danger-border);
+  opacity: .65;
+}
+
+.noteDeleted textarea {
+  text-decoration: line-through;
+}
+
+.noteHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.code {
+  font-family: var(--font-mono);
+}
+
+.spacer {
+  flex: 1;
+}

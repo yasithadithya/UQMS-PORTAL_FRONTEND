@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { PageHeader, Badge, Modal, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import Pagination from '../../components/Pagination';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
 const emptyForm = { title: '', body: '', priority: 'Normal', publishDate: '', expiryDate: '', isActive: true };
 
 export default function Announcements() {
@@ -95,16 +95,16 @@ export default function Announcements() {
       {loading ? <p className={s.mutedNote}>Loading announcements...</p> : (
         <>
           {items.map(a => (
-            <div key={a._id} className={`card ${a.isActive ? '' : s.inactive}`} style={{ marginBottom: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '240px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                    <span className={s.entityTitle} style={{ fontSize: '15px' }}>{a.title}</span>
+            <div key={a._id} className={`${s.entityCard} ${s.spaced} ${a.isActive ? '' : s.inactive}`}>
+              <div className={s.entityCardHead}>
+                <div className={s.grow}>
+                  <div className={s.inlineGroup}>
+                    <span className={s.entityTitle}>{a.title}</span>
                     <Badge status={a.priority} />
                     {!a.isActive && <Badge status="Cancelled" label="Inactive" />}
                   </div>
-                  <p style={{ fontSize: '13px', color: 'var(--secondary)', whiteSpace: 'pre-wrap' }}>{a.body}</p>
-                  <p className={s.entityMeta} style={{ marginTop: '8px', marginBottom: 0 }}>
+                  <p className={s.body}>{a.body}</p>
+                  <p className={`${s.entityMeta} ${s.metaFoot}`}>
                     Published {formatDate(a.publishDate)}{a.expiryDate ? ` · expires ${formatDate(a.expiryDate)}` : ''}
                   </p>
                 </div>
@@ -126,30 +126,30 @@ export default function Announcements() {
           onClose={() => setFormOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setFormOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={save}>{editing ? 'Save' : 'Publish'}</button>
+              <Button variant="secondary" onClick={() => setFormOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={save}>{editing ? 'Save' : 'Publish'}</Button>
             </>
           }
         >
           <Field label="Title" required>
-            <input className="form-input" type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            <Input type="text" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
           </Field>
           <Field label="Body" required>
-            <textarea className="form-input form-textarea" rows={4} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} />
+            <Textarea rows={4} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} />
           </Field>
           <div className={`${s.modalGrid} ${s.modalGrid3}`}>
             <Field label="Priority">
-              <select className="form-input" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
+              <Select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}>
                 <option value="Normal">Normal</option>
                 <option value="Important">Important</option>
                 <option value="Urgent">Urgent</option>
-              </select>
+              </Select>
             </Field>
             <Field label="Publish Date">
-              <input className="form-input" type="date" value={form.publishDate} onChange={e => setForm({ ...form, publishDate: e.target.value })} />
+              <Input type="date" value={form.publishDate} onChange={e => setForm({ ...form, publishDate: e.target.value })} />
             </Field>
             <Field label="Expiry Date">
-              <input className="form-input" type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
+              <Input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
             </Field>
           </div>
           <label className={s.checkLabel}>
@@ -159,12 +159,12 @@ export default function Announcements() {
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteId}
+      <ConfirmDialog
+        open={!!deleteId}
         title="Delete Announcement"
         message="Delete this announcement permanently?"
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteId(null)}
         onConfirm={remove}
       />

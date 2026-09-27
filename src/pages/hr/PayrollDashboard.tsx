@@ -3,12 +3,12 @@ import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import PayslipModal from './PayslipModal';
 import Pagination from '../../components/Pagination';
-import ConfirmModal from '../../components/ConfirmModal';
 import { PageHeader, Badge, EmptyRow, FilterBar, Field, formatMoney } from './hrShared';
 import s from './hr.module.css';
 import { useAuth } from '../../context/AuthContext';
 import { MODULE_KEYS } from '../../utils/permissions';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 export default function PayrollDashboard({ basePath }: { basePath: string }) {
   const { can } = useAuth();
   const canGenerate = can(MODULE_KEYS.hrPayroll, 'create');
@@ -117,30 +117,30 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
 
       <FilterBar>
         <Field label="Month" className={s.filterField}>
-          <select className="form-input" value={month} onChange={e => setMonth(Number(e.target.value))}>
+          <Select value={month} onChange={e => setMonth(Number(e.target.value))}>
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Year" className={s.filterField}>
-          <input className="form-input" type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
+          <Input type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
         </Field>
-        <button className="btn-primary" onClick={handleGenerate} disabled={generateLoading || !canGenerate} style={{ marginBottom: 0 }}>
+        <Button variant="primary" onClick={handleGenerate} disabled={generateLoading || !canGenerate} >
           {generateLoading ? 'Generating...' : 'Generate Bulk Payroll'}
-        </button>
+        </Button>
 
         <div className="spacer" />
 
         <Field label="Filter Month" className={s.filterField}>
-          <select className="form-input" value={filterMonth} onChange={e => { setFilterMonth(e.target.value ? Number(e.target.value) : ''); setPage(1); }}>
+          <Select value={filterMonth} onChange={e => { setFilterMonth(e.target.value ? Number(e.target.value) : ''); setPage(1); }}>
             <option value="">All</option>
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Filter Year" className={s.filterField}>
-          <select className="form-input" value={filterYear} onChange={e => { setFilterYear(e.target.value ? Number(e.target.value) : ''); setPage(1); }}>
+          <Select value={filterYear} onChange={e => { setFilterYear(e.target.value ? Number(e.target.value) : ''); setPage(1); }}>
             <option value="">All</option>
             {Array.from({ length: 5 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          </Select>
         </Field>
       </FilterBar>
 
@@ -184,7 +184,7 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
               {runs.length === 0 && <EmptyRow colSpan={7} text="No payroll runs found." />}
             </tbody>
           </table>
-          <div style={{ padding: '0 20px 16px' }}>
+          <div>
             <Pagination page={page} limit={limit} total={total} totalPages={pages} onPageChange={setPage} onLimitChange={setLimit} />
           </div>
         </div>
@@ -194,11 +194,11 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
         <PayslipModal runId={selectedRunId} onClose={() => setSelectedRunId(null)} />
       )}
 
-      <ConfirmModal
-        isOpen={!!confirm}
+      <ConfirmDialog
+        open={!!confirm}
         title={confirm?.title || ''}
         message={confirm?.message || ''}
-        isDestructive={confirm?.destructive}
+        destructive={confirm?.destructive}
         onCancel={() => setConfirm(null)}
         onConfirm={() => {
           const action = confirm?.action;

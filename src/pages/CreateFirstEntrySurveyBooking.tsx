@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { Check, Plus, Trash2, UserPlus, X } from 'lucide-react';
+import {
+  Badge, Button, ButtonLink, Checkbox, Field, FormGrid, FormSection, FormWithNav, IconButton, Input, LoadingBlock, PageHeader,
+  SectionNav, Select, StickyActionBar,
+} from '@/ui';
+import s from './CreateFirstEntrySurveyBooking.module.css';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { normalizeBuildDateText } from '@/utils/date';
@@ -398,41 +404,31 @@ export default function CreateFirstEntrySurveyBooking() {
     }
   };
 
+  type BookingErrors = Partial<Record<'shipName' | 'portOfSurvey' | 'shipBuilder' | 'engineBuilder', string>> & { visitDates?: number[] };
+  const [errors, setErrors] = useState<BookingErrors>({});
+
   // Form Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!shipName.trim()) {
-      toast.error('Ship Name is required.');
-      return;
-    }
+    const found: BookingErrors = {};
+    if (!shipName.trim()) found.shipName = 'Enter the ship name.';
+    if (!portOfSurvey.trim()) found.portOfSurvey = 'Enter the port of survey.';
+    if (!shipBuilder.trim()) found.shipBuilder = 'Enter the ship builder.';
+    if (!engineBuilder.trim()) found.engineBuilder = 'Enter the engine builder.';
+    // Visit dates are mandatory. (Back-dating before the requested date is currently allowed so old records can be entered.)
+    const missingDates = visitDetails.map((v, i) => (v.visitDate ? -1 : i)).filter(i => i >= 0);
+    if (missingDates.length) found.visitDates = missingDates;
 
-    // MANDATORY FIELD VALIDATION
-    if (!portOfSurvey.trim()) {
-      toast.error('Port of Survey is required.');
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      toast.error('Some required fields are missing. They are highlighted below.');
+      requestAnimationFrame(() => {
+        const first = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+        first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        first?.focus({ preventScroll: true });
+      });
       return;
-    }
-    if (!shipBuilder.trim()) {
-      toast.error('Ship Builder is required.');
-      return;
-    }
-    if (!engineBuilder.trim()) {
-      toast.error('Engine Builder is required.');
-      return;
-    }
-
-    // Validate visits (visitDate is mandatory and cannot be before requestedDate)
-    for (let i = 0; i < visitDetails.length; i++) {
-      if (!visitDetails[i].visitDate) {
-        toast.error(`Please select a visit date for ${visitDetails[i].visitNo || `Row ${i + 1}`}`);
-        return;
-      }
-      // Date: 2026-07-07 - Temporary comment as advised by shanuka. This was commented to add old records.
-      // const vDateStr = visitDetails[i].visitDate;
-      // if (new Date(vDateStr) < new Date(requestedDate)) {
-      //   toast.error(`Visit date for ${visitDetails[i].visitNo || `Row ${i + 1}`} cannot be a backdate from the Requested Date (${requestedDate}).`);
-      //   return;
-      // }
     }
 
     try {
@@ -492,625 +488,298 @@ export default function CreateFirstEntrySurveyBooking() {
   };
 
   if (initialLoading) {
-    return (
-      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
-        <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-        <p>Loading survey booking details...</p>
-      </div>
-    );
+    return <LoadingBlock label="Loading survey booking…" />;
   }
 
+  const listPath = `/${activeModule}/marine/first-entry?tab=survey`;
+  const clearError = (key: 'shipName' | 'portOfSurvey' | 'shipBuilder' | 'engineBuilder') =>
+    setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  const numberValue = (v: string): number | '' => (v !== '' ? Number(v) : '');
+  const requestsEditable = isFieldEditable('requestIds');
+  const surveysEditable = isFieldEditable('surveysRequested');
+
+  const SECTIONS = [
+    { id: 'sb-vessel', label: 'Vessel', invalid: !!errors.shipName },
+    { id: 'sb-requests', label: 'Requests' },
+    { id: 'sb-details', label: 'Particulars', invalid: !!(errors.portOfSurvey || errors.shipBuilder || errors.engineBuilder) },
+    { id: 'sb-surveys', label: 'Surveys requested' },
+    { id: 'sb-visits', label: 'Visits', invalid: !!errors.visitDates?.length },
+  ];
+
   return (
-    <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border)', paddingBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to={`/${activeModule}/marine/first-entry?tab=survey`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </Link>
-          <div>
-            <h1 className="section-header" style={{ margin: 0, fontSize: '24px', fontWeight: 850, letterSpacing: '-0.03em', color: 'var(--label)' }}>
-              {isEdit ? 'Edit Survey Booking' : 'Book First Entry Survey'}
-            </h1>
-            <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500, marginTop: '4px' }}>
-              Book a surveyor and visit details for the first entry vessel. {isEdit && "Non-blank fields are locked and read-only."}
-            </p>
-          </div>
-        </div>
+    <div className="animate-in">
+      <PageHeader
+        back={{ href: listPath, label: 'Survey bookings' }}
+        title={isEdit ? 'Edit survey booking' : 'Book survey'}
+        description={isEdit
+          ? 'Fields that already have a value are locked. Visits and surveyor assignments can always be changed.'
+          : 'Link the vessel and its requests, then plan visits and assign surveyors. Fields marked * are required.'}
+        meta={<Badge tone={reportNo ? 'accent' : 'neutral'} title="Report number">{reportNo || (isEdit ? 'No report no.' : 'Report no. assigned on save')}</Badge>}
+      />
 
-        {/* Report Number Top Section Badge */}
-        <div style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: '14px',
-          padding: '8px 16px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-          minWidth: '150px'
-        }}>
-          <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: '2px' }}>
-            Report Number
-          </span>
-          <span style={{ fontSize: '15px', fontWeight: 800, color: reportNo ? 'var(--primary)' : 'var(--muted)', fontFamily: 'monospace' }}>
-            {reportNo || (isEdit ? 'N/A' : 'GEN-AUTO')}
-          </span>
-        </div>
-      </div>
+      <FormWithNav nav={<SectionNav sections={SECTIONS} />}>
+        <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty} noValidate>
+          <FormSection id="sb-vessel" title="Vessel" description="Choosing a registered vessel fills in its registry, tonnage and engine details.">
+            <FormGrid columns={2}>
+              <Field label="Registered vessel" hint="Optional: leave empty for an unlisted vessel">
+                <div className={s.inline}>
+                  <Select value={selectedVesselId} onChange={e => handleVesselChange(e.target.value)} disabled={!isFieldEditable('vesselId')}>
+                    <option value="">Unlisted vessel (enter manually)</option>
+                    {vessels.map(v => (
+                      <option key={v._id} value={v._id}>{v.vesselName} {v.uqmsNumber ? `(${v.uqmsNumber})` : ''}</option>
+                    ))}
+                  </Select>
+                  {selectedVesselId && isFieldEditable('vesselId') && (
+                    <IconButton label="Clear vessel" icon={<X />} variant="secondary" onClick={handleRemoveVessel} />
+                  )}
+                </div>
+              </Field>
+              <Field label="Ship name" required error={errors.shipName}>
+                <Input placeholder="e.g. MV Apollo" value={shipName} disabled={!isFieldEditable('shipName')}
+                  onChange={e => { setShipName(e.target.value); clearError('shipName'); }} />
+              </Field>
+            </FormGrid>
+          </FormSection>
 
-      <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty}>
-        {/* Vessel Association */}
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header">Vessel Association</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px 24px', alignItems: 'end' }}>
-            <div>
-              <label className="form-label" htmlFor="vesselSelect">Select Registered Vessel (Optional)</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <select
-                  id="vesselSelect"
-                  className="form-input"
-                  value={selectedVesselId}
-                  onChange={e => handleVesselChange(e.target.value)}
-                  style={{ width: '100%', cursor: 'pointer' }}
-                  disabled={!isFieldEditable('vesselId')}
-                >
-                  <option value="">-- Manual Input / Unlisted Vessel --</option>
-                  {vessels.map(v => (
-                    <option key={v._id} value={v._id}>
-                      {v.vesselName} {v.uqmsNumber ? `(${v.uqmsNumber})` : ''}
-                    </option>
-                  ))}
-                </select>
-                {selectedVesselId && isFieldEditable('vesselId') && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveVessel}
-                    className="btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--red)', background: 'transparent', whiteSpace: 'nowrap', marginBottom: 0 }}
-                  >
-                    Remove Vessel
-                  </button>
-                )}
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
-                Selecting a vessel will auto-populate existing registry, tonnages, and engine details.
-              </p>
-            </div>
-            <div>
-              <label className="form-label" htmlFor="shipName">Ship Name *</label>
-              <input
-                id="shipName"
-                type="text"
-                className="form-input"
-                value={shipName}
-                onChange={e => setShipName(e.target.value)}
-                placeholder="e.g. MV Apollo"
-                required
-                disabled={!isFieldEditable('shipName')}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Request Association Card */}
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-            Request Association (Multiple Requests)
-          </div>
-          <div>
-            <label className="form-label">
-              Select Relevant Survey Requests for {shipName || 'Selected Ship'}
-            </label>
-            <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '16px', fontWeight: 500 }}>
-              Checking requests will automatically load and add their requested surveys to this booking. Only requests matching the selected vessel or ship name are loaded.
-            </p>
-
+          <FormSection
+            id="sb-requests"
+            title="Requests"
+            description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this booking.`}
+          >
             {relevantRequests.length === 0 ? (
-              <div
-                style={{
-                  padding: '24px',
-                  textAlign: 'center',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px dashed var(--border)',
-                  borderRadius: '12px',
-                  color: 'var(--muted)',
-                  fontSize: '13px',
-                }}
-              >
-                No active survey requests found matching "{shipName || 'the selected ship'}". 
-                Please ensure a vessel is selected or a valid ship name is provided.
-              </div>
+              <p className={s.empty}>
+                No open requests match {shipName ? `“${shipName}”` : 'this ship'}. Choose a registered vessel or enter the ship name as it appears on the request.
+              </p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
-                {relevantRequests.map((req) => {
-                  const isChecked = selectedRequestIds.includes(req._id);
-                  const isEditable = isFieldEditable('requestIds');
+              <div className={s.requestGrid}>
+                {relevantRequests.map(req => {
+                  const checked = selectedRequestIds.includes(req._id);
                   return (
-                    <div
-                      key={req._id}
-                      onClick={() => isEditable && handleRequestToggle(req._id)}
-                      style={{
-                        padding: '14px 18px',
-                        borderRadius: '12px',
-                        border: isChecked ? '1px solid var(--primary)' : '1px solid var(--border)',
-                        background: isChecked ? 'rgba(99, 102, 241, 0.05)' : 'var(--bg-subtle)',
-                        cursor: isEditable ? 'pointer' : 'default',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '12px',
-                        opacity: isEditable ? 1 : 0.7,
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
+                    <label key={req._id} className={`${s.requestCard} ${checked ? s.requestCardOn : ''} ${requestsEditable ? '' : s.requestCardLocked}`}>
                       <input
                         type="checkbox"
-                        checked={isChecked}
-                        readOnly
-                        disabled={!isEditable}
-                        style={{
-                          marginTop: '4px',
-                          cursor: isEditable ? 'pointer' : 'default',
-                          accentColor: 'var(--primary)',
-                        }}
+                        className={s.requestCheck}
+                        checked={checked}
+                        disabled={!requestsEditable}
+                        onChange={() => handleRequestToggle(req._id)}
                       />
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            fontSize: '14px',
-                            fontWeight: 700,
-                            color: isChecked ? 'var(--primary)' : 'var(--label)',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          {req.requestNumber}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 600, marginBottom: '2px' }}>
-                          {req.companyName}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                          Sector: <span style={{ textTransform: 'capitalize' }}>{req.sector}</span>
-                        </div>
-                        {req.surveyTypes && req.surveyTypes.length > 0 && (
-                          <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      <span className={s.requestBody}>
+                        <span className={s.requestNo}>{req.requestNumber}</span>
+                        <span className={s.requestMeta}>{req.companyName} · <span className={s.capitalize}>{req.sector}</span></span>
+                        {req.surveyTypes?.length > 0 && (
+                          <span className={s.requestTags}>
                             {req.surveyTypes.map((st: any) => {
                               const code = typeof st === 'object' ? st.code : st;
-                              const name = typeof st === 'object' ? st.name : st;
-                              return (
-                                <span
-                                  key={code}
-                                  style={{
-                                    fontSize: '9px',
-                                    fontWeight: 700,
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    background: isChecked ? 'rgba(99, 102, 241, 0.12)' : 'var(--border)',
-                                    color: isChecked ? 'var(--primary)' : 'var(--muted)',
-                                  }}
-                                  title={name}
-                                >
-                                  {code}
-                                </span>
-                              );
+                              return <Badge key={code} tone={checked ? 'accent' : 'neutral'} title={typeof st === 'object' ? st.name : st}>{code}</Badge>;
                             })}
-                          </div>
+                          </span>
                         )}
-                      </div>
-                    </div>
+                      </span>
+                    </label>
                   );
                 })}
               </div>
             )}
-          </div>
-        </div>
+          </FormSection>
 
-        {/* 2 Column Details */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px', marginBottom: '24px' }}>
-          {/* Left Column Pane */}
-          <div className="card" style={{ height: 'fit-content' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-              Vessel Details (Left Pane)
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
-              <div>
-                <label className="form-label" htmlFor="requestedBy">Requested By</label>
-                <input id="requestedBy" type="text" className="form-input" value={requestedBy} onChange={e => setRequestedBy(e.target.value)} placeholder="e.g. Agency name" disabled={!isFieldEditable('requestedBy')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="portOfSurvey">Port of Survey *</label>
-                <input id="portOfSurvey" type="text" className="form-input" value={portOfSurvey} onChange={e => setPortOfSurvey(e.target.value)} placeholder="e.g. Colombo" required disabled={!isFieldEditable('portOfSurvey')} />
-              </div>
-
-              <div>
-                <label className="form-label" htmlFor="portOfRegistry">Port of Registry</label>
-                <input id="portOfRegistry" type="text" className="form-input" value={portOfRegistry} onChange={e => setPortOfRegistry(e.target.value)} disabled={!isFieldEditable('portOfRegistry')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="flag">Flag</label>
-                <input id="flag" type="text" className="form-input" value={flag} onChange={e => setFlag(e.target.value)} disabled={!isFieldEditable('flag')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="shipType">Ship Type</label>
-                <input id="shipType" type="text" className="form-input" value={shipType} onChange={e => setShipType(e.target.value)} placeholder="e.g. Container Ship" disabled={!isFieldEditable('shipType')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="shipBuilder">Ship Builder *</label>
-                <input id="shipBuilder" type="text" className="form-input" value={shipBuilder} onChange={e => setShipBuilder(e.target.value)} required disabled={!isFieldEditable('shipBuilder')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="engineBuilder">Engine Builder *</label>
-                <input id="engineBuilder" type="text" className="form-input" value={engineBuilder} onChange={e => setEngineBuilder(e.target.value)} required disabled={!isFieldEditable('engineBuilder')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="duallyClassWith">Dually Class With</label>
-                <input id="duallyClassWith" type="text" className="form-input" value={duallyClassWith} onChange={e => setDuallyClassWith(e.target.value)} disabled={!isFieldEditable('duallyClassWith')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="dwt">Deadweight (DWT)</label>
-                <input id="dwt" type="number" className="form-input" value={dwt} onChange={e => setDwt(e.target.value !== '' ? Number(e.target.value) : '')} disabled={!isFieldEditable('dwt')} />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label className="form-label" htmlFor="keelDate">Keel Date</label>
-                <input id="keelDate" type="date" className="form-input" value={keelDate} onChange={e => setKeelDate(e.target.value)} disabled={!isFieldEditable('keelDate')} />
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column Pane */}
-          <div className="card" style={{ height: 'fit-content' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-              Booking & Specs (Right Pane)
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
-              <div>
-                <label className="form-label" htmlFor="uqmsNo">UQMS Number</label>
-                <input id="uqmsNo" type="text" className="form-input" value={uqmsNo} onChange={e => setUqmsNo(e.target.value)} placeholder="UQMS number" disabled={!isFieldEditable('uqmsNo')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="requestedDate">Requested Date *</label>
-                <input id="requestedDate" type="date" className="form-input" value={requestedDate} onChange={e => setRequestedDate(e.target.value)} required disabled={!isFieldEditable('requestedDate')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="surveyMode">Survey Mode</label>
-                <select id="surveyMode" className="form-input" value={surveyMode} onChange={e => setSurveyMode(e.target.value)} disabled={!isFieldEditable('surveyMode')}>
+          <FormSection id="sb-details" title="Particulars">
+            <FormGrid columns={3}>
+              <Field label="Port of survey" required error={errors.portOfSurvey}>
+                <Input placeholder="e.g. Colombo" value={portOfSurvey} disabled={!isFieldEditable('portOfSurvey')}
+                  onChange={e => { setPortOfSurvey(e.target.value); clearError('portOfSurvey'); }} />
+              </Field>
+              <Field label="Requested date" required>
+                <Input type="date" value={requestedDate} disabled={!isFieldEditable('requestedDate')} onChange={e => setRequestedDate(e.target.value)} />
+              </Field>
+              <Field label="Requested by">
+                <Input placeholder="e.g. Agency name" value={requestedBy} disabled={!isFieldEditable('requestedBy')} onChange={e => setRequestedBy(e.target.value)} />
+              </Field>
+              <Field label="Survey mode">
+                <Select value={surveyMode} disabled={!isFieldEditable('surveyMode')} onChange={e => setSurveyMode(e.target.value)}>
                   <option value="Singly">Singly</option>
                   <option value="Jointly">Jointly</option>
-                  <option value="OnBehalf">Singly and On Behalf</option>
-                </select>
-              </div>
-              <div>
-                <label className="form-label" htmlFor="society">Society</label>
-                <input id="society" type="text" className="form-input" value={society} onChange={e => setSociety(e.target.value)} placeholder="e.g. Lloyds" disabled={!isFieldEditable('society')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="managedBy">Managed By</label>
-                <input id="managedBy" type="text" className="form-input" value={managedBy} onChange={e => setManagedBy(e.target.value)} disabled={!isFieldEditable('managedBy')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="buildDate">Build Date</label>
-                <input id="buildDate" type="text" placeholder="YYYY/MM/DD or YYYY/MM" className="form-input" value={buildDate} onChange={e => setBuildDate(e.target.value.replace(/[^\d/]/g, ''))} disabled={!isFieldEditable('buildDate')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="yardNo">Yard No.</label>
-                <input id="yardNo" type="text" className="form-input" value={yardNo} onChange={e => setYardNo(e.target.value)} disabled={!isFieldEditable('yardNo')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="officialNo">Official No.</label>
-                <input id="officialNo" type="text" className="form-input" value={officialNo} onChange={e => setOfficialNo(e.target.value)} disabled={!isFieldEditable('officialNo')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="gt">Gross Tonnage (GT)</label>
-                <input id="gt" type="number" className="form-input" value={gt} onChange={e => setGt(e.target.value !== '' ? Number(e.target.value) : '')} disabled={!isFieldEditable('gt')} />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="callSign">Call Sign</label>
-                <input id="callSign" type="text" className="form-input" value={callSign} onChange={e => setCallSign(e.target.value)} disabled={!isFieldEditable('callSign')} />
-              </div>
-            </div>
-          </div>
-        </div>
+                  <option value="OnBehalf">Singly and on behalf</option>
+                </Select>
+              </Field>
+              <Field label="Society">
+                <Input placeholder="e.g. Lloyd's" value={society} disabled={!isFieldEditable('society')} onChange={e => setSociety(e.target.value)} />
+              </Field>
+              <Field label="Dually class with">
+                <Input value={duallyClassWith} disabled={!isFieldEditable('duallyClassWith')} onChange={e => setDuallyClassWith(e.target.value)} />
+              </Field>
+              <Field label="UQMS number">
+                <Input value={uqmsNo} disabled={!isFieldEditable('uqmsNo')} onChange={e => setUqmsNo(e.target.value)} />
+              </Field>
+              <Field label="Official no.">
+                <Input value={officialNo} disabled={!isFieldEditable('officialNo')} onChange={e => setOfficialNo(e.target.value)} />
+              </Field>
+              <Field label="Call sign">
+                <Input value={callSign} disabled={!isFieldEditable('callSign')} onChange={e => setCallSign(e.target.value)} />
+              </Field>
+              <Field label="Ship type">
+                <Input placeholder="e.g. Container ship" value={shipType} disabled={!isFieldEditable('shipType')} onChange={e => setShipType(e.target.value)} />
+              </Field>
+              <Field label="Flag">
+                <Input value={flag} disabled={!isFieldEditable('flag')} onChange={e => setFlag(e.target.value)} />
+              </Field>
+              <Field label="Port of registry">
+                <Input value={portOfRegistry} disabled={!isFieldEditable('portOfRegistry')} onChange={e => setPortOfRegistry(e.target.value)} />
+              </Field>
+              <Field label="Managed by">
+                <Input value={managedBy} disabled={!isFieldEditable('managedBy')} onChange={e => setManagedBy(e.target.value)} />
+              </Field>
+              <Field label="Gross tonnage">
+                <Input type="number" inputMode="decimal" suffix="GT" value={gt} disabled={!isFieldEditable('gt')} onChange={e => setGt(numberValue(e.target.value))} />
+              </Field>
+              <Field label="Deadweight">
+                <Input type="number" inputMode="decimal" suffix="DWT" value={dwt} disabled={!isFieldEditable('dwt')} onChange={e => setDwt(numberValue(e.target.value))} />
+              </Field>
+              <Field label="Ship builder" required error={errors.shipBuilder}>
+                <Input value={shipBuilder} disabled={!isFieldEditable('shipBuilder')} onChange={e => { setShipBuilder(e.target.value); clearError('shipBuilder'); }} />
+              </Field>
+              <Field label="Engine builder" required error={errors.engineBuilder}>
+                <Input value={engineBuilder} disabled={!isFieldEditable('engineBuilder')} onChange={e => { setEngineBuilder(e.target.value); clearError('engineBuilder'); }} />
+              </Field>
+              <Field label="Yard no.">
+                <Input value={yardNo} disabled={!isFieldEditable('yardNo')} onChange={e => setYardNo(e.target.value)} />
+              </Field>
+              <Field label="Build date" hint="YYYY/MM/DD or YYYY/MM">
+                <Input inputMode="numeric" placeholder="YYYY/MM/DD" value={buildDate} disabled={!isFieldEditable('buildDate')}
+                  onChange={e => setBuildDate(e.target.value.replace(/[^\d/]/g, ''))} />
+              </Field>
+              <Field label="Keel date">
+                <Input type="date" value={keelDate} disabled={!isFieldEditable('keelDate')} onChange={e => setKeelDate(e.target.value)} />
+              </Field>
+            </FormGrid>
+          </FormSection>
 
-        {/* Surveys Requested Checklist */}
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header" style={{ marginBottom: '14px' }}>Surveys Requested</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {surveyTypes.map(st => {
-              const isSelected = surveysRequested.includes(st.code);
-              const isEditable = isFieldEditable('surveysRequested');
-              return (
-                <button
-                  type="button"
-                  key={st._id}
-                  onClick={() => handleSurveyRequestedToggle(st.code)}
-                  disabled={!isEditable}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: '30px',
-                    border: '1px solid var(--border)',
-                    background: isSelected ? 'var(--primary)' : 'var(--bg-subtle)',
-                    color: isSelected ? '#ffffff' : 'var(--label)',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: isEditable ? 'pointer' : 'default',
-                    opacity: isEditable ? 1 : 0.7,
-                    transition: 'all 0.15s ease-in-out'
-                  }}
-                >
-                  {st.name} ({st.code})
-                </button>
-              );
-            })}
-            {surveyTypes.length === 0 && (
-              <p style={{ color: 'var(--muted)', fontSize: '13px' }}>No Survey Types configured in system.</p>
+          <FormSection id="sb-surveys" title="Surveys requested" description="Filled in from the selected requests; adjust if needed.">
+            {surveyTypes.length === 0 ? (
+              <p className={s.empty}>No survey types are configured yet.</p>
+            ) : (
+              <div className={s.chips} role="group" aria-label="Surveys requested">
+                {surveyTypes.map(st => {
+                  const on = surveysRequested.includes(st.code);
+                  return (
+                    <button
+                      type="button"
+                      key={st._id}
+                      className={`${s.chip} ${on ? s.chipOn : ''}`}
+                      aria-pressed={on}
+                      disabled={!surveysEditable}
+                      onClick={() => { handleSurveyRequestedToggle(st.code); unsaved.markDirty(); }}
+                    >
+                      {on && <Check aria-hidden="true" />}
+                      {st.name} <span className={s.chipCode}>{st.code}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </div>
-        </div>
+          </FormSection>
 
-        {/* Visit Details Grid (Fully Editable) */}
-        <div className="card" style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div className="card-header" style={{ margin: 0 }}>Visit Details Grid (Editable Section)</div>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={addVisitRow}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '6px 14px', borderRadius: '8px', marginBottom: 0 }}
-            >
-              + Add Visit Row
-            </button>
-          </div>
-
-          {visitDetails.length === 0 ? (
-            <div style={{ padding: '30px', textAlign: 'center', background: 'var(--bg-subtle)', border: '1px dashed var(--border)', borderRadius: '10px', color: 'var(--muted)', fontSize: '13px' }}>
-              No visits planned or added yet. Click "+ Add Visit Row" to get started.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {visitDetails.map((visit, visitIdx) => (
-                <div
-                  key={visitIdx}
-                  className="animate-in"
-                  style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    background: 'var(--bg-subtle)',
-                    padding: '16px',
-                    position: 'relative'
-                  }}
-                >
-                  {/* Remove Visit Button */}
-                  <button
-                    type="button"
-                    onClick={() => removeVisitRow(visitIdx)}
-                    style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--red)',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove Visit
-                  </button>
-
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--label)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ display: 'inline-flex', width: '22px', height: '22px', borderRadius: '50%', background: 'var(--primary)', color: '#ffffff', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
-                      {visitIdx + 1}
-                    </span>
-                    {visit.visitNo || `Visit ${visitIdx + 1}`}
-                  </h4>
-
-                  {/* Visit Basic Details */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Visit No</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.visitNo || ''}
-                        onChange={e => updateVisitField(visitIdx, 'visitNo', e.target.value)}
-                        placeholder="e.g. Visit 1"
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Visit Date *</label>
-                      {/* Date: 2026-07-07 - Temporary comment as advised by shanuka. This was commented to add old records. */}
-                      {/* min={requestedDate} */}
-                      <input
-                        type="date"
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.visitDate}
-                        onChange={e => updateVisitField(visitIdx, 'visitDate', e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Start Survey Time</label>
-                      <input
-                        type="time"
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.startSurvey || ''}
-                        onChange={e => updateVisitField(visitIdx, 'startSurvey', e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>End Survey Time</label>
-                      <input
-                        type="time"
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.endSurvey || ''}
-                        onChange={e => updateVisitField(visitIdx, 'endSurvey', e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Location</label>
-                      <input
-                        type="text"
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.location || ''}
-                        onChange={e => updateVisitField(visitIdx, 'location', e.target.value)}
-                        placeholder="e.g. Anchorage"
-                      />
-                    </div>
-                    <div>
-                      <label className="form-label" style={{ fontSize: '11px' }}>Status</label>
-                      <select
-                        className="form-input"
-                        style={{ padding: '6px 10px', fontSize: '13px' }}
-                        value={visit.status || 'scheduled'}
-                        onChange={e => updateVisitField(visitIdx, 'status', e.target.value)}
-                      >
-                        <option value="scheduled">Scheduled</option>
-                        <option value="ongoing">Ongoing</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', height: '100%', paddingLeft: '4px', alignSelf: 'end', marginBottom: '6px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                        <input
-                          type="checkbox"
-                          checked={!!visit.isLastVisitDate || !!visit.isLastVist}
-                          onChange={e => handleLastVisitToggle(visitIdx, e.target.checked)}
-                          style={{ width: '16px', height: '16px', accentColor: 'var(--primary)', cursor: 'pointer' }}
-                        />
-                        Is Last Visit?
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Surveyor Assignments Nested Box */}
-                  <div style={{ background: 'var(--surface)', borderRadius: '8px', padding: '12px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <h5 style={{ fontSize: '12px', fontWeight: 700, color: 'var(--secondary)', margin: 0 }}>Surveyor Assignments & Special Fees</h5>
-                      <button
-                        type="button"
-                        onClick={() => addSurveyorAssignment(visitIdx)}
-                        style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
-                      >
-                        + Add Surveyor Assignment
-                      </button>
-                    </div>
-
-                    {visit.surveyorAssignments.length === 0 ? (
-                      <p style={{ color: 'var(--muted)', fontSize: '11px', textAlign: 'center', margin: '8px 0' }}>No surveyors assigned to this visit yet.</p>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {visit.surveyorAssignments.map((assignment, assignIdx) => (
-                          <div
-                            key={assignIdx}
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: '2fr 1fr 1fr auto',
-                              gap: '12px',
-                              alignItems: 'end',
-                              background: 'var(--bg-subtle)',
-                              padding: '8px 12px',
-                              borderRadius: '6px',
-                              border: '1px solid var(--border)'
-                            }}
-                          >
-                            {/* Primary Surveyor Select */}
-                            <div>
-                              <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Surveyor</label>
-                              <select
-                                className="form-input"
-                                style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
-                                value={typeof assignment.surveyorId === 'object' ? (assignment.surveyorId as any)?._id || '' : assignment.surveyorId || ''}
-                                onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'surveyorId', e.target.value)}
-                              >
-                                <option value="">-- Choose Surveyor --</option>
-                                {users.map(u => (
-                                  <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Currency */}
-                            <div>
-                              <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Currency</label>
-                              <input
-                                type="text"
-                                className="form-input"
-                                style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
-                                value={assignment.currency || 'USD'}
-                                onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'currency', e.target.value)}
-                                placeholder="USD"
-                              />
-                            </div>
-
-                            {/* Special Attendance Fees */}
-                            <div>
-                              <label style={{ fontSize: '10px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Special Attendance Fee</label>
-                              <input
-                                type="number"
-                                className="form-input"
-                                style={{ padding: '4px 6px', fontSize: '12px', height: '30px' }}
-                                value={assignment.specialAttendanceFees === undefined ? '' : assignment.specialAttendanceFees}
-                                onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'specialAttendanceFees', e.target.value !== '' ? Number(e.target.value) : '')}
-                                placeholder="0.00"
-                              />
-                            </div>
-
-                            {/* Remove assignment button */}
-                            <button
-                              type="button"
-                              onClick={() => removeSurveyorAssignment(visitIdx, assignIdx)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--red)',
-                                fontSize: '16px',
-                                cursor: 'pointer',
-                                height: '30px',
-                                padding: '0 4px',
-                                display: 'flex',
-                                alignItems: 'center'
-                              }}
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Buttons Row */}
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '40px' }}>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading || !canSave}
-            title={canSave ? undefined : 'You do not have permission to save this record.'}
-            style={{ minWidth: '180px', marginBottom: 0 }}
+          <FormSection
+            id="sb-visits"
+            title="Visits"
+            description="Plan each visit and assign surveyors. Mark the final visit as the last visit."
+            actions={<Button size="sm" icon={<Plus />} onClick={() => { addVisitRow(); unsaved.markDirty(); }}>Add visit</Button>}
           >
-            {loading ? 'Saving...' : 'Save Survey Booking'}
-          </button>
-          <Link to={`/${activeModule}/marine/first-entry?tab=survey`} style={{ textDecoration: 'none' }}>
-            <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
-              Cancel
-            </button>
-          </Link>
-        </div>
-      </form>
+            {visitDetails.length === 0 ? (
+              <p className={s.empty}>No visits planned yet. Use “Add visit” to plan the first one.</p>
+            ) : (
+              <div className={s.visits}>
+                {visitDetails.map((visit, visitIdx) => {
+                  const dateMissing = errors.visitDates?.includes(visitIdx) && !visit.visitDate;
+                  const isLast = !!visit.isLastVisitDate || !!visit.isLastVist;
+                  return (
+                    <section key={visitIdx} className={s.visit} aria-label={visit.visitNo || `Visit ${visitIdx + 1}`}>
+                      <header className={s.visitHeader}>
+                        <span className={s.visitNumber} aria-hidden="true">{visitIdx + 1}</span>
+                        <span className={s.visitTitle}>{visit.visitNo || `Visit ${visitIdx + 1}`}</span>
+                        {isLast && <Badge tone="accent">Last visit</Badge>}
+                        <IconButton className={s.visitRemove} label={`Remove ${visit.visitNo || `visit ${visitIdx + 1}`}`} icon={<Trash2 />}
+                          size="sm" variant="dangerGhost" onClick={() => { removeVisitRow(visitIdx); unsaved.markDirty(); }} />
+                      </header>
+
+                      <FormGrid columns={3}>
+                        <Field label="Visit no.">
+                          <Input placeholder="e.g. Visit 1" value={visit.visitNo || ''} onChange={e => updateVisitField(visitIdx, 'visitNo', e.target.value)} />
+                        </Field>
+                        <Field label="Visit date" required error={dateMissing ? 'Choose the visit date.' : undefined}>
+                          <Input type="date" value={visit.visitDate} onChange={e => updateVisitField(visitIdx, 'visitDate', e.target.value)} />
+                        </Field>
+                        <Field label="Status">
+                          <Select value={visit.status || 'scheduled'} onChange={e => updateVisitField(visitIdx, 'status', e.target.value)}>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="ongoing">Ongoing</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </Select>
+                        </Field>
+                        <Field label="Survey start">
+                          <Input type="time" value={visit.startSurvey || ''} onChange={e => updateVisitField(visitIdx, 'startSurvey', e.target.value)} />
+                        </Field>
+                        <Field label="Survey end">
+                          <Input type="time" value={visit.endSurvey || ''} onChange={e => updateVisitField(visitIdx, 'endSurvey', e.target.value)} />
+                        </Field>
+                        <Field label="Location">
+                          <Input placeholder="e.g. Anchorage" value={visit.location || ''} onChange={e => updateVisitField(visitIdx, 'location', e.target.value)} />
+                        </Field>
+                      </FormGrid>
+                      <div className={s.lastVisit}>
+                        <Checkbox label="This is the last visit" description="Only one visit can be the last one."
+                          checked={isLast} onChange={e => handleLastVisitToggle(visitIdx, e.target.checked)} />
+                      </div>
+
+                      <div className={s.assignments}>
+                        <div className={s.assignmentsHeader}>
+                          <span className={s.assignmentsTitle}>Surveyors & special fees</span>
+                          <Button size="sm" variant="ghost" icon={<UserPlus />} onClick={() => { addSurveyorAssignment(visitIdx); unsaved.markDirty(); }}>Add surveyor</Button>
+                        </div>
+                        {visit.surveyorAssignments.length === 0 ? (
+                          <p className={s.emptySmall}>No surveyors assigned to this visit yet.</p>
+                        ) : (
+                          visit.surveyorAssignments.map((assignment, assignIdx) => (
+                            <div key={assignIdx} className={s.assignment}>
+                              <Field label="Surveyor">
+                                <Select
+                                  value={typeof assignment.surveyorId === 'object' ? (assignment.surveyorId as any)?._id || '' : assignment.surveyorId || ''}
+                                  onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'surveyorId', e.target.value)}
+                                >
+                                  <option value="">Choose surveyor</option>
+                                  {users.map(u => <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>)}
+                                </Select>
+                              </Field>
+                              <Field label="Currency">
+                                <Input placeholder="USD" value={assignment.currency || 'USD'} onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'currency', e.target.value)} />
+                              </Field>
+                              <Field label="Special attendance fee">
+                                <Input type="number" inputMode="decimal" placeholder="0.00"
+                                  value={assignment.specialAttendanceFees === undefined ? '' : assignment.specialAttendanceFees}
+                                  onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'specialAttendanceFees', e.target.value !== '' ? Number(e.target.value) : '')} />
+                              </Field>
+                              <IconButton className={s.assignmentRemove} label="Remove surveyor" icon={<X />} size="sm"
+                                onClick={() => { removeSurveyorAssignment(visitIdx, assignIdx); unsaved.markDirty(); }} />
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </FormSection>
+
+          <StickyActionBar dirty={unsaved.dirty}>
+            <ButtonLink to={listPath}>Cancel</ButtonLink>
+            <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
+              title={canSave ? undefined : 'You do not have permission to save this record.'}>
+              {isEdit ? 'Save changes' : 'Book survey'}
+            </Button>
+          </StickyActionBar>
+        </form>
+      </FormWithNav>
       {unsaved.dialog}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   operationsService,
   requestsService,
@@ -16,7 +17,12 @@ import {
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
-import s from './NewRequest.module.css';
+import { X } from 'lucide-react';
+import {
+  Button, ButtonLink, Card, ErrorState, Field, FormGrid, FormSection, IconButton, Input, LoadingBlock, PageHeader, Select, StickyActionBar,
+} from '@/ui';
+import s from './CreateRequest.module.css';
+import rd from './RequestDetails.module.css';
 
 const emptyForm: RequestPayload = {
   uqmsNumber: '',
@@ -160,11 +166,6 @@ export default function CreateRequestPage() {
     [surveyTypes]
   );
 
-  const selectedSurveyLabels = useMemo(() => {
-    const lookup = new Map(surveyOptions.map((item) => [item.id, item.label]));
-    return formData.surveyTypes.map((id) => lookup.get(id)).filter(Boolean) as string[];
-  }, [formData.surveyTypes, surveyOptions]);
-
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const nextDocs: PendingDocument[] = Array.from(fileList).map((file) => ({
@@ -179,24 +180,42 @@ export default function CreateRequestPage() {
     setPendingDocuments((prev) => prev.filter((doc) => doc.id !== id));
   };
 
-  const validateForm = () => {
-    if (!formData.vesselName) return 'Vessel name is required.';
-    if (!formData.companyName) return 'Company name is required.';
-    if (!formData.contactPersonName) return 'Contact person name is required.';
-    if (!formData.contactPersonNumber) return 'Contact person number is required.';
-    if (!formData.invoicingAddress) return 'Invoicing address is required.';
-    if (!formData.companyEmail) return 'Company email is required.';
-    if (!formData.sector) return 'Sector is required.';
-    if (!formData.vesselType) return 'Vessel type is required.';
-    if (!formData.areaOfOperation) return 'Area of operation is required.';
-    if (!formData.surveyTypes.length) return 'Select at least one survey type.';
-    return '';
+  type FieldKey = 'vesselName' | 'companyName' | 'contactPersonName' | 'contactPersonNumber' | 'invoicingAddress'
+    | 'companyEmail' | 'vesselType' | 'areaOfOperation' | 'surveyTypes';
+  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
+
+  /** Per-field messages, so each error shows next to its field. */
+  const validate = (): Partial<Record<FieldKey, string>> => {
+    const next: Partial<Record<FieldKey, string>> = {};
+    if (!formData.vesselName.trim()) next.vesselName = 'Enter the vessel name.';
+    if (!formData.vesselType) next.vesselType = 'Choose a vessel type.';
+    if (!formData.areaOfOperation) next.areaOfOperation = 'Choose an area of operation.';
+    if (!formData.surveyTypes.length) next.surveyTypes = 'Select at least one survey type.';
+    if (!formData.companyName.trim()) next.companyName = 'Enter the company name.';
+    if (!formData.companyEmail.trim()) next.companyEmail = 'Enter the company email.';
+    else if (!/^\S+@\S+\.\S+$/.test(formData.companyEmail.trim())) next.companyEmail = 'Enter a valid email address.';
+    if (!formData.contactPersonName.trim()) next.contactPersonName = 'Enter the contact person.';
+    if (!formData.contactPersonNumber.trim()) next.contactPersonNumber = 'Enter the contact number.';
+    if (!formData.invoicingAddress.trim()) next.invoicingAddress = 'Enter the invoicing address.';
+    return next;
+  };
+
+  const set = <K extends keyof RequestPayload>(key: K, value: RequestPayload[K]) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+    if (key in errors) setErrors(prev => ({ ...prev, [key]: undefined }));
   };
 
   const handleSave = async () => {
-    const error = validateForm();
-    if (error) {
-      setFormError(error);
+    const found = validate();
+    setErrors(found);
+    if (Object.values(found).some(Boolean)) {
+      setFormError('');
+      // Bring the first problem into view (inputs mark themselves aria-invalid; selects show their message).
+      requestAnimationFrame(() => {
+        const first = document.querySelector<HTMLElement>('[aria-invalid="true"], [data-field-error]');
+        first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (first instanceof HTMLInputElement) first.focus({ preventScroll: true });
+      });
       return;
     }
 
@@ -213,16 +232,15 @@ export default function CreateRequestPage() {
     };
 
     try {
-      let requestId: string | undefined;
       const res = await requestsService.createRequest(payload);
-      requestId = res.data._id;
+      const requestId: string | undefined = res.data._id;
 
       if (requestId) {
         if (pendingSignedPdf) {
           try {
             await requestsService.uploadRequestSignedPdf(requestId, pendingSignedPdf);
           } catch (err: any) {
-            alert(err.message || 'Request saved, but signed PDF upload failed.');
+            toast.warning(err.message || 'Request saved, but signed PDF upload failed.');
           }
         }
 
@@ -233,11 +251,12 @@ export default function CreateRequestPage() {
               pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
             );
           } catch (err: any) {
-            alert(err.message || 'Request saved, but document upload failed.');
+            toast.warning(err.message || 'Request saved, but document upload failed.');
           }
         }
       }
 
+      toast.success(res.data.requestNumber ? `Request ${res.data.requestNumber} created.` : 'Request created.');
       navigate('/new-request');
     } catch (err: any) {
       setFormError(err.message || 'Failed to save request.');
@@ -246,321 +265,184 @@ export default function CreateRequestPage() {
     }
   };
 
+  const selectError = (key: FieldKey) =>
+    errors[key] ? <p className={s.selectError} role="alert" data-field-error>{errors[key]}</p> : null;
+
+  const dirty = !!(formData.vesselName || formData.companyName || pendingDocuments.length || pendingSignedPdf);
+
   return (
     <div className="animate-in">
-      <div className={s.topBar}>
-        <div>
-          <h2 className="section-header" style={{ marginBottom: '4px' }}>Create Request</h2>
-          <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Add a new request record.</p>
-        </div>
-        <button className={s.addBtn} onClick={() => navigate('/new-request')}>
-          Back to Requests
-        </button>
-      </div>
-
-      {pageError && (
-        <div className="card" style={{ borderColor: 'rgba(239,68,68,.25)', color: 'var(--red)' }}>
-          {pageError}
-        </div>
-      )}
+      <PageHeader
+        back={{ href: '/new-request', label: 'All requests' }}
+        title="Create request"
+        description="Record a new survey request. Fields marked * are required."
+      />
 
       {loading ? (
-        <div className="card">Loading request data...</div>
+        <LoadingBlock label="Loading form…" />
+      ) : pageError ? (
+        <Card padding="none"><ErrorState message={pageError} onRetry={loadData} /></Card>
       ) : (
-        <div className="card" style={{ padding: '24px' }}>
-          {formError && (
-            <div
-              style={{
-                background: 'var(--red-subtle)',
-                color: 'var(--red)',
-                fontSize: '13px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                marginBottom: '16px',
-                textAlign: 'center',
-                border: '1px solid rgba(239,68,68,.15)'
-              }}
-            >
-              {formError}
-            </div>
-          )}
+        <div className={s.form}>
+          {formError && <p className={s.formError} role="alert">{formError}</p>}
 
-          <div className={s.formGrid}>
-            <div>
-              <label className="form-label">UQMS Number (Optional)</label>
-              <SearchableSelect
-                value={formData.uqmsNumber || ''}
-                options={uqmsOptions}
-                placeholder="Search UQMS / Vessel Name"
-                searchPlaceholder="Type to search..."
-                allowClear={true}
-                onSearchChange={setVesselSearchQuery}
-                onChange={(val) => {
-                  if (!val) {
+          <FormSection title="Vessel" description="Pick an existing vessel by UQMS number to fill in its details, or enter a new one.">
+            <FormGrid columns={3}>
+              <div className={s.span2}>
+                <SearchableSelect
+                  label="Existing vessel (UQMS number)"
+                  value={formData.uqmsNumber || ''}
+                  options={uqmsOptions}
+                  placeholder="Search by UQMS number or vessel name"
+                  searchPlaceholder="Type to search…"
+                  allowClear
+                  onSearchChange={setVesselSearchQuery}
+                  onChange={(val) => {
+                    if (!val) {
+                      setFormData((prev) => ({ ...prev, uqmsNumber: '', vesselName: '', imoNumber: '', mmsiNumber: '', vesselCode: '' }));
+                      return;
+                    }
+                    const vessel = vesselSearchResults.find((v) => (v.uqmsNumber || v._id) === val);
                     setFormData((prev) => ({
                       ...prev,
-                      uqmsNumber: '',
-                      vesselName: '',
-                      imoNumber: '',
-                      mmsiNumber: '',
-                      vesselCode: '',
+                      uqmsNumber: vessel?.uqmsNumber || val,
+                      vesselName: vessel?.vesselName || prev.vesselName,
+                      imoNumber: vessel?.imoNumber || prev.imoNumber,
+                      mmsiNumber: vessel?.mmsiNumber || prev.mmsiNumber,
+                      vesselCode: vessel?.vesselCode || prev.vesselCode,
                     }));
-                    return;
-                  }
-                  const vessel = vesselSearchResults.find((v) => (v.uqmsNumber || v._id) === val);
-                  setFormData((prev) => ({
-                    ...prev,
-                    uqmsNumber: vessel?.uqmsNumber || val,
-                    vesselName: vessel?.vesselName || prev.vesselName,
-                    imoNumber: vessel?.imoNumber || prev.imoNumber,
-                    mmsiNumber: vessel?.mmsiNumber || prev.mmsiNumber,
-                    vesselCode: vessel?.vesselCode || prev.vesselCode,
-                  }));
-                }}
-              />
-            </div>
-            <div>
-              <label className="form-label">IMO Number (Optional)</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.imoNumber}
-                onChange={(e) => setFormData((prev) => ({ ...prev, imoNumber: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">MMSI Number (Optional)</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.mmsiNumber || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, mmsiNumber: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Vessel Code (Optional)</label>
-              <select
-                className="form-input"
-                value={formData.vesselCode || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, vesselCode: e.target.value }))}
-                style={{ width: '100%', cursor: 'pointer' }}
-              >
-                <option value="">-- Select Vessel Code --</option>
-                {vesselCodes.map(vc => (
-                  <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="form-label">Vessel Name</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.vesselName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, vesselName: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Company Name</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.companyName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, companyName: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Contact Person Name</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.contactPersonName}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contactPersonName: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Contact Person Number</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.contactPersonNumber}
-                onChange={(e) => setFormData((prev) => ({ ...prev, contactPersonNumber: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Registered Address</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.registerdAddress || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, registerdAddress: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Invoicing Address</label>
-              <input
-                className="form-input"
-                type="text"
-                value={formData.invoicingAddress}
-                onChange={(e) => setFormData((prev) => ({ ...prev, invoicingAddress: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Company Email</label>
-              <input
-                className="form-input"
-                type="email"
-                value={formData.companyEmail}
-                onChange={(e) => setFormData((prev) => ({ ...prev, companyEmail: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="form-label">Sector</label>
-              <select
-                className="form-input"
-                value={formData.sector}
-                onChange={(e) => setFormData((prev) => ({ ...prev, sector: e.target.value as RequestPayload['sector'] }))}
-              >
-                <option value="marine">Marine</option>
-                <option value="industrial">Industrial</option>
-              </select>
-            </div>
-            <div>
-              <label className="form-label">Created Date</label>
-              <input
-                className="form-input"
-                type="date"
-                value={formData.createdAt || ''}
-                onChange={(e) => setFormData((prev) => ({ ...prev, createdAt: e.target.value }))}
-              />
-            </div>
-            <SearchableSelect
-              label="Vessel Type"
-              value={formData.vesselType}
-              options={vesselOptions}
-              placeholder="Select vessel type"
-              onChange={(value) => setFormData((prev) => ({ ...prev, vesselType: value }))}
-            />
-            <SearchableSelect
-              label="Area of Operation"
-              value={formData.areaOfOperation}
-              options={areaOptions}
-              placeholder="Select area"
-              onChange={(value) => setFormData((prev) => ({ ...prev, areaOfOperation: value }))}
-            />
-            <div>
-              <label className="form-label">Status</label>
-              <select
-                className="form-input"
-                value={formData.status}
-                onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as ApiRequest['status'] }))}
-              >
-                <option value="active">Active</option>
-                <option value="print">Print</option>
-                <option value="reject">Reject</option>
-              </select>
-            </div>
-          </div>
+                    setErrors((prev) => ({ ...prev, vesselName: undefined }));
+                  }}
+                />
+              </div>
+              <Field label="Vessel name" required error={errors.vesselName}>
+                <Input value={formData.vesselName} onChange={(e) => set('vesselName', e.target.value)} />
+              </Field>
+              <Field label="IMO number" hint="Optional">
+                <Input inputMode="numeric" value={formData.imoNumber} onChange={(e) => set('imoNumber', e.target.value)} />
+              </Field>
+              <Field label="MMSI number" hint="Optional">
+                <Input inputMode="numeric" value={formData.mmsiNumber || ''} onChange={(e) => set('mmsiNumber', e.target.value)} />
+              </Field>
+              <Field label="Vessel code" hint="Optional">
+                <Select value={formData.vesselCode || ''} onChange={(e) => set('vesselCode', e.target.value)}>
+                  <option value="">Not set</option>
+                  {vesselCodes.map(vc => <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>)}
+                </Select>
+              </Field>
+              <div>
+                <SearchableSelect label="Vessel type" required value={formData.vesselType} options={vesselOptions} placeholder="Select vessel type" onChange={(value) => set('vesselType', value)} />
+                {selectError('vesselType')}
+              </div>
+              <div>
+                <SearchableSelect label="Area of operation" required value={formData.areaOfOperation} options={areaOptions} placeholder="Select area" onChange={(value) => set('areaOfOperation', value)} />
+                {selectError('areaOfOperation')}
+              </div>
+              <Field label="Sector" required>
+                <Select value={formData.sector} onChange={(e) => set('sector', e.target.value as RequestPayload['sector'])}>
+                  <option value="marine">Marine</option>
+                  <option value="industrial">Industrial</option>
+                </Select>
+              </Field>
+            </FormGrid>
+          </FormSection>
 
-          <div className={s.fullRow}>
+          <FormSection title="Surveys">
             <SearchableMultiSelect
-              label="Survey Types"
+              label="Survey types" required
               value={formData.surveyTypes}
               options={surveyOptions}
               placeholder="Select survey types"
-              onChange={(value) => setFormData((prev) => ({ ...prev, surveyTypes: value }))}
+              onChange={(value) => set('surveyTypes', value)}
             />
+            {selectError('surveyTypes')}
+          </FormSection>
 
-            {selectedSurveyLabels.length > 0 ? (
-              <div className={s.selectedList}>
-                {selectedSurveyLabels.map((label) => (
-                  <div key={label} className={s.selectedItem}>{label}</div>
-                ))}
-              </div>
-            ) : (
-              <div className={s.emptyState}>No survey types selected.</div>
-            )}
-          </div>
+          <FormSection title="Company & contact">
+            <FormGrid columns={2}>
+              <Field label="Company name" required error={errors.companyName}>
+                <Input value={formData.companyName} onChange={(e) => set('companyName', e.target.value)} />
+              </Field>
+              <Field label="Company email" required error={errors.companyEmail}>
+                <Input type="email" inputMode="email" value={formData.companyEmail} onChange={(e) => set('companyEmail', e.target.value)} />
+              </Field>
+              <Field label="Contact person" required error={errors.contactPersonName}>
+                <Input value={formData.contactPersonName} onChange={(e) => set('contactPersonName', e.target.value)} />
+              </Field>
+              <Field label="Contact number" required error={errors.contactPersonNumber}>
+                <Input type="tel" inputMode="tel" value={formData.contactPersonNumber} onChange={(e) => set('contactPersonNumber', e.target.value)} />
+              </Field>
+              <Field label="Registered address">
+                <Input value={formData.registerdAddress || ''} onChange={(e) => set('registerdAddress', e.target.value)} />
+              </Field>
+              <Field label="Invoicing address" required error={errors.invoicingAddress}>
+                <Input value={formData.invoicingAddress} onChange={(e) => set('invoicingAddress', e.target.value)} />
+              </Field>
+            </FormGrid>
+          </FormSection>
 
-          <div className={s.fullRow}>
-            <label className="form-label">Documents</label>
-            <DragDropFileUpload
-              onFilesSelected={handleAddFiles}
-              multiple={true}
-              accept=".pdf,image/*"
-              subText="(PDF or images)"
-              containerStyle={{ marginTop: '12px' }}
-            />
+          <FormSection title="Request record">
+            <FormGrid columns={3}>
+              <Field label="Created date">
+                <Input type="date" value={formData.createdAt || ''} onChange={(e) => set('createdAt', e.target.value)} />
+              </Field>
+              <Field label="Status">
+                <Select value={formData.status} onChange={(e) => set('status', e.target.value as ApiRequest['status'])}>
+                  <option value="active">Active</option>
+                  <option value="print">Print</option>
+                  <option value="reject">Reject</option>
+                </Select>
+              </Field>
+            </FormGrid>
+          </FormSection>
 
+          <FormSection title="Attachments" description="Files upload after the request is created.">
+            <DragDropFileUpload onFilesSelected={handleAddFiles} multiple accept=".pdf,image/*" text={<span>Add documents</span>} subText="PDF or images" />
             {pendingDocuments.length > 0 && (
-              <div className={s.fileList}>
+              <ul className={rd.pendingList}>
                 {pendingDocuments.map((doc) => (
-                  <div key={doc.id} className={s.fileRow}>
-                    <div className={s.fileMeta}>
-                      <div className={s.fileName}>{doc.file.name}</div>
-                      <div className={s.fileSize}>{formatBytes(doc.file.size)}</div>
-                    </div>
-                    <input
-                      className="form-input"
-                      style={{ marginBottom: 0 }}
-                      type="text"
-                      placeholder="Document name"
-                      value={doc.name}
-                      onChange={(e) =>
-                        setPendingDocuments((prev) =>
-                          prev.map((item) => (item.id === doc.id ? { ...item, name: e.target.value } : item))
-                        )
-                      }
-                    />
-                    <button
-                      className={`${s.actionBtn} ${s.deleteBtn}`}
-                      type="button"
-                      onClick={() => handleRemovePending(doc.id)}
-                    >
-                      X
-                    </button>
-                  </div>
+                  <li key={doc.id} className={rd.pendingRow}>
+                    <span className={rd.docText}>
+                      <span className={rd.docName}>{doc.file.name}</span>
+                      <span className={rd.docMeta}>{formatBytes(doc.file.size)}</span>
+                    </span>
+                    <Field label="Document name" hideLabel className={rd.pendingName}>
+                      <Input
+                        placeholder="Document name"
+                        value={doc.name}
+                        onChange={(e) => setPendingDocuments((prev) => prev.map((item) => (item.id === doc.id ? { ...item, name: e.target.value } : item)))}
+                      />
+                    </Field>
+                    <IconButton label={`Remove ${doc.file.name}`} icon={<X />} size="sm" onClick={() => handleRemovePending(doc.id)} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </div>
 
-          <div className={s.fullRow} style={{ marginTop: '12px' }}>
-            <label className="form-label">Signed PDF (Optional)</label>
             <DragDropFileUpload
               onFilesSelected={(files) => setPendingSignedPdf(files ? files[0] : null)}
               multiple={false}
               accept=".pdf"
-              text={pendingSignedPdf ? <span>Selected: {pendingSignedPdf.name}</span> : <span>Upload Signed PDF</span>}
-              containerStyle={{ marginTop: '12px' }}
+              text={<span>{pendingSignedPdf ? 'Replace signed request PDF' : 'Add signed request PDF'}</span>}
+              subText="Optional · PDF only"
             />
             {pendingSignedPdf && (
-              <div className={s.fileList} style={{ marginTop: '10px' }}>
-                <div className={s.fileRow}>
-                  <div className={s.fileMeta}>
-                    <div className={s.fileName}>{pendingSignedPdf.name}</div>
-                    <div className={s.fileSize}>{formatBytes(pendingSignedPdf.size)}</div>
-                  </div>
-                  <button
-                    className={`${s.actionBtn} ${s.deleteBtn}`}
-                    type="button"
-                    onClick={() => setPendingSignedPdf(null)}
-                  >
-                    X
-                  </button>
-                </div>
-              </div>
+              <ul className={rd.pendingList}>
+                <li className={rd.pendingRow}>
+                  <span className={rd.docText}>
+                    <span className={rd.docName}>{pendingSignedPdf.name}</span>
+                    <span className={rd.docMeta}>Signed PDF · {formatBytes(pendingSignedPdf.size)}</span>
+                  </span>
+                  <IconButton label="Remove signed PDF" icon={<X />} size="sm" onClick={() => setPendingSignedPdf(null)} />
+                </li>
+              </ul>
             )}
-          </div>
+          </FormSection>
 
-          <div className={s.modalFooter}>
-            <button className="btn-secondary" onClick={() => navigate('/new-request')}>
-              Cancel
-            </button>
-            <button className="btn-primary" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Create Request'}
-            </button>
-          </div>
+          <StickyActionBar dirty={dirty}>
+            <ButtonLink to="/new-request">Cancel</ButtonLink>
+            <Button variant="primary" onClick={handleSave} loading={saving}>Create request</Button>
+          </StickyActionBar>
         </div>
       )}
     </div>

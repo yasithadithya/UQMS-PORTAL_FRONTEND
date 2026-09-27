@@ -1,0 +1,32 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sub {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-tertiary);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.files {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-success-fg);
+  font-weight: var(--weight-medium);
+}
+
+.files svg {
+  width: 16px;
+  height: 16px;
+}

@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
+import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import type { ApiModule } from '@/api';
 import { getParentId } from '@/utils/modules';
 import { ACTION_LABELS, MODULE_KEYS, isSuperAdminRole, moduleActions, permissionModuleId } from '@/utils/permissions';
-import s from './UserManagement.module.css';
+import { CornerDownRight, Eye, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { Badge, Button, ConfirmDialog, DataTable, Field, IconButton, Input, Modal, PageHeader, type Column } from '@/ui';
+import s from './Roles.module.css';
 
 type PermissionMap = Record<string, string[]>;
 
@@ -29,7 +32,7 @@ function flattenTree(modules: ApiModule[]): { mod: ApiModule; depth: number }[] 
 }
 
 export default function RolesPage() {
-    const { roles, modules, addRole, updateRole, deleteRole, can, canAccessModule, user, isSuperAdmin } = useAuth();
+    const { roles, users, modules, addRole, updateRole, deleteRole, can, canAccessModule, user, isSuperAdmin } = useAuth();
     const canCreateRole = can(MODULE_KEYS.adminRoles, 'create');
     const canUpdateRole = can(MODULE_KEYS.adminRoles, 'update');
     const canDeleteRole = can(MODULE_KEYS.adminRoles, 'delete');
@@ -37,7 +40,9 @@ export default function RolesPage() {
     const [editingRole, setEditingRole] = useState<any>(null);
     const [roleName, setRoleName] = useState('');
     const [permissions, setPermissions] = useState<PermissionMap>({});
-    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [nameError, setNameError] = useState<string>();
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
 
@@ -77,6 +82,7 @@ export default function RolesPage() {
         setRoleName('');
         setPermissions({});
         setFormError('');
+        setNameError(undefined);
         setShowModal(true);
     };
 
@@ -123,7 +129,7 @@ export default function RolesPage() {
 
     const handleSave = async () => {
         if (!roleName.trim()) {
-            setFormError('Role name is required.');
+            setNameError('Enter a role name.');
             return;
         }
 
@@ -143,6 +149,7 @@ export default function RolesPage() {
                 setFormError(res.error || (editingRole ? 'Failed to update role' : 'Failed to create role'));
                 return;
             }
+            toast.success(editingRole ? 'Role updated.' : 'Role added.');
             setShowModal(false);
         } catch (err: any) {
             setFormError(err.message || 'An error occurred');
@@ -151,195 +158,170 @@ export default function RolesPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        const res = await deleteRole(id);
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        const res = await deleteRole(deleteTarget._id);
+        setDeleting(false);
+        setDeleteTarget(null);
         if (!res.success) {
-            alert(res.error || 'Failed to delete role. Users might be assigned to it.');
+            toast.error(res.error || 'Failed to delete role. Users might be assigned to it.');
+        } else {
+            toast.success('Role deleted.');
         }
-        setDeleteConfirm(null);
     };
 
     const editingSuperAdmin = !!editingRole && isSuperAdminRole(editingRole);
     const editingOwnRole = !!editingRole && editingRole._id === user?.role?._id;
     const readOnly = (editingRole && !canUpdateRole) || editingSuperAdmin || (editingOwnRole && !isSuperAdmin);
 
+    // Every action any module offers, in a stable order, as matrix columns.
+    const ACTION_ORDER = ['read', 'create', 'update', 'delete', 'approve', 'sign-on-behalf', 'revoke-signature'];
+    const matrixActions = ACTION_ORDER.filter(a => modules.some(m => moduleActions(m).includes(a)));
+
+    const usersIn = (roleId: string) => users.filter((u: any) => (typeof u.role === 'object' ? u.role?._id : u.role) === roleId).length;
+
+    const columns: Column<any>[] = [
+        {
+            key: 'name', header: 'Role', primary: true,
+            cell: (role) => (
+                <span className={s.roleName}>
+                    {role.roleName}
+                    {isSuperAdminRole(role) && <Badge tone="accent">Full access</Badge>}
+                    {role._id === user?.role?._id && <Badge tone="info">Your role</Badge>}
+                </span>
+            ),
+        },
+        {
+            key: 'modules', header: 'Access',
+            cell: (role) => isSuperAdminRole(role) ? 'Every module' : `${role.permissions?.length || 0} ${(role.permissions?.length || 0) === 1 ? 'module' : 'modules'}`,
+        },
+        { key: 'users', header: 'Users', nowrap: true, cell: (role) => <span className="tabular">{usersIn(role._id)}</span> },
+    ];
+
     return (
-        <>
-            <div className={s.topBar}>
-                <div>
-                    <h2 className="section-header" style={{ marginBottom: '4px' }}>Role Management</h2>
-                    <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Manage roles and granular module permissions</p>
-                </div>
-                {canCreateRole && (
-                    <button className={s.addBtn} onClick={openAdd}>
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                        </svg>
-                        Add Role
-                    </button>
-                )}
-            </div>
+        <div className="animate-in">
+            <PageHeader
+                breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Roles & permissions' }]}
+                title="Roles & permissions"
+                description="A role decides which modules its users can open and what they can do there."
+                actions={canCreateRole && <Button variant="primary" icon={<Plus />} onClick={openAdd}>Add role</Button>}
+            />
 
-            <div className={s.tableWrap}>
-                <table className={s.table}>
-                    <thead>
-                        <tr>
-                            <th>Role Name</th>
-                            <th>Modules Accessed</th>
-                            <th style={{ width: '120px' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {roles.map((role) => (
-                            <tr key={role._id}>
-                                <td style={{ fontWeight: 500, color: 'var(--text)', textTransform: 'capitalize' }}>
-                                    {role.roleName}
-                                </td>
-                                <td>
-                                    {isSuperAdminRole(role) ? 'Full access' : `${role.permissions?.length || 0} module(s) mapped`}
-                                </td>
-                                <td>
-                                    <div className={s.actions}>
-                                        <button className={s.actionBtn} onClick={() => openEdit(role)} title={canUpdateRole ? 'Edit' : 'View'}>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                        </button>
-                                        {!isSuperAdminRole(role) && role._id !== user?.role?._id && (
-                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(role._id)} title="Delete" disabled={!canDeleteRole}>
-                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Add/Edit Modal */}
-            {showModal && (
-                <div className={s.overlay} onClick={() => setShowModal(false)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
-                        <div className={s.modalHeader}>
-                            <h3 className={s.modalTitle}>{!editingRole ? 'Add New Role' : readOnly ? 'View Role' : 'Edit Role'}</h3>
-                            <button className={s.closeBtn} onClick={() => setShowModal(false)}>✕</button>
-                        </div>
-
-                        <div className={s.modalBody} style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                            {formError && (
-                                <div style={{ background: 'var(--red-subtle)', color: 'var(--red)', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', textAlign: 'center', border: '1px solid rgba(239,68,68,.15)' }}>
-                                    {formError}
-                                </div>
-                            )}
-
-                            <label className="form-label">Role Name</label>
-                            <input
-                                className="form-input"
-                                type="text"
-                                placeholder="e.g. Inspector"
-                                value={roleName}
-                                onChange={(e) => setRoleName(e.target.value)}
-                                disabled={editingSuperAdmin || readOnly}
+            <DataTable
+                caption="Roles"
+                columns={columns}
+                rows={roles}
+                getRowId={(r) => r._id}
+                onRowClick={openEdit}
+                empty={{ icon: <ShieldCheck />, title: 'No roles yet' }}
+                rowActions={(role) => (
+                    <>
+                        <IconButton label={canUpdateRole ? `Edit ${role.roleName}` : `View ${role.roleName}`} icon={canUpdateRole ? <Pencil /> : <Eye />} size="sm" onClick={() => openEdit(role)} />
+                        {!isSuperAdminRole(role) && role._id !== user?.role?._id && (
+                            <IconButton
+                                label={usersIn(role._id) ? `${role.roleName} still has users` : `Delete ${role.roleName}`}
+                                icon={<Trash2 />}
+                                size="sm"
+                                variant="dangerGhost"
+                                onClick={() => setDeleteTarget(role)}
+                                disabled={!canDeleteRole || usersIn(role._id) > 0}
                             />
+                        )}
+                    </>
+                )}
+            />
 
-                            <h4 style={{ marginTop: '24px', marginBottom: '12px', fontSize: '15px' }}>Module Permissions</h4>
-                            {editingSuperAdmin ? (
-                                <div className="card" style={{ padding: '16px', fontSize: '13px', color: 'var(--muted)', marginBottom: 0 }}>
-                                    The <strong>admin</strong> role has full access to every module. Its permissions can't be restricted.
-                                </div>
-                            ) : (
-                                <>
-                                    {editingOwnRole && !isSuperAdmin && (
-                                        <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>You can't change the permissions of your own role.</p>
-                                    )}
-                                    <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
-                                        Granting any action also grants Read on the module and its parents. Removing Read removes all access to the module and its sub-modules.
-                                    </p>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {tree.map(({ mod, depth }) => {
-                                            const selected = permissions[mod._id] || [];
-                                            return (
-                                                <div
-                                                    key={mod._id}
-                                                    style={{
-                                                        padding: '12px 16px',
-                                                        marginLeft: `${depth * 20}px`,
-                                                        border: '1px solid var(--border)',
-                                                        borderRadius: '10px',
-                                                        background: 'var(--card-bg)',
-                                                    }}
-                                                >
-                                                    <div style={{ fontWeight: 500, marginBottom: '8px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                        {depth > 0 && <span style={{ color: 'var(--separator)' }}>↳</span>}
-                                                        {mod.name}
-                                                        {mod.isSystem && (
-                                                            <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '6px', background: 'var(--primary-subtle)', color: 'var(--primary)' }}>SYSTEM</span>
-                                                        )}
-                                                        <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400 }}>{mod.description}</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                                        {moduleActions(mod).map(action => {
-                                                            const checked = selected.includes(action);
-                                                            // Existing grants can always be removed; new ones need the granter to hold them.
-                                                            const disabled = readOnly || (!checked && !canGrant(mod._id, action));
-                                                            return (
-                                                                <label key={action} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled && !checked ? 0.5 : 1 }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={checked}
-                                                                        disabled={disabled}
-                                                                        onChange={() => togglePermission(mod._id, action)}
-                                                                        style={{ accentColor: 'var(--primary)' }}
-                                                                    />
-                                                                    <span>{ACTION_LABELS[action] || action}</span>
-                                                                </label>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        <div className={s.modalFooter}>
-                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setShowModal(false)}>
-                                {readOnly ? 'Close' : 'Cancel'}
-                            </button>
-                            {!readOnly && (
-                                <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0 }} onClick={handleSave} disabled={saving}>
-                                    {saving ? 'Saving…' : 'Save'}
-                                </button>
-                            )}
-                        </div>
-                    </div>
+            <Modal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                dismissible={!saving}
+                size="xl"
+                title={!editingRole ? 'Add role' : readOnly ? `Role: ${editingRole.roleName}` : `Edit ${editingRole.roleName}`}
+                description={editingSuperAdmin ? undefined : 'Granting any action also grants Read on the module and its parents. Removing Read removes access to the module and everything under it.'}
+                footer={
+                    <>
+                        <Button onClick={() => setShowModal(false)} disabled={saving}>{readOnly ? 'Close' : 'Cancel'}</Button>
+                        {!readOnly && <Button variant="primary" onClick={handleSave} loading={saving}>{editingRole ? 'Save changes' : 'Add role'}</Button>}
+                    </>
+                }
+            >
+                {formError && <p className={s.formError} role="alert">{formError}</p>}
+                <div className={s.nameField}>
+                    <Field label="Role name" required error={nameError}>
+                        <Input placeholder="e.g. Surveyor" value={roleName} disabled={editingSuperAdmin || readOnly}
+                            onChange={(e) => { setRoleName(e.target.value); setNameError(undefined); }} autoFocus={!editingRole} />
+                    </Field>
                 </div>
-            )}
 
-            {/* Delete Confirmation */}
-            {deleteConfirm && (
-                <div className={s.overlay} onClick={() => setDeleteConfirm(null)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
-                        <div className={s.modalBody} style={{ textAlign: 'center', padding: '28px 24px' }}>
-                            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
-                            <h3 className={s.modalTitle} style={{ marginBottom: '8px' }}>Delete Role?</h3>
-                            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>This action cannot be undone.</p>
+                {editingSuperAdmin ? (
+                    <p className={s.notice}>The <strong>admin</strong> role has full access to every module. Its permissions can't be restricted.</p>
+                ) : (
+                    <>
+                        {editingOwnRole && !isSuperAdmin && <p className={s.notice}>You can't change the permissions of your own role.</p>}
+                        <div className={s.matrixWrap}>
+                            <table className={s.matrix}>
+                                <caption className="sr-only">Permissions by module</caption>
+                                <thead>
+                                    <tr>
+                                        <th scope="col" className={s.moduleCol}>Module</th>
+                                        {matrixActions.map(a => <th key={a} scope="col">{ACTION_LABELS[a] || a}</th>)}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tree.map(({ mod, depth }) => {
+                                        const selected = permissions[mod._id] || [];
+                                        const offered = moduleActions(mod);
+                                        return (
+                                            <tr key={mod._id} className={selected.length ? s.rowOn : undefined}>
+                                                <th scope="row" className={s.moduleCol}>
+                                                    <span className={s.moduleName} style={{ paddingLeft: depth * 18 }}>
+                                                        {depth > 0 && <CornerDownRight className={s.branch} aria-hidden="true" />}
+                                                        <span>
+                                                            <span className={s.moduleTitle}>{mod.name}</span>
+                                                            {mod.description && <span className={s.moduleDesc}>{mod.description}</span>}
+                                                        </span>
+                                                    </span>
+                                                </th>
+                                                {matrixActions.map(action => {
+                                                    if (!offered.includes(action)) return <td key={action} className={s.na} aria-label="Not applicable">—</td>;
+                                                    const checked = selected.includes(action);
+                                                    // Existing grants can always be removed; new ones need the granter to hold them.
+                                                    const disabled = !!readOnly || (!checked && !canGrant(mod._id, action));
+                                                    return (
+                                                        <td key={action}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className={s.check}
+                                                                checked={checked}
+                                                                disabled={disabled}
+                                                                onChange={() => togglePermission(mod._id, action)}
+                                                                aria-label={`${ACTION_LABELS[action] || action} ${mod.name}`}
+                                                                title={disabled && !checked && !readOnly ? "You can only grant permissions you hold yourself" : undefined}
+                                                            />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
-                        <div className={s.modalFooter}>
-                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setDeleteConfirm(null)}>Cancel</button>
-                            <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0, background: 'var(--red)' }} onClick={() => handleDelete(deleteConfirm)}>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+                    </>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title={`Delete the ${deleteTarget?.roleName ?? ''} role?`}
+                message="This can't be undone."
+                confirmText="Delete role"
+                destructive
+                loading={deleting}
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </div>
     );
 }

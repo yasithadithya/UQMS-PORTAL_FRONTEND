@@ -1,5 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Award, ClipboardList, Download, FileText, StickyNote } from 'lucide-react';
+import {
+  Badge, Button, ButtonLink, Card, Checkbox, EmptyState, Field, FormGrid, FormSection, Input, LoadingBlock, PageHeader, Select,
+  StatusBadge, StickyActionBar, Textarea,
+} from '@/ui';
+import s from './CreateFirstEntrySurveyReport.module.css';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import ScccosModal from '@/components/ScccosModal';
 import VesselNotesModal from '@/components/VesselNotesModal';
@@ -7,6 +13,8 @@ import { toast } from 'react-toastify';
 import { firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory, ApiSurveyType } from '@/api';
 import { formatDate } from '@/utils/date';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
@@ -14,6 +22,11 @@ export default function CreateFirstEntrySurveyReport() {
   const { id, module } = useParams<{ id?: string; module?: string }>(); // Report ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineReports, isEdit ? 'update' : 'create');
+  const canApprove = can(MODULE_KEYS.marineReports, 'approve');
+  const canIssueCos = can(MODULE_KEYS.marineCertificates, 'create');
+  const canViewCos = can(MODULE_KEYS.marineCertificates, 'read');
 
   // Bookings List (only needed for creating a new report)
   const [bookings, setBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
@@ -203,12 +216,14 @@ export default function CreateFirstEntrySurveyReport() {
     setSurveys(updated);
   };
 
+  const [bookingError, setBookingError] = useState<string>();
+
   // Submit / Save Logic
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedBookingId) {
-      toast.error('Please associate this report with a Survey Booking.');
+      setBookingError('Choose the survey booking this report is for.');
       return;
     }
 
@@ -281,410 +296,164 @@ export default function CreateFirstEntrySurveyReport() {
   };
 
   if (initialLoading) {
-    return (
-      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
-        <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-        <p>Loading survey report details...</p>
-      </div>
-    );
+    return <LoadingBlock label="Loading survey report…" />;
   }
 
+  const listPath = `/${activeModule}/marine/first-entry?tab=reports`;
+  const reportBase = `/${activeModule}/marine/first-entry/survey-report`;
+
+  const headerActions = isEdit && id && (
+    <>
+      {vessel && <Button icon={<StickyNote />} onClick={() => setIsNotesModalOpen(true)}>Vessel notes</Button>}
+      <ButtonLink to={`${reportBase}/equipment-record/${id}`} icon={<ClipboardList />}>Equipment record</ButtonLink>
+      <ButtonLink to={`${reportBase}/final/${id}`} icon={<FileText />}>Final report</ButtonLink>
+      {isScccosEligible && booking && (
+        status === 'COS Generated'
+          ? <Button icon={<Download />} onClick={() => handleViewCos(id)} disabled={!canViewCos}>Download COS</Button>
+          : <Button variant="primary" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCos}>Generate SSC COS</Button>
+      )}
+    </>
+  );
+
+  const fact = (label: string, value?: string) => (
+    <div className={s.fact}>
+      <dt>{label}</dt>
+      <dd>{value || <span className={s.none}>—</span>}</dd>
+    </div>
+  );
+
   return (
-    <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border)', paddingBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to={`/${activeModule}/marine/first-entry?tab=reports`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </Link>
-          <div>
-            <h1 className="section-header" style={{ margin: 0, fontSize: '24px', fontWeight: 850, letterSpacing: '-0.03em', color: 'var(--label)' }}>
-              {isEdit ? 'Edit Survey Report' : 'Generate Survey Report'}
-            </h1>
-            <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500, marginTop: '4px' }}>
-              Create or modify first entry survey report documents and review compliance statuses.
-            </p>
-          </div>
-        </div>
+    <div className="animate-in">
+      <PageHeader
+        back={{ href: listPath, label: 'Survey reports' }}
+        title={isEdit ? 'Edit survey report' : 'Create survey report'}
+        description={isEdit ? 'Update report details and each survey’s status.' : 'Choose a survey booking; the vessel details, dates and surveys are filled in from it.'}
+        meta={
+          <>
+            {reportNo && <Badge tone="accent" title="Report number">{reportNo}</Badge>}
+            {isEdit && <StatusBadge status={status} />}
+          </>
+        }
+        actions={headerActions}
+      />
 
-        {/* Report Number Top Section Badge */}
-        {reportNo && (
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '14px',
-            padding: '8px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-            minWidth: '150px'
-          }}>
-            <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: '2px' }}>
-              Report Number
-            </span>
-            <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', fontFamily: 'monospace' }}>
-              {reportNo}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty}>
-        {/* Booking Association */}
+      <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty} noValidate className={s.form}>
         {!isEdit && (
-          <div className="card" style={{ marginBottom: '24px' }}>
-            <div className="card-header">Select Survey Booking</div>
-            <div style={{ maxWidth: '600px' }}>
-              <label className="form-label" htmlFor="bookingSelect">Select Booking *</label>
-              <select
-                id="bookingSelect"
-                className="form-input"
-                value={selectedBookingId}
-                onChange={e => handleBookingChange(e.target.value)}
-                style={{ width: '100%', cursor: 'pointer' }}
-                required
-              >
-                <option value="">-- Choose A Survey Booking --</option>
-                {bookings.map(b => (
-                  <option key={b._id} value={b._id}>
-                    {b.reportNo || 'REP-AUTO'} - {b.shipName} {b.uqmsNo ? `(${b.uqmsNo})` : ''}
-                  </option>
-                ))}
-              </select>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '4px' }}>
-                Selecting a survey booking will dynamically pull and calculate dates, vessel registry information, and categories.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Vessel Specifications & Dates */}
-        {selectedBookingId && (
-          <div className="card animate-in" style={{ marginBottom: '24px' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-              Vessel Details & Survey Timeline
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px 24px', marginBottom: '20px' }}>
-              <div>
-                <label className="form-label">Ship Name</label>
-                <input type="text" className="form-input" value={shipName} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-              <div>
-                <label className="form-label">Managed By</label>
-                <input type="text" className="form-input" value={managedBy || 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-              <div>
-                <label className="form-label">UQMS Number</label>
-                <input type="text" className="form-input" value={uqmsNo || 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-              <div>
-                <label className="form-label">Port of Survey</label>
-                <input type="text" className="form-input" value={portOfSurvey || 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px 24px' }}>
-              <div>
-                <label className="form-label">Survey Requested Date</label>
-                <input type="text" className="form-input" value={surveyRequestedDate ? formatDate(surveyRequestedDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-              <div>
-                <label className="form-label">First Survey Visit Date (1st Survey Date)</label>
-                <input type="text" className="form-input" value={firstSurveyDate ? formatDate(firstSurveyDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-              <div>
-                <label className="form-label">Last Survey Visit Date (Last Survey Date)</label>
-                <input type="text" className="form-input" value={lastSurveyDate ? formatDate(lastSurveyDate) : 'N/A'} readOnly style={{ background: 'var(--bg-subtle)', color: 'var(--muted)' }} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Report Remarks & Status */}
-        {selectedBookingId && (
-          <div className="card animate-in" style={{ marginBottom: '24px' }}>
-            <div className="card-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-              Report Customization
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', marginBottom: '20px' }}>
-              <div>
-                <label className="form-label" htmlFor="anniversaryDate">Anniversary Date</label>
-                <input
-                  id="anniversaryDate"
-                  type="date"
-                  className="form-input"
-                  value={anniversaryDate}
-                  onChange={e => setAnniversaryDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="form-label" htmlFor="statusSelect">Report Status</label>
-                <select
-                  id="statusSelect"
-                  className="form-input"
-                  value={status}
-                  onChange={e => setStatus(e.target.value)}
-                  style={{ width: '100%', cursor: 'pointer' }}
+          <FormSection title="Survey booking">
+            <div className={s.narrow}>
+              <Field label="Booking" required error={bookingError}>
+                <Select
+                  placeholder="Choose a survey booking"
+                  value={selectedBookingId}
+                  onChange={e => { handleBookingChange(e.target.value); setBookingError(undefined); }}
                 >
-                  <option value="Draft">Draft</option>
-                  <option value="Approved">Approved</option>
-                </select>
-              </div>
+                  {bookings.map(b => (
+                    <option key={b._id} value={b._id}>
+                      {b.reportNo || 'No report no.'} · {b.shipName} {b.uqmsNo ? `(${b.uqmsNo})` : ''}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
             </div>
-
-            <div>
-              <label className="form-label" htmlFor="remarksArea">Report Remarks</label>
-              <textarea
-                id="remarksArea"
-                className="form-input form-textarea"
-                placeholder="Enter overall remarks, summary of condition, and certificate recommendations..."
-                value={reportRemarks}
-                onChange={e => setReportRemarks(e.target.value)}
-                style={{ height: '110px' }}
-              />
-            </div>
-          </div>
+          </FormSection>
         )}
 
-        {/* Survey Categories Grid */}
+        {!selectedBookingId && !isEdit && (
+          <Card padding="none">
+            <EmptyState icon={<FileText />} title="Choose a booking to start" description="The report is built from the booking’s vessel, visit dates and requested surveys." />
+          </Card>
+        )}
+
         {selectedBookingId && (
-          <div className="card animate-in" style={{ marginBottom: '32px' }}>
-            <div className="card-header" style={{ marginBottom: '14px' }}>Survey Name Details Grid</div>
+          <>
+            <FormSection title="Vessel & timeline" description="From the survey booking.">
+              <dl className={s.facts}>
+                {fact('Ship', shipName)}
+                {fact('Managed by', managedBy)}
+                {fact('UQMS no.', uqmsNo)}
+                {fact('Port of survey', portOfSurvey)}
+                {fact('Survey requested', surveyRequestedDate ? formatDate(surveyRequestedDate) : '')}
+                {fact('First survey visit', firstSurveyDate ? formatDate(firstSurveyDate) : '')}
+                {fact('Last survey visit', lastSurveyDate ? formatDate(lastSurveyDate) : '')}
+              </dl>
+            </FormSection>
 
-            {surveys.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-subtle)', borderRadius: '10px', color: 'var(--muted)', fontSize: '13px' }}>
-                No surveys requested in this booking.
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto', margin: '0 -24px -24px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1100px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '12px 20px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '250px' }}>Survey Name</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '150px' }}>Status</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '100px' }}>Postponed?</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '140px' }}>Postpone Date</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '140px' }}>Survey Date</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '140px' }}>Assigned Date</th>
-                      <th style={{ padding: '12px 14px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '220px' }}>Due Range (From - To)</th>
-                      <th style={{ padding: '12px 20px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '350px' }}>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {surveys.map((survey, index) => (
-                      <tr key={index} style={{ borderBottom: '1px solid var(--border)' }}>
-                        {/* Category Name */}
-                        <td style={{ padding: '14px 20px', fontSize: '13px', fontWeight: 600, color: 'var(--label)' }}>
-                          <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: '4px', background: 'var(--primary-subtle)', color: 'var(--primary)', fontWeight: 700 }}>
-                            {getSurveyName(survey.surveyCategory)}
-                          </span>
-                        </td>
+            <FormSection title="Report details">
+              <FormGrid columns={2}>
+                <Field label="Anniversary date">
+                  <Input type="date" value={anniversaryDate} onChange={e => setAnniversaryDate(e.target.value)} />
+                </Field>
+                <Field label="Report status" hint={canApprove ? undefined : 'Only approvers can change the status.'}>
+                  <Select value={status} onChange={e => setStatus(e.target.value)}>
+                    <option value="Draft" disabled={!canApprove && status !== 'Draft'}>Draft</option>
+                    <option value="Approved" disabled={!canApprove && status !== 'Approved'}>Approved</option>
+                    {status === 'COS Generated' && <option value="COS Generated">COS Generated</option>}
+                  </Select>
+                </Field>
+                <Field label="Report remarks" full>
+                  <Textarea rows={4} placeholder="Overall remarks, summary of condition and certificate recommendations…" value={reportRemarks} onChange={e => setReportRemarks(e.target.value)} />
+                </Field>
+              </FormGrid>
+            </FormSection>
 
-                        {/* Status Select */}
-                        <td style={{ padding: '14px 14px' }}>
-                          <select
-                            className="form-input"
-                            value={survey.surveyStatus || 'Pending'}
-                            onChange={e => updateSurveyField(index, 'surveyStatus', e.target.value)}
-                            style={{ padding: '6px 8px', fontSize: '12px', height: 'auto', minWidth: '130px', cursor: 'pointer' }}
-                          >
+            <FormSection title="Surveys" description={surveys.length ? `${surveys.length} ${surveys.length === 1 ? 'survey' : 'surveys'} from the booking.` : undefined}>
+              {surveys.length === 0 ? (
+                <p className={s.emptyNote}>This booking has no requested surveys.</p>
+              ) : (
+                <div className={s.surveys}>
+                  {surveys.map((survey, index) => (
+                    <section key={index} className={s.survey} aria-label={getSurveyName(survey.surveyCategory)}>
+                      <header className={s.surveyHeader}>
+                        <span className={s.surveyName}>{getSurveyName(survey.surveyCategory)}</span>
+                        <StatusBadge status={survey.surveyStatus || 'Pending'} />
+                      </header>
+                      <FormGrid columns={3}>
+                        <Field label="Status">
+                          <Select value={survey.surveyStatus || 'Pending'} onChange={e => updateSurveyField(index, 'surveyStatus', e.target.value)}>
                             <option value="Pending">Pending</option>
                             <option value="Completed">Completed</option>
-                            <option value="Partially Completed">Partially Completed</option>
+                            <option value="Partially Completed">Partially completed</option>
                             <option value="Cancelled">Cancelled</option>
-                          </select>
-                        </td>
+                          </Select>
+                        </Field>
+                        <Field label="Survey date">
+                          <Input type="date" value={survey.surveyDate || ''} onChange={e => updateSurveyField(index, 'surveyDate', e.target.value)} />
+                        </Field>
+                        <Field label="Assigned date">
+                          <Input type="date" value={survey.assignedDate || ''} onChange={e => updateSurveyField(index, 'assignedDate', e.target.value)} />
+                        </Field>
+                        <Field label="Due from">
+                          <Input type="date" value={survey.dueFrom || ''} onChange={e => updateSurveyField(index, 'dueFrom', e.target.value)} />
+                        </Field>
+                        <Field label="Due to">
+                          <Input type="date" value={survey.dueTo || ''} onChange={e => updateSurveyField(index, 'dueTo', e.target.value)} />
+                        </Field>
+                        <div className={s.postpone}>
+                          <Checkbox label="Postponed" checked={!!survey.isPostponed} onChange={e => updateSurveyField(index, 'isPostponed', e.target.checked)} />
+                          {survey.isPostponed && (
+                            <Field label="Postponed to" hideLabel>
+                              <Input type="date" value={survey.postponeDate || ''} onChange={e => updateSurveyField(index, 'postponeDate', e.target.value)} aria-label="Postponed to" />
+                            </Field>
+                          )}
+                        </div>
+                        <Field label="Remarks" full>
+                          <Textarea rows={2} placeholder="Add remarks…" value={survey.remarks || ''} onChange={e => updateSurveyField(index, 'remarks', e.target.value)} />
+                        </Field>
+                      </FormGrid>
+                    </section>
+                  ))}
+                </div>
+              )}
+            </FormSection>
 
-                        {/* Is Postponed Checkbox */}
-                        <td style={{ padding: '14px 14px', textAlign: 'center' }}>
-                          <input
-                            type="checkbox"
-                            checked={!!survey.isPostponed}
-                            onChange={e => updateSurveyField(index, 'isPostponed', e.target.checked)}
-                            style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--primary)' }}
-                          />
-                        </td>
-
-                        {/* Postpone Date */}
-                        <td style={{ padding: '14px 14px' }}>
-                          <input
-                            type="date"
-                            className="form-input"
-                            value={survey.postponeDate || ''}
-                            onChange={e => updateSurveyField(index, 'postponeDate', e.target.value)}
-                            disabled={!survey.isPostponed}
-                            style={{ padding: '6px 8px', fontSize: '12px', height: 'auto', background: !survey.isPostponed ? 'var(--bg-subtle)' : 'var(--bg)' }}
-                          />
-                        </td>
-
-                        {/* Survey Date */}
-                        <td style={{ padding: '14px 14px' }}>
-                          <input
-                            type="date"
-                            className="form-input"
-                            value={survey.surveyDate || ''}
-                            onChange={e => updateSurveyField(index, 'surveyDate', e.target.value)}
-                            style={{ padding: '6px 8px', fontSize: '12px', height: 'auto' }}
-                          />
-                        </td>
-
-                        {/* Assigned Date */}
-                        <td style={{ padding: '14px 14px' }}>
-                          <input
-                            type="date"
-                            className="form-input"
-                            value={survey.assignedDate || ''}
-                            onChange={e => updateSurveyField(index, 'assignedDate', e.target.value)}
-                            style={{ padding: '6px 8px', fontSize: '12px', height: 'auto' }}
-                          />
-                        </td>
-
-                        {/* Due Range (From - To) */}
-                        <td style={{ padding: '14px 14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <input
-                              type="date"
-                              className="form-input"
-                              value={survey.dueFrom || ''}
-                              onChange={e => updateSurveyField(index, 'dueFrom', e.target.value)}
-                              style={{ padding: '4px 6px', fontSize: '11px', height: 'auto' }}
-                            />
-                            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>to</span>
-                            <input
-                              type="date"
-                              className="form-input"
-                              value={survey.dueTo || ''}
-                              onChange={e => updateSurveyField(index, 'dueTo', e.target.value)}
-                              style={{ padding: '4px 6px', fontSize: '11px', height: 'auto' }}
-                            />
-                          </div>
-                        </td>
-
-                        {/* Remarks */}
-                        <td style={{ padding: '14px 20px' }}>
-                          <textarea
-                            className="form-input"
-                            placeholder="Add remarks..."
-                            value={survey.remarks || ''}
-                            onChange={e => updateSurveyField(index, 'remarks', e.target.value)}
-                            style={{ padding: '6px 8px', fontSize: '12px', minWidth: '320px', height: '64px', resize: 'vertical', lineHeight: '1.4' }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Buttons Row */}
-        {selectedBookingId && (
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '40px' }}>
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-              style={{ minWidth: '180px', marginBottom: 0 }}
-            >
-              {loading ? 'Saving...' : 'Save Survey Report'}
-            </button>
-
-            {isEdit && vessel && (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => setIsNotesModalOpen(true)}
-                style={{
-                  minWidth: '180px',
-                  marginBottom: 0,
-                  background: 'var(--primary)',
-                  borderColor: 'var(--primary)'
-                }}
-              >
-                Manage Vessel Notes
-              </button>
-            )}
-
-            {isEdit && id && (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => navigate(`/${activeModule}/marine/first-entry/survey-report/equipment-record/${id}`)}
-                style={{
-                  minWidth: '180px',
-                  marginBottom: 0,
-                  background: 'var(--primary)',
-                  borderColor: 'var(--primary)'
-                }}
-              >
-                Record of Equipment
-              </button>
-            )}
-
-            {isEdit && id && (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => navigate(`/${activeModule}/marine/first-entry/survey-report/final/${id}`)}
-                style={{
-                  minWidth: '180px',
-                  marginBottom: 0,
-                  background: 'var(--primary)',
-                  borderColor: 'var(--primary)'
-                }}
-              >
-                Final Survey Report
-              </button>
-            )}
-
-            {isScccosEligible && booking && (
-              status === 'COS Generated' ? (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => handleViewCos(id || '')}
-                  style={{
-                    minWidth: '180px',
-                    marginBottom: 0,
-                    background: 'var(--primary)',
-                    borderColor: 'var(--primary)'
-                  }}
-                >
-                  View COS
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setIsScccosModalOpen(true)}
-                  style={{
-                    minWidth: '180px',
-                    marginBottom: 0,
-                    background: 'var(--green)',
-                    borderColor: 'var(--green)'
-                  }}
-                >
-                  Generate SSC COS Certificate
-                </button>
-              )
-            )}
-
-            <Link to={`/${activeModule}/marine/first-entry?tab=reports`} style={{ textDecoration: 'none' }}>
-              <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
-                Cancel
-              </button>
-            </Link>
-          </div>
+            <StickyActionBar dirty={unsaved.dirty}>
+              <ButtonLink to={listPath}>Cancel</ButtonLink>
+              <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
+                title={canSave ? undefined : 'You do not have permission to save this record.'}>
+                {isEdit ? 'Save changes' : 'Create report'}
+              </Button>
+            </StickyActionBar>
+          </>
         )}
       </form>
 

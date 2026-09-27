@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { PageHeader, Badge, Modal, EmptyRow, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input } from '@/ui';
 export default function HolidaysManagement() {
   const [holidays, setHolidays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,16 +112,16 @@ export default function HolidaysManagement() {
           onClose={() => setFormOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setFormOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={save}>Save</button>
+              <Button variant="secondary" onClick={() => setFormOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={save}>Save</Button>
             </>
           }
         >
           <Field label="Name" required>
-            <input className="form-input" type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Independence Day" />
+            <Input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Independence Day" />
           </Field>
           <Field label="Date" required>
-            <input className="form-input" type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+            <Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
           </Field>
           <label className={s.checkLabel}>
             <input type="checkbox" checked={form.isRecurring} onChange={e => setForm({ ...form, isRecurring: e.target.checked })} />
@@ -130,12 +130,12 @@ export default function HolidaysManagement() {
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteId}
+      <ConfirmDialog
+        open={!!deleteId}
         title="Remove Holiday"
         message="Remove this public holiday? Leave-day calculations will no longer exclude it."
         confirmText="Remove"
-        isDestructive
+        destructive
         onCancel={() => setDeleteId(null)}
         onConfirm={remove}
       />

@@ -1,12 +1,21 @@
 import { request } from '../client';
 import { cachedRequest, invalidateCache, CACHE_KEYS, TTL } from '../apiCache';
-import type { ApiUser } from '../types';
+import type { ApiUser, ApiUserDirectoryEntry } from '../types';
 
 export const usersService = {
   getUsers: () => {
     return cachedRequest(
       CACHE_KEYS.USERS,
       () => request<{ success: boolean; count: number; data: ApiUser[] }>('/users'),
+      TTL.SEMI_DYNAMIC
+    );
+  },
+
+  /** Names only; available to every signed-in user (surveyor pickers, HR account linking). */
+  getDirectory: () => {
+    return cachedRequest(
+      CACHE_KEYS.USER_DIRECTORY,
+      () => request<{ success: boolean; count: number; data: ApiUserDirectoryEntry[] }>('/users/directory'),
       TTL.SEMI_DYNAMIC
     );
   },
@@ -32,6 +41,7 @@ export const usersService = {
       body: JSON.stringify(payload),
     }).then((res) => {
       invalidateCache(CACHE_KEYS.USERS);
+      invalidateCache(CACHE_KEYS.USER_DIRECTORY);
       return res;
     });
   },
@@ -56,6 +66,7 @@ export const usersService = {
       body: JSON.stringify(payload),
     }).then((res) => {
       invalidateCache(CACHE_KEYS.USERS);
+      invalidateCache(CACHE_KEYS.USER_DIRECTORY);
       return res;
     });
   },
@@ -65,6 +76,7 @@ export const usersService = {
       method: 'DELETE',
     }).then((res) => {
       invalidateCache(CACHE_KEYS.USERS);
+      invalidateCache(CACHE_KEYS.USER_DIRECTORY);
       return res;
     });
   }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { usersService } from '@/api/services/users.service';
 import { toast } from 'react-toastify';
+import { Badge, Button, Card, Field, FormGrid, Input, LoadingBlock, PageHeader, Section } from '@/ui';
 import s from './Profile.module.css';
 
 export default function ProfilePage() {
@@ -153,170 +154,76 @@ export default function ProfilePage() {
     };
 
     if (loadingProfile) {
-        return (
-            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
-                <h3>Loading profile details…</h3>
-            </div>
-        );
+        return <LoadingBlock label="Loading your profile…" />;
     }
 
+    const initials = (profileData.fullName || profileData.username || '?')
+        .split(/[\s._-]+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2);
+
     return (
-        <div className={`${s.container} animate-in`}>
-            <div className={s.titleSection}>
-                <h2 className={s.title}>My Profile</h2>
-                <p className={s.subtitle}>Manage your account settings, personal details, and security credentials.</p>
-            </div>
+        <div className={`animate-in ${s.page}`}>
+            <PageHeader title="My profile" description="Your personal details and sign-in password." />
+
+            <Card className={s.identity}>
+                <span className={s.avatar} aria-hidden="true">{initials}</span>
+                <div className={s.identityText}>
+                    <span className={s.name}>{profileData.fullName || profileData.username}</span>
+                    <span className={s.meta}>
+                        <Badge tone="accent" className={s.role}>{profileData.roleName || 'No role'}</Badge>
+                        <span>{profileData.email}</span>
+                        {profileData.empNumber && <span>Emp. no. {profileData.empNumber}</span>}
+                    </span>
+                </div>
+            </Card>
 
             <div className={s.grid}>
-                {/* Profile Details Form */}
-                <div className={s.card}>
-                    <h3 className={s.cardTitle}>Personal Settings</h3>
-                    
-                    {profileError && <div className={`${s.alert} ${s.alertError}`}>{profileError}</div>}
-                    {profileSuccess && <div className={`${s.alert} ${s.alertSuccess}`}>{profileSuccess}</div>}
-
-                    <form onSubmit={handleProfileSubmit}>
-                        <div className={s.formGrid}>
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Username *</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.username}
-                                    onChange={(e) => setProfileData(p => ({ ...p, username: e.target.value }))}
-                                    id="profile-username"
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Email Address (Read-only)</label>
-                                <input
-                                    className={s.input}
-                                    type="email"
-                                    value={profileData.email}
-                                    disabled
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Full Name *</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.fullName}
-                                    onChange={(e) => setProfileData(p => ({ ...p, fullName: e.target.value }))}
-                                    id="profile-fullname"
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Name with Initials</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.nameWithInitials}
-                                    onChange={(e) => setProfileData(p => ({ ...p, nameWithInitials: e.target.value }))}
-                                    id="profile-nameinitials"
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Phone Number *</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.phoneNumber}
-                                    onChange={(e) => setProfileData(p => ({ ...p, phoneNumber: e.target.value }))}
-                                    id="profile-phone"
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Employee Number (Read-only)</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.empNumber || '-'}
-                                    disabled
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Date of Birth</label>
-                                <input
-                                    className={s.input}
-                                    type="date"
-                                    value={profileData.dob}
-                                    onChange={(e) => setProfileData(p => ({ ...p, dob: e.target.value }))}
-                                    id="profile-dob"
-                                />
-                            </div>
-
-                            <div className={s.fieldGroup}>
-                                <label className={s.label}>Role (Read-only)</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.roleName}
-                                    disabled
-                                />
-                            </div>
-
-                            <div className={`${s.fieldGroup} ${s.fullWidth}`}>
-                                <label className={s.label}>Address</label>
-                                <input
-                                    className={s.input}
-                                    type="text"
-                                    value={profileData.address}
-                                    onChange={(e) => setProfileData(p => ({ ...p, address: e.target.value }))}
-                                    id="profile-address"
-                                />
-                            </div>
+                <Section title="Personal details" description="Email, employee number and role are managed by an administrator.">
+                    {profileError && <p className={`${s.alert} ${s.alertError}`} role="alert">{profileError}</p>}
+                    {profileSuccess && <p className={`${s.alert} ${s.alertSuccess}`} role="status">{profileSuccess}</p>}
+                    <form onSubmit={handleProfileSubmit} noValidate>
+                        <FormGrid columns={2}>
+                            <Field label="Full name" required id="profile-fullname">
+                                <Input value={profileData.fullName} onChange={(e) => setProfileData(p => ({ ...p, fullName: e.target.value }))} />
+                            </Field>
+                            <Field label="Name with initials" hint="Used on stamps and signatures" id="profile-nameinitials">
+                                <Input value={profileData.nameWithInitials} onChange={(e) => setProfileData(p => ({ ...p, nameWithInitials: e.target.value }))} />
+                            </Field>
+                            <Field label="Username" required id="profile-username">
+                                <Input autoComplete="username" value={profileData.username} onChange={(e) => setProfileData(p => ({ ...p, username: e.target.value }))} />
+                            </Field>
+                            <Field label="Phone number" required id="profile-phone">
+                                <Input type="tel" inputMode="tel" value={profileData.phoneNumber} onChange={(e) => setProfileData(p => ({ ...p, phoneNumber: e.target.value }))} />
+                            </Field>
+                            <Field label="Date of birth" id="profile-dob">
+                                <Input type="date" value={profileData.dob} onChange={(e) => setProfileData(p => ({ ...p, dob: e.target.value }))} />
+                            </Field>
+                            <Field label="Address" id="profile-address">
+                                <Input value={profileData.address} onChange={(e) => setProfileData(p => ({ ...p, address: e.target.value }))} />
+                            </Field>
+                        </FormGrid>
+                        <div className={s.formActions}>
+                            <Button type="submit" variant="primary" loading={savingProfile} id="profile-save-btn">Save details</Button>
                         </div>
-
-                        <button className={s.saveBtn} type="submit" disabled={savingProfile} id="profile-save-btn">
-                            {savingProfile ? 'Saving…' : 'Save Personal Settings'}
-                        </button>
                     </form>
-                </div>
+                </Section>
 
-                {/* Password Change Form */}
-                <div className={s.card}>
-                    <h3 className={s.cardTitle}>Security & Credentials</h3>
-                    
-                    {passwordError && <div className={`${s.alert} ${s.alertError}`}>{passwordError}</div>}
-                    {passwordSuccess && <div className={`${s.alert} ${s.alertSuccess}`}>{passwordSuccess}</div>}
-
-                    <form onSubmit={handlePasswordSubmit}>
-                        <div className={s.fieldGroup} style={{ marginBottom: '16px' }}>
-                            <label className={s.label}>New Password</label>
-                            <input
-                                className={s.input}
-                                type="password"
-                                placeholder="Min 6 characters"
-                                value={passwordData.newPassword}
-                                onChange={(e) => setPasswordData(p => ({ ...p, newPassword: e.target.value }))}
-                                id="profile-new-password"
-                            />
+                <Section title="Password" description="At least 6 characters.">
+                    {passwordError && <p className={`${s.alert} ${s.alertError}`} role="alert">{passwordError}</p>}
+                    {passwordSuccess && <p className={`${s.alert} ${s.alertSuccess}`} role="status">{passwordSuccess}</p>}
+                    <form onSubmit={handlePasswordSubmit} noValidate className={s.stack}>
+                        <Field label="New password" id="profile-new-password">
+                            <Input type="password" autoComplete="new-password" value={passwordData.newPassword}
+                                onChange={(e) => setPasswordData(p => ({ ...p, newPassword: e.target.value }))} />
+                        </Field>
+                        <Field label="Confirm new password" id="profile-confirm-password">
+                            <Input type="password" autoComplete="new-password" value={passwordData.confirmPassword}
+                                onChange={(e) => setPasswordData(p => ({ ...p, confirmPassword: e.target.value }))} />
+                        </Field>
+                        <div className={s.formActions}>
+                            <Button type="submit" loading={savingPassword} id="profile-password-btn">Change password</Button>
                         </div>
-
-                        <div className={s.fieldGroup} style={{ marginBottom: '16px' }}>
-                            <label className={s.label}>Confirm New Password</label>
-                            <input
-                                className={s.input}
-                                type="password"
-                                placeholder="Re-enter new password"
-                                value={passwordData.confirmPassword}
-                                onChange={(e) => setPasswordData(p => ({ ...p, confirmPassword: e.target.value }))}
-                                id="profile-confirm-password"
-                            />
-                        </div>
-
-                        <button className={s.saveBtn} type="submit" disabled={savingPassword} id="profile-password-btn">
-                            {savingPassword ? 'Updating…' : 'Change Password'}
-                        </button>
                     </form>
-                </div>
+                </Section>
             </div>
         </div>
     );

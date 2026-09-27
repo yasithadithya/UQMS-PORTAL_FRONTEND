@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CheckCircle2, FileDown, PenLine, Save } from 'lucide-react';
+import { Badge, Button, Card, LoadingBlock, PageHeader, StatusBadge, StickyActionBar } from '@/ui';
+import './EditSurveyReport.paper.css';
+import s from './EditSurveyReport.module.css';
 import { toast } from 'react-toastify';
 import { surveyReportService, vesselEquipmentRecordService } from '@/api';
 import type { ApiESignature } from '@/api';
 import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
+import AdditionalRemarksModal from '@/components/AdditionalRemarksModal';
 import { formatSigningDate } from '@/utils/date';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 interface IFireRow {
   location: string;
@@ -195,6 +202,7 @@ const defaultInspections = [
 ];
 
 export default function EditSurveyReport() {
+  const { can } = useAuth();
   const navigate = useNavigate();
   const { id, module } = useParams<{ id: string; module?: string }>(); // FirstEntrySurveyReport ID
   const activeModule = module || 'reporting';
@@ -262,6 +270,9 @@ export default function EditSurveyReport() {
   });
   const [hasGalley, setHasGalley] = useState(false);
   const [galleyRemarks, setGalleyRemarks] = useState('');
+  const [additionalRemarks, setAdditionalRemarks] = useState('');
+  // Which action is waiting on the additional remarks popup before it saves and renders the PDF
+  const [remarksAction, setRemarksAction] = useState<'preview' | 'finalize' | null>(null);
 
   const [lifeJacketsCondition, setLifeJacketsCondition] = useState('satisfactory');
 
@@ -382,6 +393,7 @@ export default function EditSurveyReport() {
 
           setHasGalley(report.hasGalley ?? false);
           setGalleyRemarks(report.galleyRemarks || '');
+          setAdditionalRemarks(report.additionalRemarks || '');
 
           setLifeJacketsCondition(report.lifeJacketsCondition || 'satisfactory');
           setPipingCondition(report.pipingCondition || 'satisfactory');
@@ -509,7 +521,7 @@ export default function EditSurveyReport() {
   }, [id]);
 
   // Handle saving of both collections
-  const handleSave = async (customStatus?: 'Draft' | 'Approved') => {
+  const handleSave = async (customStatus?: 'Draft' | 'Approved', remarks: string = additionalRemarks) => {
     if (!id || !vesselId) {
       toast.error('Missing references to save.');
       return null;
@@ -559,6 +571,7 @@ export default function EditSurveyReport() {
       },
       hasGalley,
       galleyRemarks,
+      additionalRemarks: remarks,
       lifeJacketsCondition,
       pipingCondition,
       electricalExamCondition,
@@ -661,13 +674,22 @@ export default function EditSurveyReport() {
     }
   };
 
-  const handlePreviewPdf = async () => {
+  const handlePreviewPdf = () => {
     // A signed report is locked, so download the signed copy as it is.
-    let savedId = existingReportId;
-    if (!isSigned) {
-      toast.info('Saving changes before exporting PDF...');
-      savedId = await handleSave();
+    if (isSigned) {
+      downloadPdf(existingReportId);
+    } else {
+      setRemarksAction('preview');
     }
+  };
+
+  const saveAndDownloadPdf = async (remarks: string) => {
+    toast.info('Saving changes before exporting PDF...');
+    const savedId = await handleSave(undefined, remarks);
+    if (savedId) await downloadPdf(savedId);
+  };
+
+  const downloadPdf = async (savedId: string | null) => {
     if (!savedId) return;
 
     try {
@@ -691,8 +713,8 @@ export default function EditSurveyReport() {
     }
   };
 
-  const handleFinalize = async () => {
-    const approved = await handleSave('Approved');
+  const handleFinalize = async (remarks: string) => {
+    const approved = await handleSave('Approved', remarks);
     if (approved) {
       toast.success('Report finalized and approved!');
     }
@@ -706,161 +728,31 @@ export default function EditSurveyReport() {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
-        <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-        <p>Loading Survey Report Editor...</p>
-      </div>
-    );
+    return <LoadingBlock label="Loading survey report editor…" />;
   }
 
   return (
-    <div className="animate-in" style={{ padding: '10px 4px', maxWidth: '940px', margin: '0 auto' }}>
-      
-      {/* Premium Styles Injection */}
-      <style>{`
-        .paper-sheet {
-          background: #ffffff;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 60px;
-          margin-bottom: 30px;
-          color: #111827;
-          font-family: 'Inter', system-ui, sans-serif;
-          line-height: 1.8;
-          font-size: 15px;
+    <div className={`animate-in ${s.page}`}>
+      <PageHeader
+        back={{ href: `/${activeModule}/marine/first-entry/survey-report/edit/${id}`, label: 'Survey report' }}
+        title="Final survey report"
+        description="Part C. Fill in the highlighted blanks; the printed report uses exactly this layout and wording."
+        meta={
+          <>
+            <StatusBadge status={status} />
+            {isSigned && <Badge tone="success" icon={<CheckCircle2 />}>Signed</Badge>}
+          </>
         }
+      />
 
-        .paper-header {
-          border-bottom: 2px solid var(--primary);
-          padding-bottom: 20px;
-          margin-bottom: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .paper-title {
-          font-size: 20px;
-          font-weight: 850;
-          color: var(--primary);
-          letter-spacing: -0.02em;
-          text-transform: uppercase;
-        }
-
-        .paper-subtitle {
-          font-size: 12px;
-          color: var(--muted);
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          margin-top: 4px;
-        }
-
-        .paper-section-title {
-          font-size: 14px;
-          font-weight: 750;
-          color: var(--primary);
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          border-bottom: 1px solid var(--border);
-          padding-bottom: 6px;
-          margin-top: 36px;
-          margin-bottom: 18px;
-        }
-
-        .paper-paragraph {
-          margin-bottom: 18px;
-          text-align: justify;
-        }
-
-        .paper-input {
-          border: none;
-          border-bottom: 1px dashed var(--primary);
-          background: #f8fafc;
-          padding: 2px 8px;
-          margin: 0 4px;
-          font-size: 14.5px;
-          font-family: monospace;
-          font-weight: 700;
-          color: var(--primary);
-          outline: none;
-          border-radius: 4px;
-          transition: all 0.2s ease;
-          display: inline-block;
-          height: auto;
-          line-height: 1.4;
-        }
-
-        .paper-input:focus {
-          background: var(--primary-glow);
-          border-bottom: 2px solid var(--primary);
-          box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-        }
-
-        .paper-input[type="date"] {
-          font-size: 13.5px;
-          cursor: pointer;
-        }
-
-        .paper-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 18px 0;
-          font-size: 13.5px;
-        }
-
-        .paper-table th, .paper-table td {
-          border: 1px solid #e2e8f0;
-          padding: 8px 12px;
-          text-align: left;
-        }
-
-        .paper-table th {
-          background: #f8fafc;
-          font-weight: 700;
-          color: var(--primary);
-        }
-
-        .meta-summary-box {
-          background: var(--bg-subtle);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 16px;
-          margin-bottom: 24px;
-          font-size: 13.5px;
-        }
-      `}</style>
-
-      {/* Nav Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to={`/${activeModule}/marine/first-entry/survey-report/edit/${id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </Link>
-          <div>
-            <h1 className="section-header" style={{ margin: 0, fontSize: '24px', fontWeight: 850, color: 'var(--label)' }}>
-              Final Survey Report Editor (Part C)
-            </h1>
-            <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500, marginTop: '4px' }}>
-              Fill in report variables inline. The final document matches this layout and wording.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Metadata summary */}
-      <div className="meta-summary-box">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-          <div>Vessel Name: <strong style={{ color: 'var(--label)' }}>{vessel?.vesselName?.toUpperCase()}</strong></div>
-          <div>Official Code: <strong style={{ color: 'var(--label)' }}>{vessel?.vesselCode || 'SSC'}</strong></div>
-          <div>UQMS No: <strong style={{ color: 'var(--label)' }}>{vessel?.uqmsNumber || 'N/A'}</strong></div>
-          <div>Owner: <strong style={{ color: 'var(--label)' }}>{vessel?.registeredOwnerName || 'N/A'}</strong></div>
-        </div>
-      </div>
+      <Card className={s.summary}>
+        <dl className={s.facts}>
+          <div><dt>Vessel</dt><dd>{vessel?.vesselName?.toUpperCase() || '—'}</dd></div>
+          <div><dt>Vessel code</dt><dd>{vessel?.vesselCode || 'SSC'}</dd></div>
+          <div><dt>UQMS no.</dt><dd>{vessel?.uqmsNumber || '—'}</dd></div>
+          <div><dt>Owner</dt><dd>{vessel?.registeredOwnerName || '—'}</dd></div>
+        </dl>
+      </Card>
 
       {/* WYSIWYG A4 Page Layout */}
       <div className="paper-sheet">
@@ -871,9 +763,7 @@ export default function EditSurveyReport() {
             <div className="paper-title">Universal Quality Management Systems (Pvt) Ltd</div>
             <div className="paper-subtitle">No; 08, Chandralekha Mawatha, Colombo 08, Sri Lanka.</div>
           </div>
-          <div style={{ textAlign: 'right', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, fontFamily: 'monospace' }}>
-            PART C – SURVEY REPORT
-          </div>
+          <div className="paper-docref">PART C – SURVEY REPORT</div>
         </div>
 
         {/* HULL */}
@@ -982,9 +872,9 @@ export default function EditSurveyReport() {
           condition.<br />
           This includes the inspection of (check items to include in report):
         </p>
-        <div style={{ marginLeft: '20px', marginBottom: '20px' }}>
+        <ul className="paper-checklist">
           {defaultInspections.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+            <li key={idx} className="paper-check-row">
               <input
                 type="checkbox"
                 id={`inspect-${idx}`}
@@ -994,14 +884,11 @@ export default function EditSurveyReport() {
                     prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
                   );
                 }}
-                style={{ marginTop: '5px', cursor: 'pointer' }}
               />
-              <label htmlFor={`inspect-${idx}`} style={{ cursor: 'pointer', fontSize: '14px', color: '#374151' }}>
-                {item}
-              </label>
-            </div>
+              <label htmlFor={`inspect-${idx}`}>{item}</label>
+            </li>
           ))}
-        </div>
+        </ul>
 
         <div className="paper-section-title">MAIN DECK/FORECASTLE:</div>
         <p className="paper-paragraph">
@@ -1040,7 +927,7 @@ export default function EditSurveyReport() {
 
         <div className="paper-section-title">TANKS:</div>
         {fuelOilTanks.map((tank, idx) => (
-          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+          <div key={idx} className="paper-paragraph paper-row">
             Fuel Oil Tank ({' '}
             <input
               type="text"
@@ -1082,7 +969,7 @@ export default function EditSurveyReport() {
             . Remote Quick closing valve tested.
             {fuelOilTanks.length > 1 && (
               <button 
-                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                type="button" className="paper-btn paper-btn-danger paper-btn-corner" 
                 onClick={() => setFuelOilTanks(fuelOilTanks.filter((_, i) => i !== idx))}
               >
                 Delete
@@ -1091,14 +978,14 @@ export default function EditSurveyReport() {
           </div>
         ))}
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setFuelOilTanks([...fuelOilTanks, { name: '', frame: '', condition: 'satisfactory' }])}
         >
           Add Fuel Oil Tank
         </button>
 
         {freshWaterTanks.map((tank, idx) => (
-          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+          <div key={idx} className="paper-paragraph paper-row">
             Fresh Water Tanks ({' '}
             <input
               type="text"
@@ -1140,7 +1027,7 @@ export default function EditSurveyReport() {
             .
             {freshWaterTanks.length > 1 && (
               <button 
-                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                type="button" className="paper-btn paper-btn-danger paper-btn-corner" 
                 onClick={() => setFreshWaterTanks(freshWaterTanks.filter((_, i) => i !== idx))}
               >
                 Delete
@@ -1149,7 +1036,7 @@ export default function EditSurveyReport() {
           </div>
         ))}
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setFreshWaterTanks([...freshWaterTanks, { name: '', frame: '', condition: 'satisfactory' }])}
         >
           Add Fresh Water Tank
@@ -1253,7 +1140,7 @@ export default function EditSurveyReport() {
           Available Bridge navigation & radio equipment generally inspected and Operation verified to satisfaction. Following Navigational & radio equipment found on the bridge;
         </p>
         
-        <table className="paper-table">
+        <div className="paper-table-wrap"><table className="paper-table">
           <thead>
             <tr>
               <th style={{ width: '25%' }}>Equipment</th>
@@ -1295,14 +1182,14 @@ export default function EditSurveyReport() {
                   }} style={{ width: '90%' }} />
                 </td>
                 <td>
-                  <button className="btn btn-xs btn-error" onClick={() => setBridgeOutfitRows(bridgeOutfitRows.filter((_, i) => i !== idx))}>x</button>
+                  <button type="button" className="paper-btn paper-btn-danger" onClick={() => setBridgeOutfitRows(bridgeOutfitRows.filter((_, i) => i !== idx))}>Remove</button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setBridgeOutfitRows([...bridgeOutfitRows, { equipment: '', mfg: '', type: '', serial: '' }])}
         >
           Add Bridge Equipment
@@ -1318,7 +1205,7 @@ export default function EditSurveyReport() {
           Portable fire extinguishing equipment.
         </p>
 
-        <table className="paper-table">
+        <div className="paper-table-wrap"><table className="paper-table">
           <thead>
             <tr>
               <th>Location</th>
@@ -1352,14 +1239,14 @@ export default function EditSurveyReport() {
                   <input type="text" className="paper-input" value={row.servicedBy} onChange={e => updateFireRow(idx, 'servicedBy', e.target.value)} style={{ width: '130px' }} />
                 </td>
                 <td>
-                  <button className="btn btn-xs btn-error" onClick={() => setFireRows(fireRows.filter((_, i) => i !== idx))}>x</button>
+                  <button type="button" className="paper-btn paper-btn-danger" onClick={() => setFireRows(fireRows.filter((_, i) => i !== idx))}>Remove</button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setFireRows([...fireRows, { location: '', nos: '', type: '', capacity: '', date: '', servicedBy: '' }])}
         >
           Add Fire Equipment
@@ -1414,7 +1301,7 @@ export default function EditSurveyReport() {
 
         {/* PYROTECHNICS */}
         <p className="paper-paragraph"><strong>Pyrotechnics</strong></p>
-        <table className="paper-table">
+        <div className="paper-table-wrap"><table className="paper-table">
           <thead>
             <tr>
               <th>Item</th>
@@ -1462,14 +1349,14 @@ export default function EditSurveyReport() {
                   }} placeholder="N/A" style={{ width: '120px' }} />
                 </td>
                 <td>
-                  <button className="btn btn-xs btn-error" onClick={() => setPyrotechnicsRows(pyrotechnicsRows.filter((_, i) => i !== idx))}>x</button>
+                  <button type="button" className="paper-btn paper-btn-danger" onClick={() => setPyrotechnicsRows(pyrotechnicsRows.filter((_, i) => i !== idx))}>Remove</button>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4 mt-2" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setPyrotechnicsRows([...pyrotechnicsRows, { item: '', nos: '', expiry: '', remarks: '' }])}
         >
           Add Pyrotechnic
@@ -1487,7 +1374,7 @@ export default function EditSurveyReport() {
         <div className="paper-section-title">MACHINERY:</div>
         
         {machinery.mainEngines.map((eng, idx) => (
-          <div key={idx} className="paper-paragraph" style={{ position: 'relative', marginBottom: '15px' }}>
+          <div key={idx} className="paper-paragraph paper-row">
             <strong>Main Engine {idx + 1}</strong><br />
             Type/ Model:{' '}
             <input
@@ -1546,7 +1433,7 @@ export default function EditSurveyReport() {
             .
             {machinery.mainEngines.length > 1 && (
               <button 
-                className="btn btn-sm btn-outline btn-error absolute top-0 right-0" 
+                type="button" className="paper-btn paper-btn-danger paper-btn-corner" 
                 onClick={() => setMachinery(p => ({ ...p, mainEngines: p.mainEngines.filter((_, i) => i !== idx) }))}
               >
                 Delete
@@ -1555,7 +1442,7 @@ export default function EditSurveyReport() {
           </div>
         ))}
         <button 
-          className="btn btn-sm btn-outline btn-primary mb-4" 
+          type="button" className="paper-btn paper-btn-add" 
           onClick={() => setMachinery(p => ({ ...p, mainEngines: [...p.mainEngines, { model: 'Caterpillar', power: '714kW (970 HP)', fuelType: 'Diesel', alarms: 'satisfaction' }] }))}
         >
           Add Main Engine
@@ -1664,16 +1551,16 @@ export default function EditSurveyReport() {
         </p>
 
         {/* SIGNATURE SECTION */}
-        <div style={{ marginTop: '50px', borderTop: '1px dashed #e2e8f0', paddingTop: '30px' }}>
+        <div className="paper-signature">
           <p className="paper-paragraph">
             SIGNED: Date of issue: {' '}
             <input type="date" className="paper-input" value={signature.dateOfIssue} onChange={e => setSignature(p => ({ ...p, dateOfIssue: e.target.value }))} />
           </p>
-          <div style={{ marginTop: '24px', maxWidth: '460px' }}>
+          <div className="paper-sign-block">
             {eSignature ? (
-              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                <img src="/sign_logo.png" alt="" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
-                <div style={{ fontStyle: 'italic', fontSize: '13px', lineHeight: 1.4 }}>
+              <div className="paper-sign-stamp">
+                <img src="/sign_logo.png" alt="" />
+                <div className="paper-sign-text">
                   <div>For {eSignature.companyName}</div>
                   <div>Electronically Signed By: {eSignature.signedByName}</div>
                   <div>Location: {eSignature.location.toUpperCase()}</div>
@@ -1682,13 +1569,13 @@ export default function EditSurveyReport() {
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '18px', border: '2px dashed var(--border-hover)', borderRadius: '8px', color: 'var(--muted)', fontSize: '13px', textAlign: 'center' }}>
+              <div className="paper-sign-pending">
                 {status === 'Approved'
-                  ? 'Electronic signature pending. Open "View & Sign" to sign as the assigned surveyor.'
+                  ? 'Electronic signature pending. Use “View & sign” to sign as the assigned surveyor.'
                   : 'The assigned surveyor signs electronically after the report is approved.'}
               </div>
             )}
-            <p className="paper-paragraph" style={{ margin: '10px 0 0', paddingTop: '6px', borderTop: '1px solid var(--label)', fontWeight: 700 }}>
+            <p className="paper-paragraph paper-signline">
               Surveyor to Universal Quality Management Systems (Pvt) Ltd
             </p>
           </div>
@@ -1696,55 +1583,51 @@ export default function EditSurveyReport() {
 
       </div>
 
-      {/* Button Controls */}
-      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '50px' }}>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => handleSave('Draft')}
-          disabled={saving || status === 'Approved'}
-          style={{ minWidth: '160px', marginBottom: 0 }}
-        >
-          {saving ? 'Saving...' : 'Save Draft'}
-        </button>
-
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={handleFinalize}
-          disabled={saving || status === 'Approved'}
-          style={{ minWidth: '160px', marginBottom: 0, background: 'var(--green)', borderColor: 'var(--green)' }}
-        >
-          Finalize & Approve
-        </button>
-
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={handlePreviewPdf}
-          disabled={downloading}
-          style={{ minWidth: '180px', marginBottom: 0 }}
-        >
-          {downloading ? 'Downloading PDF...' : 'Preview & Print PDF'}
-        </button>
-
-        {status === 'Approved' && existingReportId && (
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => setShowSignModal(true)}
-            style={{ minWidth: '160px', marginBottom: 0 }}
-          >
-            {isSigned ? 'View Signed Report' : 'View & Sign'}
-          </button>
+      <StickyActionBar status={status === 'Approved' ? 'Approved: the report can no longer be edited' : 'Draft'}>
+        <Button icon={<FileDown />} onClick={handlePreviewPdf} loading={downloading}>Preview PDF</Button>
+        {status === 'Approved' && existingReportId ? (
+          <Button variant="primary" icon={<PenLine />} onClick={() => setShowSignModal(true)}>
+            {isSigned ? 'View signed report' : 'View & sign'}
+          </Button>
+        ) : (
+          <>
+            <Button
+              icon={<Save />}
+              onClick={() => handleSave('Draft')}
+              loading={saving}
+              disabled={!can(MODULE_KEYS.marineCertificates, existingReportId ? 'update' : 'create')}
+            >
+              Save draft
+            </Button>
+            <Button
+              variant="primary"
+              icon={<CheckCircle2 />}
+              onClick={() => setRemarksAction('finalize')}
+              disabled={saving || !can(MODULE_KEYS.marineCertificates, 'approve')}
+              title={can(MODULE_KEYS.marineCertificates, 'approve') ? undefined : 'Only approvers can finalize reports'}
+            >
+              Finalize & approve
+            </Button>
+          </>
         )}
+      </StickyActionBar>
 
-        <Link to={`/${activeModule}/marine/first-entry/survey-report/edit/${id}`} style={{ textDecoration: 'none' }}>
-          <button type="button" className="btn-secondary" style={{ minWidth: '120px', marginBottom: 0 }}>
-            Back
-          </button>
-        </Link>
-      </div>
+      <AdditionalRemarksModal
+        isOpen={remarksAction !== null}
+        initialValue={additionalRemarks}
+        confirmText={remarksAction === 'finalize' ? 'Finalize & Approve' : 'Save & Generate PDF'}
+        onCancel={() => setRemarksAction(null)}
+        onConfirm={(remarks) => {
+          const action = remarksAction;
+          setAdditionalRemarks(remarks);
+          setRemarksAction(null);
+          if (action === 'finalize') {
+            handleFinalize(remarks);
+          } else {
+            saveAndDownloadPdf(remarks);
+          }
+        }}
+      />
 
       {showSignModal && existingReportId && (
         <SignableDocumentModal

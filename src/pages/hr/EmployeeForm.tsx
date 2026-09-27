@@ -1,14 +1,20 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
-import { hrService } from '../../api';
-import { useAuth } from '../../context/AuthContext';
+import { hrService, usersService, type ApiUserDirectoryEntry } from '../../api';
 import { Modal, Field } from './hrShared';
 import s from './hr.module.css';
 
+import { Button, Input, Select } from '@/ui';
 const toDateInput = (d?: string | Date | null) => (d ? new Date(d).toISOString().split('T')[0] : '');
 
 export default function EmployeeForm({ employee, onClose, onSaved }: { employee?: any, onClose: () => void, onSaved: () => void }) {
-  const { users } = useAuth();
+  // The directory is readable by every signed-in user, so HR staff without User Management can link accounts.
+  const [users, setUsers] = useState<ApiUserDirectoryEntry[]>([]);
+  useEffect(() => {
+    usersService.getDirectory()
+      .then(res => { if (res.success) setUsers(res.data); })
+      .catch(() => toast.error('Could not load user accounts for linking.'));
+  }, []);
   const [formData, setFormData] = useState({
     firstName: employee?.firstName || '',
     lastName: employee?.lastName || '',
@@ -108,10 +114,10 @@ export default function EmployeeForm({ employee, onClose, onSaved }: { employee?
 
   const footer = (
     <>
-      <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
-      <button type="submit" form="employee-form" className="btn-primary" disabled={loading}>
+      <Button variant="secondary" type="button" onClick={onClose} disabled={loading}>Cancel</Button>
+      <Button variant="primary" type="submit" form="employee-form" disabled={loading}>
         {loading ? 'Saving...' : 'Save Employee'}
-      </button>
+      </Button>
     </>
   );
 
@@ -121,135 +127,135 @@ export default function EmployeeForm({ employee, onClose, onSaved }: { employee?
         <div className={s.formSection}>Personal Information</div>
         <div className={`${s.modalGrid}`}>
           <Field label="First Name" required>
-            <input className="form-input" type="text" name="firstName" value={formData.firstName} onChange={handleChange} required />
+            <Input type="text" name="firstName" value={formData.firstName} onChange={handleChange} required />
           </Field>
           <Field label="Last Name" required>
-            <input className="form-input" type="text" name="lastName" value={formData.lastName} onChange={handleChange} required />
+            <Input type="text" name="lastName" value={formData.lastName} onChange={handleChange} required />
           </Field>
           <Field label="NIC" required>
-            <input className="form-input" type="text" name="nic" value={formData.nic} onChange={handleChange} required />
+            <Input type="text" name="nic" value={formData.nic} onChange={handleChange} required />
           </Field>
           <Field label="Date of Birth">
-            <input className="form-input" type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} />
+            <Input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} />
           </Field>
           <Field label="Gender">
-            <select className="form-input" name="gender" value={formData.gender} onChange={handleChange}>
+            <Select name="gender" value={formData.gender} onChange={handleChange}>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
               <option value="Other">Other</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Marital Status">
-            <select className="form-input" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
+            <Select name="maritalStatus" value={formData.maritalStatus} onChange={handleChange}>
               <option value="Single">Single</option>
               <option value="Married">Married</option>
               <option value="Divorced">Divorced</option>
               <option value="Widowed">Widowed</option>
-            </select>
+            </Select>
           </Field>
           <Field label="Company Email" required>
-            <input className="form-input" type="email" name="companyEmail" value={formData.companyEmail} onChange={handleChange} required />
+            <Input type="email" name="companyEmail" value={formData.companyEmail} onChange={handleChange} required />
           </Field>
           <Field label="Personal Email">
-            <input className="form-input" type="email" name="personalEmail" value={formData.personalEmail} onChange={handleChange} />
+            <Input type="email" name="personalEmail" value={formData.personalEmail} onChange={handleChange} />
           </Field>
           <Field label="Phone" required>
-            <input className="form-input" type="text" name="phone" value={formData.phone} onChange={handleChange} required />
+            <Input type="text" name="phone" value={formData.phone} onChange={handleChange} required />
           </Field>
           <Field label="Profile Photo">
-            <input className="form-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
+            <Input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={e => setPhotoFile(e.target.files?.[0] || null)} />
           </Field>
         </div>
 
         <div className={s.formSection}>Address</div>
         <div className={s.modalGrid}>
           <Field label="Street" full>
-            <input className="form-input" type="text" name="street" value={formData.address.street} onChange={handleNestedChange('address')} />
+            <Input type="text" name="street" value={formData.address.street} onChange={handleNestedChange('address')} />
           </Field>
           <Field label="City">
-            <input className="form-input" type="text" name="city" value={formData.address.city} onChange={handleNestedChange('address')} />
+            <Input type="text" name="city" value={formData.address.city} onChange={handleNestedChange('address')} />
           </Field>
           <Field label="District">
-            <input className="form-input" type="text" name="district" value={formData.address.district} onChange={handleNestedChange('address')} />
+            <Input type="text" name="district" value={formData.address.district} onChange={handleNestedChange('address')} />
           </Field>
           <Field label="Province">
-            <input className="form-input" type="text" name="province" value={formData.address.province} onChange={handleNestedChange('address')} />
+            <Input type="text" name="province" value={formData.address.province} onChange={handleNestedChange('address')} />
           </Field>
           <Field label="Postal Code">
-            <input className="form-input" type="text" name="postalCode" value={formData.address.postalCode} onChange={handleNestedChange('address')} />
+            <Input type="text" name="postalCode" value={formData.address.postalCode} onChange={handleNestedChange('address')} />
           </Field>
         </div>
 
         <div className={s.formSection}>Employment</div>
         <div className={s.modalGrid}>
           <Field label="Department">
-            <select className="form-input" name="department" value={formData.department} onChange={handleChange}>
+            <Select name="department" value={formData.department} onChange={handleChange}>
               <option value="">Select Department</option>
               {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Job Title">
-            <select className="form-input" name="jobTitle" value={formData.jobTitle} onChange={handleChange}>
+            <Select name="jobTitle" value={formData.jobTitle} onChange={handleChange}>
               <option value="">Select Title</option>
               {jobTitles.map(j => <option key={j._id} value={j._id}>{j.title}</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Employment Type">
-            <select className="form-input" name="employmentType" value={formData.employmentType} onChange={handleChange}>
+            <Select name="employmentType" value={formData.employmentType} onChange={handleChange}>
               <option value="Permanent">Permanent</option>
               <option value="Contract">Contract</option>
               <option value="Intern">Intern</option>
               <option value="PartTime">Part Time</option>
-            </select>
+            </Select>
           </Field>
           {employee?._id && (
             <Field label="Employment Status">
-              <select className="form-input" name="employmentStatus" value={formData.employmentStatus} onChange={handleChange}>
+              <Select name="employmentStatus" value={formData.employmentStatus} onChange={handleChange}>
                 <option value="Active">Active</option>
                 <option value="OnProbation">On Probation</option>
                 <option value="Resigned">Resigned</option>
                 <option value="Terminated">Terminated</option>
-              </select>
+              </Select>
             </Field>
           )}
           <Field label="Reports To">
-            <select className="form-input" name="reportsTo" value={formData.reportsTo} onChange={handleChange}>
+            <Select name="reportsTo" value={formData.reportsTo} onChange={handleChange}>
               <option value="">None</option>
               {managers.map(m => <option key={m._id} value={m._id}>{m.firstName} {m.lastName} ({m.employeeId})</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Joined Date">
-            <input className="form-input" type="date" name="joinedDate" value={formData.joinedDate} onChange={handleChange} />
+            <Input type="date" name="joinedDate" value={formData.joinedDate} onChange={handleChange} />
           </Field>
           <Field label="Probation End Date">
-            <input className="form-input" type="date" name="probationEndDate" value={formData.probationEndDate} onChange={handleChange} />
+            <Input type="date" name="probationEndDate" value={formData.probationEndDate} onChange={handleChange} />
           </Field>
           <Field label="Confirmation Date">
-            <input className="form-input" type="date" name="confirmationDate" value={formData.confirmationDate} onChange={handleChange} />
+            <Input type="date" name="confirmationDate" value={formData.confirmationDate} onChange={handleChange} />
           </Field>
         </div>
 
         <div className={s.formSection}>Emergency Contact</div>
         <div className={s.modalGrid}>
           <Field label="Name">
-            <input className="form-input" type="text" name="name" value={formData.emergencyContact.name} onChange={handleNestedChange('emergencyContact')} />
+            <Input type="text" name="name" value={formData.emergencyContact.name} onChange={handleNestedChange('emergencyContact')} />
           </Field>
           <Field label="Relationship">
-            <input className="form-input" type="text" name="relationship" value={formData.emergencyContact.relationship} onChange={handleNestedChange('emergencyContact')} />
+            <Input type="text" name="relationship" value={formData.emergencyContact.relationship} onChange={handleNestedChange('emergencyContact')} />
           </Field>
           <Field label="Phone">
-            <input className="form-input" type="text" name="phone" value={formData.emergencyContact.phone} onChange={handleNestedChange('emergencyContact')} />
+            <Input type="text" name="phone" value={formData.emergencyContact.phone} onChange={handleNestedChange('emergencyContact')} />
           </Field>
         </div>
 
         <div className={s.formSection}>System Account (Self-Service)</div>
         <Field label="Linked User Account">
-          <select className="form-input" name="userId" value={formData.userId} onChange={handleChange}>
+          <Select name="userId" value={formData.userId} onChange={handleChange}>
             <option value="">Not linked</option>
-            {users.map((u: any) => (
-              <option key={u._id || u.id} value={u._id || u.id}>{u.fullName || u.username} ({u.email})</option>
+            {users.map(u => (
+              <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>
             ))}
-          </select>
+          </Select>
           <p className={s.hint}>
             Linking lets this employee use the "My HR" self-service portal (own payslips, leave, attendance).
           </p>

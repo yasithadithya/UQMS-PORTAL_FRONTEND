@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import s from './SearchableMultiSelect.module.css';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ChevronDown, X } from 'lucide-react';
+import s from './SearchableSelect.module.css'; // shared look with SearchableSelect
 
 export type MultiSelectOption = {
   id: string;
@@ -13,6 +14,8 @@ type Props = {
   placeholder?: string;
   searchPlaceholder?: string;
   disabled?: boolean;
+  /** Shows the required marker next to the label. */
+  required?: boolean;
   onChange: (value: string[]) => void;
 };
 
@@ -23,6 +26,7 @@ export default function SearchableMultiSelect({
   placeholder = 'Select',
   searchPlaceholder = 'Search...',
   disabled,
+  required,
   onChange,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -30,6 +34,12 @@ export default function SearchableMultiSelect({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   const selectedCount = value.length;
+  const labelId = useId();
+  // Selected options in the order they were picked, shown as removable chips under the control.
+  const selectedOptions = useMemo(
+    () => value.map((id) => options.find((o) => o.id === id)).filter(Boolean) as MultiSelectOption[],
+    [value, options]
+  );
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -69,25 +79,48 @@ export default function SearchableMultiSelect({
   };
 
   return (
-    <div className={s.wrapper} ref={wrapperRef}>
-      {label && <label className={s.label}>{label}</label>}
+    <div
+      className={s.wrapper}
+      ref={wrapperRef}
+      onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); } }}
+    >
+      {label && <span id={labelId} className={s.label}>{label}{required && <span className={s.required} aria-hidden="true"> *</span>}</span>}
       <button
         type="button"
         className={`${s.control} ${disabled ? s.controlDisabled : ''}`}
         onClick={handleToggle}
         disabled={disabled}
+        aria-expanded={open}
+        aria-labelledby={label ? labelId : undefined}
       >
         <span className={`${s.controlText} ${selectedCount === 0 ? s.placeholder : ''}`}>
           {selectedCount === 0 ? placeholder : `${selectedCount} selected`}
         </span>
-        <span className={s.caret}>{open ? '^' : 'v'}</span>
+        <ChevronDown className={`${s.caret} ${open ? s.caretOpen : ''}`} aria-hidden="true" />
       </button>
+
+      {selectedOptions.length > 0 && (
+        <ul className={s.chips} aria-label={label ? `Selected ${label.toLowerCase()}` : 'Selected'}>
+          {selectedOptions.map((o) => (
+            <li key={o.id} className={s.chip}>
+              <span>{o.label}</span>
+              {!disabled && (
+                <button type="button" className={s.chipRemove} onClick={() => handleToggleOption(o.id)} aria-label={`Remove ${o.label}`}>
+                  <X aria-hidden="true" />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {open && (
         <div className={s.dropdown}>
           <input
             className={s.search}
             type="text"
+            autoFocus
+            aria-label={searchPlaceholder}
             placeholder={searchPlaceholder}
             value={query}
             onChange={(event) => setQuery(event.target.value)}

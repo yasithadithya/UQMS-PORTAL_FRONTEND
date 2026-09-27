@@ -1,4 +1,4 @@
-import React from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import s from './Pagination.module.css';
 
 interface PaginationProps {
@@ -10,6 +10,8 @@ interface PaginationProps {
   onLimitChange?: (limit: number) => void;
 }
 
+const PAGE_SIZES = [10, 25, 50, 100];
+
 export default function Pagination({
   page,
   limit,
@@ -18,29 +20,25 @@ export default function Pagination({
   onPageChange,
   onLimitChange,
 }: PaginationProps) {
+  const sizeSelect = onLimitChange && (
+    <label className={s.selectWrapper}>
+      <span>Rows per page</span>
+      <select
+        value={limit}
+        onChange={(e) => {
+          onLimitChange(Number(e.target.value));
+          onPageChange(1); // Reset to page 1 on limit change
+        }}
+        className={s.pageSizeSelect}
+      >
+        {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </label>
+  );
+
   if (total === 0 || totalPages <= 1) {
-    if (onLimitChange) {
-      // Still show page size selector even if there is only 1 page
-      return (
-        <div className={s.paginationContainer} style={{ justifyContent: 'flex-end' }}>
-          <div className={s.selectWrapper}>
-            <span>Show</span>
-            <select
-              value={limit}
-              onChange={(e) => onLimitChange(Number(e.target.value))}
-              className={s.pageSizeSelect}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span>entries</span>
-          </div>
-        </div>
-      );
-    }
-    return null;
+    // Still show the page size selector even if there is only 1 page
+    return sizeSelect ? <div className={`${s.paginationContainer} ${s.endOnly}`}>{sizeSelect}</div> : null;
   }
 
   const startEntry = (page - 1) * limit + 1;
@@ -88,57 +86,37 @@ export default function Pagination({
   };
 
   return (
-    <div className={s.paginationContainer}>
+    <nav className={s.paginationContainer} aria-label="Pagination">
       <div className={s.paginationInfo}>
         <span>
-          Showing <span className={s.highlight}>{startEntry}</span> to{' '}
-          <span className={s.highlight}>{endEntry}</span> of{' '}
-          <span className={s.highlight}>{total}</span> entries
+          <span className={s.highlight}>{startEntry}–{endEntry}</span> of <span className={s.highlight}>{total}</span>
         </span>
-        {onLimitChange && (
-          <div className={s.selectWrapper} style={{ marginLeft: '12px' }}>
-            <span>Show</span>
-            <select
-              value={limit}
-              onChange={(e) => {
-                onLimitChange(Number(e.target.value));
-                onPageChange(1); // Reset to page 1 on limit change
-              }}
-              className={s.pageSizeSelect}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-            <span>entries</span>
-          </div>
-        )}
+        {sizeSelect}
       </div>
 
       <div className={s.paginationControls}>
         <button
+          type="button"
           className={s.paginationBtn}
           disabled={page === 1}
           onClick={() => onPageChange(page - 1)}
           aria-label="Previous page"
         >
-          ‹
+          <ChevronLeft aria-hidden="true" />
         </button>
 
         {getPageNumbers().map((num, index) => {
           if (num === '...') {
-            return (
-              <span key={`ellipsis-${index}`} style={{ padding: '0 8px' }}>
-                ...
-              </span>
-            );
+            return <span key={`ellipsis-${index}`} className={s.ellipsis} aria-hidden="true">…</span>;
           }
           return (
             <button
+              type="button"
               key={`page-${num}`}
               className={`${s.paginationBtn} ${page === num ? s.paginationBtnActive : ''}`}
               onClick={() => onPageChange(num as number)}
+              aria-label={`Page ${num}`}
+              aria-current={page === num ? 'page' : undefined}
             >
               {num}
             </button>
@@ -146,14 +124,15 @@ export default function Pagination({
         })}
 
         <button
+          type="button"
           className={s.paginationBtn}
           disabled={page === totalPages}
           onClick={() => onPageChange(page + 1)}
           aria-label="Next page"
         >
-          ›
+          <ChevronRight aria-hidden="true" />
         </button>
       </div>
-    </div>
+    </nav>
   );
 }

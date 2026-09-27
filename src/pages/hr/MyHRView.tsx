@@ -3,9 +3,9 @@ import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { Badge, Modal, EmptyRow, FilterBar, Field, formatDate, formatMoney } from './hrShared';
 import PayslipModal from './PayslipModal';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
 type Section = 'profile' | 'attendance' | 'leaves' | 'payslips' | 'reviews' | 'trainings';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -154,8 +154,8 @@ export default function MyHRView() {
 
   if (notLinked) {
     return (
-      <div className={`card ${s.emptyState}`}>
-        <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No employee profile linked</h3>
+      <div className={`${s.card} ${s.emptyState}`}>
+        <h3 className={s.sectionTitle}>No employee profile linked</h3>
         <p className={s.mutedNote}>
           Your login account is not linked to an employee record yet. Ask your HR administrator to link your account from the employee form.
         </p>
@@ -181,21 +181,21 @@ export default function MyHRView() {
           {announcements.slice(0, 3).map(a => (
             <div key={a._id} className={s.announceRow}>
               {a.priority !== 'Normal' && <Badge status={a.priority} />}
-              <span style={{ fontWeight: 600, fontSize: '13px' }}>{a.title}</span>
-              <span className={s.mutedNote} style={{ fontSize: '12px' }}>{a.body?.length > 100 ? `${a.body.slice(0, 100)}…` : a.body}</span>
+              <span className={s.cellStrong}>{a.title}</span>
+              <span className={s.cellSubInline}>{a.body?.length > 100 ? `${a.body.slice(0, 100)}…` : a.body}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div className={s.sectionSwitch} style={{ marginBottom: '24px' }}>
+      <div className={`${s.sectionSwitch} ${s.spacedLg}`}>
         {sections.map(([id, label]) => (
           <button key={id} className={`${s.sectionBtn} ${section === id ? s.sectionBtnActive : ''}`} onClick={() => setSection(id)}>{label}</button>
         ))}
       </div>
 
       {section === 'profile' && (
-        <div className={`card ${s.profileCard}`} style={{ padding: '28px' }}>
+        <div className={`${s.card} ${s.profileCard}`}>
           <div className={s.profileHead}>
             {profile.profilePhotoUrl ? (
               <img src={profile.profilePhotoUrl} alt="Profile" className={s.avatar} />
@@ -223,18 +223,18 @@ export default function MyHRView() {
       {section === 'attendance' && (
         <div>
           <FilterBar>
-            <button className="btn-primary" style={{ marginBottom: 0 }} onClick={() => clock('in')} disabled={clockLoading}>Clock In</button>
-            <button className="btn-secondary" style={{ marginBottom: 0 }} onClick={() => clock('out')} disabled={clockLoading}>Clock Out</button>
+            <Button variant="primary"  onClick={() => clock('in')} disabled={clockLoading}>Clock In</Button>
+            <Button variant="secondary"  onClick={() => clock('out')} disabled={clockLoading}>Clock Out</Button>
             <div className="spacer" />
             <Field label="Month" className={s.filterField}>
-              <select className="form-input" value={attMonth} onChange={e => setAttMonth(Number(e.target.value))}>
+              <Select value={attMonth} onChange={e => setAttMonth(Number(e.target.value))}>
                 {MONTH_NAMES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="Year" className={s.filterField}>
-              <select className="form-input" value={attYear} onChange={e => setAttYear(Number(e.target.value))}>
+              <Select value={attYear} onChange={e => setAttYear(Number(e.target.value))}>
                 {Array.from({ length: 3 }, (_, i) => now.getFullYear() - i).map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+              </Select>
             </Field>
           </FilterBar>
           <div className={s.tableWrap}>
@@ -272,16 +272,16 @@ export default function MyHRView() {
               const remaining = (b.totalDays ?? 0) - (b.usedDays ?? 0) - (b.pendingDays ?? 0);
               return (
                 <div key={b._id} className={s.summaryCard}>
-                  <div className={s.summaryValue} style={{ color: remaining <= 0 ? 'var(--red)' : 'var(--label)' }}>{remaining}</div>
+                  <div className={`${s.summaryValue} ${remaining <= 0 ? s.textDanger : ''}`}>{remaining}</div>
                   <div className={s.summaryLabel}>{b.leaveType?.name} left</div>
-                  <div className={s.entityMeta} style={{ marginTop: '2px', marginBottom: 0 }}>{b.usedDays} used · {b.pendingDays} pending</div>
+                  <div className={`${s.entityMeta} ${s.flush}`}>{b.usedDays} used · {b.pendingDays} pending</div>
                 </div>
               );
             })}
           </div>
 
-          <div className={s.topBar} style={{ marginBottom: '12px' }}>
-            <h4 className={s.sectionTitle} style={{ fontSize: '15px' }}>My Leave Requests</h4>
+          <div className={s.topBar}>
+            <h4 className={s.sectionTitle}>My Leave Requests</h4>
             <button className={s.addBtn} onClick={() => setApplyOpen(true)}>+ Apply for Leave</button>
           </div>
 
@@ -305,7 +305,7 @@ export default function MyHRView() {
                     <td>
                       <Badge status={req.status} />
                       {req.status === 'Rejected' && req.rejectionReason && (
-                        <span className={s.cellSub} style={{ color: 'var(--red)' }}>{req.rejectionReason}</span>
+                        <span className={`${s.cellSub} ${s.textDanger}`}>{req.rejectionReason}</span>
                       )}
                     </td>
                     <td className={s.alignRight}>
@@ -428,29 +428,29 @@ export default function MyHRView() {
           onClose={() => setApplyOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setApplyOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={applyLeave}>Submit</button>
+              <Button variant="secondary" onClick={() => setApplyOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={applyLeave}>Submit</Button>
             </>
           }
         >
           <Field label="Leave Type" required>
-            <select className="form-input" value={applyForm.leaveType} onChange={e => setApplyForm({ ...applyForm, leaveType: e.target.value })}>
+            <Select value={applyForm.leaveType} onChange={e => setApplyForm({ ...applyForm, leaveType: e.target.value })}>
               <option value="">Select</option>
               {(leaveTypes.length ? leaveTypes : balances.map(b => b.leaveType).filter(Boolean)).map((t: any) => (
                 <option key={t._id} value={t._id}>{t.name}</option>
               ))}
-            </select>
+            </Select>
           </Field>
           <div className={s.modalGrid}>
             <Field label="Start Date" required>
-              <input className="form-input" type="date" value={applyForm.startDate} onChange={e => setApplyForm({ ...applyForm, startDate: e.target.value })} />
+              <Input type="date" value={applyForm.startDate} onChange={e => setApplyForm({ ...applyForm, startDate: e.target.value })} />
             </Field>
             <Field label="End Date" required>
-              <input className="form-input" type="date" value={applyForm.endDate} onChange={e => setApplyForm({ ...applyForm, endDate: e.target.value })} />
+              <Input type="date" value={applyForm.endDate} onChange={e => setApplyForm({ ...applyForm, endDate: e.target.value })} />
             </Field>
           </div>
           <Field label="Reason">
-            <textarea className="form-input form-textarea" rows={2} value={applyForm.reason} onChange={e => setApplyForm({ ...applyForm, reason: e.target.value })} />
+            <Textarea rows={2} value={applyForm.reason} onChange={e => setApplyForm({ ...applyForm, reason: e.target.value })} />
           </Field>
         </Modal>
       )}
@@ -462,23 +462,23 @@ export default function MyHRView() {
           onClose={() => setAckId(null)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setAckId(null)}>Cancel</button>
-              <button className="btn-primary" onClick={acknowledge}>Acknowledge</button>
+              <Button variant="secondary" onClick={() => setAckId(null)}>Cancel</Button>
+              <Button variant="primary" onClick={acknowledge}>Acknowledge</Button>
             </>
           }
         >
-          <p className={s.mutedNote} style={{ marginBottom: '16px' }}>
+          <p className={`${s.mutedNote} ${s.spaced}`}>
             Acknowledging confirms you have read this review. You can optionally add your comments.
           </p>
           <Field label="Your Comments (optional)">
-            <textarea className="form-input form-textarea" rows={3} value={ackComments} onChange={e => setAckComments(e.target.value)} />
+            <Textarea rows={3} value={ackComments} onChange={e => setAckComments(e.target.value)} />
           </Field>
         </Modal>
       )}
 
       {viewAppraisal && (
         <Modal title={`Review — ${viewAppraisal.cycle?.name}`} onClose={() => setViewAppraisal(null)}>
-          <div className={s.tableWrap} style={{ marginBottom: '16px' }}>
+          <div className={`${s.tableWrap} ${s.spaced}`}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -498,20 +498,20 @@ export default function MyHRView() {
               </tbody>
             </table>
           </div>
-          {viewAppraisal.strengths && <p style={{ fontSize: '13px', marginBottom: '8px' }}><strong>Strengths:</strong> {viewAppraisal.strengths}</p>}
-          {viewAppraisal.areasForImprovement && <p style={{ fontSize: '13px', marginBottom: '8px' }}><strong>Areas for improvement:</strong> {viewAppraisal.areasForImprovement}</p>}
-          {viewAppraisal.reviewerComments && <p style={{ fontSize: '13px' }}><strong>Reviewer comments:</strong> {viewAppraisal.reviewerComments}</p>}
+          {viewAppraisal.strengths && <p className={s.detailPara}><strong>Strengths:</strong> {viewAppraisal.strengths}</p>}
+          {viewAppraisal.areasForImprovement && <p className={s.detailPara}><strong>Areas for improvement:</strong> {viewAppraisal.areasForImprovement}</p>}
+          {viewAppraisal.reviewerComments && <p className={s.detailPara}><strong>Reviewer comments:</strong> {viewAppraisal.reviewerComments}</p>}
         </Modal>
       )}
 
       {viewPayslipId && <PayslipModal runId={viewPayslipId} selfService onClose={() => setViewPayslipId(null)} />}
 
-      <ConfirmModal
-        isOpen={!!cancelId}
+      <ConfirmDialog
+        open={!!cancelId}
         title="Cancel Leave Request"
         message="Cancel this pending leave request? Your pending balance will be restored."
         confirmText="Cancel Request"
-        isDestructive
+        destructive
         onCancel={() => setCancelId(null)}
         onConfirm={cancelLeave}
       />

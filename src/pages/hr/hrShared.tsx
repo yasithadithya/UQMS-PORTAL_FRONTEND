@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Field as UiField, Modal as UiModal, StatusBadge, type Tone } from '@/ui';
 import s from './hr.module.css';
 
 export const formatMoney = (v?: number) =>
@@ -6,33 +7,36 @@ export const formatMoney = (v?: number) =>
 
 export const formatDate = (d?: string | Date | null) => (d ? new Date(d).toLocaleDateString() : '—');
 
-type BadgeVariant = 'badgeGreen' | 'badgeRed' | 'badgeOrange' | 'badgeBlue' | 'badgeMuted';
-
-export const statusColor = (status: string): BadgeVariant => {
+/** HR status → badge colour. (Kept separate from the app-wide map because HR uses its own vocabulary.) */
+export const statusTone = (status: string | null | undefined): Tone => {
   switch (status) {
     case 'Active': case 'Approved': case 'Paid': case 'Completed': case 'Done': case 'Present': case 'Open': case 'Acknowledged': case 'Enrolled':
-      return 'badgeGreen';
+      return 'success';
     case 'Rejected': case 'Terminated': case 'Cancelled': case 'Failed': case 'Absent': case 'Urgent':
-      return 'badgeRed';
+      return 'danger';
     case 'Pending': case 'Draft': case 'OnProbation': case 'InProgress': case 'Late': case 'Important': case 'NoShow':
-      return 'badgeOrange';
+      return 'warning';
     case 'Submitted': case 'Scheduled': case 'OnLeave': case 'HalfDay':
-      return 'badgeBlue';
+      return 'info';
     default:
-      return 'badgeMuted';
+      return 'neutral';
   }
 };
 
-export function Badge({ status, label }: { status: string; label?: string }) {
-  return <span className={`${s.badge} ${s[statusColor(status)]}`}>{label ?? status}</span>;
+export function Badge({ status, label }: { status: string | null | undefined; label?: string }) {
+  return <StatusBadge status={status} label={label} tone={statusTone(status)} />;
 }
 
-/** Page header: gradient/section title + optional subtitle + optional action(s) on the right. */
+/**
+ * Header row of an HR view. HRModulePage already shows the view's title as the page heading, so the
+ * title here is for screen readers only; the row shows the subtitle (usually a count) and the actions.
+ */
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
+  if (!subtitle && !action) return <h2 className="sr-only">{title}</h2>;
   return (
     <div className={s.topBar}>
       <div>
-        <h2 className="section-header" style={{ marginBottom: 0 }}>{title}</h2>
+        <h2 className="sr-only">{title}</h2>
         {subtitle && <p className={s.headerSub}>{subtitle}</p>}
       </div>
       {action && <div className={s.headerActions}>{action}</div>}
@@ -40,24 +44,23 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   );
 }
 
-/** Grey toolbar/filter card that sits above tables. */
+/** Filter/toolbar card that sits above tables. */
 export function FilterBar({ children }: { children: ReactNode }) {
   return <div className={s.filterBar}>{children}</div>;
 }
 
-/** A single labelled form control. Renders label.form-label + the control. */
+/** A labelled form control: the kit Field, so the label is linked to the Input/Select/Textarea inside it. */
 export function Field({ label, required, children, full, className }: { label?: string; required?: boolean; children: ReactNode; full?: boolean; className?: string }) {
   return (
-    <div className={`${s.fieldGroup} ${full ? s.fullWidth : ''} ${className || ''}`}>
-      {label && <label className="form-label">{label}{required && <span className={s.req}> *</span>}</label>}
+    <UiField label={label ?? ''} hideLabel={!label} required={required} className={`${s.fieldGroup} ${full ? s.fullWidth : ''} ${className || ''}`}>
       {children}
-    </div>
+    </UiField>
   );
 }
 
 /**
- * Standard HR modal shell: overlay + header (title + ✕) + scrollable body + optional footer.
- * Callers pass footer content (usually Cancel/Save buttons) via `footer`.
+ * HR dialog: the app's Modal (focus trap, Esc to close, scroll lock) with the HR sizes.
+ * Callers render it conditionally, so it is always open while mounted.
  */
 export function Modal({ title, children, onClose, footer, size }: {
   title: string;
@@ -66,18 +69,10 @@ export function Modal({ title, children, onClose, footer, size }: {
   footer?: ReactNode;
   size?: 'narrow' | 'wide';
 }) {
-  const sizeClass = size === 'wide' ? s.modalWide : size === 'narrow' ? s.modalNarrow : '';
   return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={`${s.modal} ${sizeClass}`} onClick={(e) => e.stopPropagation()}>
-        <div className={s.modalHeader}>
-          <h3 className={s.modalTitle}>{title}</h3>
-          <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Close">✕</button>
-        </div>
-        <div className={s.modalBody}>{children}</div>
-        {footer && <div className={s.modalFooter}>{footer}</div>}
-      </div>
-    </div>
+    <UiModal open onClose={onClose} title={title} footer={footer} size={size === 'wide' ? 'lg' : size === 'narrow' ? 'sm' : 'md'}>
+      <div className={s.modalContent}>{children}</div>
+    </UiModal>
   );
 }
 

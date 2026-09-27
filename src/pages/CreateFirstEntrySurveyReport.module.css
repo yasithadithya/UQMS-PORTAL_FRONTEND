@@ -1,0 +1,72 @@
+.form {
+  max-width: 1200px;
+}
+
+.narrow {
+  max-width: 560px;
+}
+
+/* ----- Read-only facts ----- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+
+.fact dt {
+  margin-bottom: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+.fact dd {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+}
+
+.none {
+  color: var(--color-text-disabled);
+  font-weight: var(--weight-regular);
+}
+
+.emptyNote {
+  font-size: var(--text-md);
+  color: var(--color-text-tertiary);
+}
+
+/* ----- Survey cards ----- */
+.surveys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.survey {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.surveyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.surveyName {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.postpone {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-height: 62px;
+}

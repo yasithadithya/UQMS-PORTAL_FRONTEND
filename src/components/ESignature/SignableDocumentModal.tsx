@@ -1,7 +1,6 @@
-import { useId } from 'react';
 import type { ApiSignatureStatus, SignableDocType } from '@/api';
 import SignablePdfViewer from './SignablePdfViewer';
-import s from './ESignature.module.css';
+import { Modal } from '@/ui';
 
 interface SignableDocumentModalProps {
   isOpen: boolean;
@@ -25,18 +24,8 @@ export default function SignableDocumentModal({
   downloadFileName,
   onStatusChange,
 }: SignableDocumentModalProps) {
-  const titleId = useId();
-
-  if (!isOpen) return null;
-
   return (
-    <div className={s.fullscreen} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div className={s.fullscreenHeader}>
-        <h3 id={titleId} className={s.fullscreenTitle}>{title}</h3>
-        <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Close">
-          &times;
-        </button>
-      </div>
+    <Modal open={isOpen} onClose={onClose} title={title} size="full" flush>
       <SignablePdfViewer
         docType={docType}
         docId={docId}
@@ -44,6 +33,6 @@ export default function SignableDocumentModal({
         downloadFileName={downloadFileName}
         onStatusChange={onStatusChange}
       />
-    </div>
+    </Modal>
   );
 }

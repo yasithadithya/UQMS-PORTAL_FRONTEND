@@ -1,12 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS, isNavigable } from '@/utils/permissions';
 import { modulesService } from '@/api/services/modules.service';
 import { toast } from 'react-toastify';
-import s from './UserManagement.module.css';
+import { ArrowDown, ArrowUp, Blocks, CornerDownRight, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Badge, Button, Card, ConfirmDialog, EmptyState, Field, IconButton, Input, Menu, Modal, PageHeader, Select } from '@/ui';
+import s from './Modules.module.css';
 
 export default function ModulesPage() {
-    const { modules, refreshModules, setModulesOptimistic, hasPermission } = useAuth();
-    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete');
+    const { modules, refreshModules, setModulesOptimistic, can } = useAuth();
+    const canCreateModule = can(MODULE_KEYS.adminModules, 'create');
+    const canUpdateModule = can(MODULE_KEYS.adminModules, 'update');
+    const canDeleteModule = can(MODULE_KEYS.adminModules, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingModule, setEditingModule] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -15,7 +20,8 @@ export default function ModulesPage() {
         parentId: '',
         order: 0,
     });
-    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [nameError, setNameError] = useState<string>();
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
 
@@ -26,6 +32,7 @@ export default function ModulesPage() {
         setEditingModule(null);
         setFormData({ name: '', description: '', parentId: '', order: 0 });
         setFormError('');
+        setNameError(undefined);
         setShowModal(true);
     };
 
@@ -42,8 +49,8 @@ export default function ModulesPage() {
     };
 
     const handleSave = async () => {
-        if (!formData.name) {
-            setFormError('Module name is required.');
+        if (!formData.name.trim()) {
+            setNameError('Enter a module name.');
             return;
         }
 
@@ -101,9 +108,8 @@ export default function ModulesPage() {
             // Also refresh from server
             refreshModules();
         } catch (err: any) {
-            alert(err.message || 'Failed to delete module. It might have sub-modules.');
+            toast.error(err.message || 'Failed to delete module. It might have sub-modules.');
         }
-        setDeleteConfirm(null);
     };
 
 
@@ -178,6 +184,7 @@ export default function ModulesPage() {
                 // Exclude self and all descendants when editing
                 if (editingModule && child._id === editingModule._id) continue;
                 if (excludedIds.has(child._id)) continue;
+                if (!isNavigable(child)) continue;
                 options.push({ id: child._id, label: child.name, depth });
                 addOptions(child._id, depth + 1);
             }
@@ -187,59 +194,34 @@ export default function ModulesPage() {
         return options;
     })();
 
-    const handleDrop = async (targetMod: any) => {
-        if (!draggedId || draggedId === targetMod._id) return;
+    const siblingsOf = (mod: any) =>
+        modules.filter(m => getParentId(m) === getParentId(mod)).sort((a, b) => (a.order || 0) - (b.order || 0));
 
-        const draggedMod = modules.find(m => m._id === draggedId);
-        if (!draggedMod) return;
-
-        const parentId = getParentId(draggedMod);
-        const targetParentId = getParentId(targetMod);
-
-        if (parentId !== targetParentId) {
-            toast.error("Modules can only be reordered within the same parent level.");
-            setDraggedId(null);
-            setDragOverId(null);
-            return;
-        }
-
-        const siblings = modules.filter(m => getParentId(m) === parentId);
-
-        siblings.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-        const filteredSiblings = siblings.filter(s => s._id !== draggedId);
-
-        const targetIndex = filteredSiblings.findIndex(s => s._id === targetMod._id);
-        if (targetIndex === -1) return;
-
-        filteredSiblings.splice(targetIndex, 0, draggedMod);
+    /** Moves `mod` to `newIndex` among its siblings and saves the new order for all of them. */
+    const reorder = async (mod: any, newIndex: number) => {
+        const ordered = siblingsOf(mod).filter(s => s._id !== mod._id);
+        ordered.splice(Math.max(0, Math.min(newIndex, ordered.length)), 0, mod);
 
         // Optimistic: immediately update order in local state
         const orderMap = new Map<string, number>();
-        filteredSiblings.forEach((sibling, index) => {
-            orderMap.set(sibling._id, index);
-        });
-        setModulesOptimistic(
-            modules.map(m => orderMap.has(m._id) ? { ...m, order: orderMap.get(m._id)! } : m)
-        );
+        ordered.forEach((sibling, index) => orderMap.set(sibling._id, index));
+        setModulesOptimistic(modules.map(m => (orderMap.has(m._id) ? { ...m, order: orderMap.get(m._id)! } : m)));
 
         setSaving(true);
         try {
-            const promises = filteredSiblings.map((sibling, index) => {
-                return modulesService.updateModule(sibling._id, {
+            await Promise.all(ordered.map((sibling, index) =>
+                modulesService.updateModule(sibling._id, {
                     name: sibling.name,
                     description: sibling.description,
                     parentId: getParentId(sibling) || undefined,
-                    order: index
-                });
-            });
-
-            await Promise.all(promises);
+                    order: index,
+                })
+            ));
             // Refresh from server to get canonical data
             refreshModules();
-            toast.success("Module order updated successfully!");
+            toast.success('Module order updated.');
         } catch (err: any) {
-            toast.error("Failed to update module order: " + err.message);
+            toast.error('Failed to update module order: ' + err.message);
             // Revert on failure
             refreshModules();
         } finally {
@@ -249,201 +231,151 @@ export default function ModulesPage() {
         }
     };
 
-    return (
-        <>
-            <div className={s.topBar}>
-                <div>
-                    <h2 className="section-header" style={{ marginBottom: '4px' }}>Module Management</h2>
-                    <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Manage system features and sub-features</p>
-                </div>
-                <button className={s.addBtn} onClick={openAdd}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Add Module
-                </button>
-            </div>
+    const handleDrop = (targetMod: any) => {
+        if (!draggedId || draggedId === targetMod._id) return;
+        const draggedMod = modules.find(m => m._id === draggedId);
+        if (!draggedMod) return;
+        if (getParentId(draggedMod) !== getParentId(targetMod)) {
+            toast.error('Modules can only be reordered within the same parent.');
+            setDraggedId(null);
+            setDragOverId(null);
+            return;
+        }
+        const targetIndex = siblingsOf(targetMod).filter(s => s._id !== draggedId).findIndex(s => s._id === targetMod._id);
+        if (targetIndex >= 0) reorder(draggedMod, targetIndex);
+    };
 
-            <div className={s.tableWrap}>
-                <table className={s.table}>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Description</th>
-                            <th>Parent Module</th>
-                            <th style={{ width: '110px', textAlign: 'center' }}>Order</th>
-                            <th style={{ width: '120px' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedModules.map((mod) => (
-                            <tr 
-                                key={mod._id}
-                                draggable={true}
-                                onDragStart={(e) => {
-                                    setDraggedId(mod._id);
-                                    e.dataTransfer.effectAllowed = 'move';
-                                }}
-                                onDragOver={(e) => {
-                                    e.preventDefault();
-                                    const draggedMod = modules.find(m => m._id === draggedId);
-                                    if (draggedMod && draggedId !== mod._id) {
-                                        const pId = getParentId(draggedMod);
-                                        const targetPId = getParentId(mod);
-                                        if (pId === targetPId) {
+    const moveBy = (mod: any, delta: number) => {
+        const index = siblingsOf(mod).findIndex(s => s._id === mod._id);
+        reorder(mod, index + delta);
+    };
+
+    return (
+        <div className="animate-in">
+            <PageHeader
+                breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Modules' }]}
+                title="Modules"
+                description="The navigation tree and the permission areas roles are built from. Drag rows, or use the row menu, to reorder siblings."
+                actions={canCreateModule && <Button variant="primary" icon={<Plus />} onClick={openAdd}>Add module</Button>}
+            />
+
+            <Card padding="none">
+                {sortedModules.length === 0 ? (
+                    <EmptyState icon={<Blocks />} title="No modules yet" description="Create a module to get started." />
+                ) : (
+                    <ul className={s.tree} aria-label="Modules" aria-busy={saving || undefined}>
+                        {sortedModules.map((mod) => {
+                            const depth = (mod as any).depth || 0;
+                            const siblings = siblingsOf(mod);
+                            const index = siblings.findIndex(x => x._id === mod._id);
+                            return (
+                                <li
+                                    key={mod._id}
+                                    className={`${s.row} ${draggedId === mod._id ? s.dragging : ''} ${dragOverId === mod._id ? s.dropTarget : ''}`}
+                                    draggable={canUpdateModule && !saving}
+                                    onDragStart={(e) => {
+                                        setDraggedId(mod._id);
+                                        e.dataTransfer.effectAllowed = 'move';
+                                    }}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        const draggedMod = modules.find(m => m._id === draggedId);
+                                        if (draggedMod && draggedId !== mod._id && getParentId(draggedMod) === getParentId(mod)) {
                                             setDragOverId(mod._id);
                                         }
-                                    }
-                                }}
-                                onDragLeave={() => {
-                                    setDragOverId(null);
-                                }}
-                                onDragEnd={() => {
-                                    setDraggedId(null);
-                                    setDragOverId(null);
-                                }}
-                                onDrop={(e) => {
-                                    e.preventDefault();
-                                    handleDrop(mod);
-                                }}
-                                style={{
-                                    cursor: 'grab',
-                                    opacity: draggedId === mod._id ? 0.4 : 1,
-                                    borderTop: dragOverId === mod._id ? '2px solid var(--primary)' : undefined,
-                                    transition: 'all 0.15s ease'
-                                }}
-                            >
-                                <td>
-                                    <div style={{ fontWeight: 500, color: 'var(--text)', paddingLeft: `${((mod as any).depth || 0) * 24}px`, display: 'flex', alignItems: 'center' }}>
-                                        {(mod as any).depth > 0 ? <span style={{ color: 'var(--separator)', marginRight: '8px', opacity: 0.5 }}>{'↳'.repeat(1)}</span> : null}
-                                        {mod.name}
+                                    }}
+                                    onDragLeave={() => setDragOverId(null)}
+                                    onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+                                    onDrop={(e) => { e.preventDefault(); handleDrop(mod); }}
+                                >
+                                    {canUpdateModule && <GripVertical className={s.grip} aria-hidden="true" />}
+                                    <div className={s.main} style={{ paddingLeft: depth * 24 }}>
+                                        {depth > 0 && <CornerDownRight className={s.branch} aria-hidden="true" />}
+                                        <div className={s.text}>
+                                            <span className={`${s.name} ${isNavigable(mod) ? '' : s.hidden}`}>
+                                                {mod.name}
+                                                {mod.isSystem && (
+                                                    <Badge title={`System module (${mod.key})${isNavigable(mod) ? '' : ': permission only, not shown in navigation'}`}>
+                                                        {isNavigable(mod) ? 'System' : 'System · permission only'}
+                                                    </Badge>
+                                                )}
+                                            </span>
+                                            <span className={s.desc}>
+                                                {mod.description || 'No description'}
+                                                {depth > 0 && <> · in {getAncestryPath(mod)}</>}
+                                            </span>
+                                        </div>
                                     </div>
-                                </td>
-                                <td>{mod.description || <span style={{ color: 'var(--muted)' }}>No description</span>}</td>
-                                <td>{getAncestryPath(mod)}</td>
-                                <td style={{ textAlign: 'center' }}>
-                                    <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
-                                        <span style={{ color: 'var(--muted)', fontSize: '14px', marginRight: '4px', userSelect: 'none' }} title="Drag row to reorder">
-                                            ☰
-                                        </span>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', minWidth: '20px', textAlign: 'center' }}>
-                                            {mod.order || 0}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td>
+                                    <span className={s.order} title="Display order">#{(mod.order || 0) + 1}</span>
                                     <div className={s.actions}>
-                                        <button className={s.actionBtn} onClick={() => openEdit(mod)} title="Edit">
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                        </button>
-                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete" disabled={!canDeleteModule}>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                        </button>
+                                        <IconButton label={`Edit ${mod.name}`} icon={<Pencil />} size="sm" onClick={() => openEdit(mod)} disabled={!canUpdateModule} />
+                                        <Menu
+                                            label={`More actions for ${mod.name}`}
+                                            items={[
+                                                canUpdateModule && { label: 'Move up', icon: <ArrowUp />, disabled: index <= 0 || saving, onSelect: () => moveBy(mod, -1) },
+                                                canUpdateModule && { label: 'Move down', icon: <ArrowDown />, disabled: index >= siblings.length - 1 || saving, onSelect: () => moveBy(mod, 1) },
+                                                mod.isSystem ? false : 'separator',
+                                                !mod.isSystem && { label: 'Delete', icon: <Trash2 />, danger: true, disabled: !canDeleteModule, onSelect: () => setDeleteTarget(mod) },
+                                            ]}
+                                        />
                                     </div>
-                                </td>
-                            </tr>
-                        ))}
-                        {modules.length === 0 && (
-                            <tr>
-                                <td colSpan={5} style={{ textAlign: 'center', padding: '30px', color: 'var(--muted)' }}>
-                                    No modules found. Create one to get started.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </Card>
 
-            {/* Add/Edit Modal */}
-            {showModal && (
-                <div className={s.overlay} onClick={() => setShowModal(false)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-                        <div className={s.modalHeader}>
-                            <h3 className={s.modalTitle}>{editingModule ? 'Edit Module' : 'Add New Module'}</h3>
-                            <button className={s.closeBtn} onClick={() => setShowModal(false)}>✕</button>
-                        </div>
-
-                        <div className={s.modalBody}>
-                            {formError && (
-                                <div style={{ background: 'var(--red-subtle)', color: 'var(--red)', fontSize: '13px', padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', textAlign: 'center', border: '1px solid rgba(239,68,68,.15)' }}>
-                                    {formError}
-                                </div>
-                            )}
-
-                            <label className="form-label">Module Name</label>
-                            <input
-                                className="form-input"
-                                type="text"
-                                placeholder="e.g. Reporting"
-                                value={formData.name}
-                                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                            />
-
-                            <label className="form-label">Description (Optional)</label>
-                            <input
-                                className="form-input"
-                                type="text"
-                                placeholder="Brief description"
-                                value={formData.description}
-                                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                            />
-
-                            <label className="form-label">Parent Module (Optional)</label>
-                            <select
-                                className="form-input"
-                                value={formData.parentId}
-                                onChange={(e) => setFormData((p) => ({ ...p, parentId: e.target.value }))}
-                            >
-                                <option value="">-- None (Root Module) --</option>
-                                {parentDropdownOptions.map((opt) => (
-                                    <option key={opt.id} value={opt.id}>
-                                        {'\u00A0\u00A0'.repeat(opt.depth)}{opt.depth > 0 ? '↳ ' : ''}{opt.label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <label className="form-label" style={{ marginTop: '12px' }}>Display Order</label>
-                            <input
-                                className="form-input"
-                                type="number"
-                                placeholder="0"
-                                value={formData.order}
-                                onChange={(e) => setFormData((p) => ({ ...p, order: Number(e.target.value) }))}
-                            />
-                        </div>
-
-                        <div className={s.modalFooter}>
-                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setShowModal(false)}>Cancel</button>
-                            <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0 }} onClick={handleSave} disabled={saving}>
-                                {saving ? 'Saving…' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
+            <Modal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                dismissible={!saving}
+                title={editingModule ? `Edit ${editingModule.name}` : 'Add module'}
+                description={editingModule?.isSystem ? `System module (${editingModule.key}). Permissions and routes depend on it, so only the description and order can be changed.` : undefined}
+                footer={
+                    <>
+                        <Button onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
+                        <Button variant="primary" onClick={handleSave} loading={saving}>{editingModule ? 'Save changes' : 'Add module'}</Button>
+                    </>
+                }
+            >
+                {formError && <p className={s.formError} role="alert">{formError}</p>}
+                <div className={s.stack}>
+                    <Field label="Name" required error={nameError}>
+                        <Input placeholder="e.g. Reporting" value={formData.name} disabled={!!editingModule?.isSystem} autoFocus={!editingModule}
+                            onChange={(e) => { setFormData((p) => ({ ...p, name: e.target.value })); setNameError(undefined); }} />
+                    </Field>
+                    <Field label="Description">
+                        <Input placeholder="Shown on the module's overview page" value={formData.description}
+                            onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} />
+                    </Field>
+                    <Field label="Parent module" hint="Leave empty for a top-level module.">
+                        <Select value={formData.parentId} disabled={!!editingModule?.isSystem}
+                            onChange={(e) => setFormData((p) => ({ ...p, parentId: e.target.value }))}>
+                            <option value="">None (top level)</option>
+                            {parentDropdownOptions.map((opt) => (
+                                <option key={opt.id} value={opt.id}>
+                                    {'  '.repeat(opt.depth)}{opt.depth > 0 ? '↳ ' : ''}{opt.label}
+                                </option>
+                            ))}
+                        </Select>
+                    </Field>
+                    <Field label="Display order" hint="Lower numbers come first among siblings.">
+                        <Input type="number" inputMode="numeric" value={formData.order}
+                            onChange={(e) => setFormData((p) => ({ ...p, order: Number(e.target.value) }))} />
+                    </Field>
                 </div>
-            )}
+            </Modal>
 
-            {/* Delete Confirmation */}
-            {deleteConfirm && (
-                <div className={s.overlay} onClick={() => setDeleteConfirm(null)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
-                        <div className={s.modalBody} style={{ textAlign: 'center', padding: '28px 24px' }}>
-                            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
-                            <h3 className={s.modalTitle} style={{ marginBottom: '8px' }}>Delete Module?</h3>
-                            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>This action cannot be undone.</p>
-                        </div>
-                        <div className={s.modalFooter}>
-                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setDeleteConfirm(null)}>Cancel</button>
-                            <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0, background: 'var(--red)' }} onClick={() => handleDelete(deleteConfirm)}>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title={`Delete ${deleteTarget?.name ?? 'module'}?`}
+                message="Modules with sub-modules can't be deleted. This can't be undone."
+                confirmText="Delete module"
+                destructive
+                onConfirm={() => { const target = deleteTarget; setDeleteTarget(null); if (target) handleDelete(target._id); }}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </div>
     );
 }

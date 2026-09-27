@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { healthService } from '@/api';
+import { Spinner } from '@/ui';
 import s from './BootScreen.module.css';
 
 // Long enough to avoid a flash when the backend is already awake.
@@ -49,13 +50,10 @@ export default function BootScreen({ onDone }: { onDone: () => void }) {
   return (
     <div className={s.container}>
       <div className={s.card} role="status" aria-live="polite">
-        <div className={s.logo}>
-          <img src="/logo.png" alt="UQMS Logo" className={s.logoImage} />
-        </div>
-        <h1 className={s.title}>UQMS</h1>
-        <div className={s.spinner} aria-hidden="true" />
+        <img src="/logo.png" alt="UQMS" className={s.logo} />
+        <Spinner size={22} label="Loading" />
         <p className={s.subtitle}>
-          {slow ? 'Waking up the server. This can take up to a minute after a quiet period…' : 'Starting up services…'}
+          {slow ? 'Waking up the server. This can take up to a minute after a quiet period…' : 'Starting up…'}
         </p>
       </div>
     </div>

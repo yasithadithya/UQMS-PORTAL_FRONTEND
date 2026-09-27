@@ -1,9 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ClipboardList } from 'lucide-react';
+import { Badge, Button, ButtonLink, Card, EmptyState, Field, Input, LoadingBlock, PageHeader, Section, StickyActionBar } from '@/ui';
+import s from './VesselEquipmentRecordPage.module.css';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { firstEntryService, vesselEquipmentRecordService } from '@/api';
 import type { ApiFirstEntrySurveyReport, ApiVesselEquipmentRecordItem } from '@/api';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 // Parsers and formatters for structured remarks
 const parseLifeRafts = (val: string) => {
@@ -67,6 +72,8 @@ const formatHoses = (count: string, material: string, width: string, length: str
 };
 
 export default function VesselEquipmentRecordPage() {
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineReports, 'update');
   const navigate = useNavigate();
   const unsaved = useUnsavedChanges();
   const { id, module } = useParams<{ id: string; module?: string }>(); // Survey Report ID
@@ -181,61 +188,28 @@ export default function VesselEquipmentRecordPage() {
     }
   };
 
+  /** A small labelled input used by the structured remarks (count, serial number, …). */
+  const part = (label: string, value: string, onChange: (v: string) => void) => (
+    <Field label={label} key={label}>
+      <Input placeholder={label} value={value} onChange={e => onChange(e.target.value)} />
+    </Field>
+  );
+
   const renderRemarksField = (record: ApiVesselEquipmentRecordItem, originalIndex: number) => {
     const desc = record.questionId?.description || '';
     const code = record.questionId?.codeRefNo || '';
     const status = record.status;
     const value = record.remarks || '';
+    const set = (v: string) => handleRemarksChange(originalIndex, v);
 
     // 1. Total number of Life rafts (Total number of persons accommodated) -> Count, Capacity, Serial Number
     if (desc.includes('Total number of Life rafts')) {
       const { count, capacity, serialNumber } = parseLifeRafts(value);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
-              <input
-                type="text"
-                placeholder="Count"
-                className="form-input"
-                value={count}
-                onChange={(e) => {
-                  const val = formatLifeRafts(e.target.value, capacity, serialNumber);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Capacity</label>
-              <input
-                type="text"
-                placeholder="Capacity"
-                className="form-input"
-                value={capacity}
-                onChange={(e) => {
-                  const val = formatLifeRafts(count, e.target.value, serialNumber);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Serial Number</label>
-            <input
-              type="text"
-              placeholder="Serial Number"
-              className="form-input"
-              value={serialNumber}
-              onChange={(e) => {
-                const val = formatLifeRafts(count, capacity, e.target.value);
-                handleRemarksChange(originalIndex, val);
-              }}
-              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-            />
-          </div>
+        <div className={s.parts}>
+          {part('Count', count, v => set(formatLifeRafts(v, capacity, serialNumber)))}
+          {part('Capacity', capacity, v => set(formatLifeRafts(count, v, serialNumber)))}
+          {part('Serial number', serialNumber, v => set(formatLifeRafts(count, capacity, v)))}
         </div>
       );
     }
@@ -243,59 +217,14 @@ export default function VesselEquipmentRecordPage() {
     // 2. Code 11.10 - Count, Serial Number, Expiry (only if status is Provided)
     if (code === '11.10') {
       if (status !== 'Provided') {
-        return (
-          <div style={{ fontSize: '12px', color: 'var(--muted)', fontStyle: 'italic' }}>
-            Only available if Provided
-          </div>
-        );
+        return <p className={s.note}>Details can be added once this is marked Provided.</p>;
       }
       const { count, serialNumber, expiry } = parse1110(value);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
-              <input
-                type="text"
-                placeholder="Count"
-                className="form-input"
-                value={count}
-                onChange={(e) => {
-                  const val = format1110(e.target.value, serialNumber, expiry);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Expiry</label>
-              <input
-                type="text"
-                placeholder="Expiry"
-                className="form-input"
-                value={expiry}
-                onChange={(e) => {
-                  const val = format1110(count, serialNumber, e.target.value);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-          </div>
-          <div>
-            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Serial Number</label>
-            <input
-              type="text"
-              placeholder="Serial Number"
-              className="form-input"
-              value={serialNumber}
-              onChange={(e) => {
-                const val = format1110(count, e.target.value, expiry);
-                handleRemarksChange(originalIndex, val);
-              }}
-              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-            />
-          </div>
+        <div className={s.parts}>
+          {part('Count', count, v => set(format1110(v, serialNumber, expiry)))}
+          {part('Expiry', expiry, v => set(format1110(count, serialNumber, v)))}
+          {part('Serial number', serialNumber, v => set(format1110(count, v, expiry)))}
         </div>
       );
     }
@@ -304,35 +233,9 @@ export default function VesselEquipmentRecordPage() {
     if (desc === 'Number of Portable fire extinguishers & Type') {
       const { count, type } = parseExtinguishers(value);
       return (
-        <div style={{ display: 'flex', gap: '8px', minWidth: '280px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
-            <input
-              type="text"
-              placeholder="Count"
-              className="form-input"
-              value={count}
-              onChange={(e) => {
-                const val = formatExtinguishers(e.target.value, type);
-                handleRemarksChange(originalIndex, val);
-              }}
-              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Type</label>
-            <input
-              type="text"
-              placeholder="Type"
-              className="form-input"
-              value={type}
-              onChange={(e) => {
-                const val = formatExtinguishers(count, e.target.value);
-                handleRemarksChange(originalIndex, val);
-              }}
-              style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-            />
-          </div>
+        <div className={s.parts}>
+          {part('Count', count, v => set(formatExtinguishers(v, type)))}
+          {part('Type', type, v => set(formatExtinguishers(count, v)))}
         </div>
       );
     }
@@ -341,225 +244,92 @@ export default function VesselEquipmentRecordPage() {
     if (desc === 'Number of Fire hoses with spray nozzles') {
       const { count, material, width, length } = parseHoses(value);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '280px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Count</label>
-              <input
-                type="text"
-                placeholder="Count"
-                className="form-input"
-                value={count}
-                onChange={(e) => {
-                  const val = formatHoses(e.target.value, material, width, length);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Material</label>
-              <input
-                type="text"
-                placeholder="Material"
-                className="form-input"
-                value={material}
-                onChange={(e) => {
-                  const val = formatHoses(count, e.target.value, width, length);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Width</label>
-              <input
-                type="text"
-                placeholder="Width"
-                className="form-input"
-                value={width}
-                onChange={(e) => {
-                  const val = formatHoses(count, material, e.target.value, length);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Length</label>
-              <input
-                type="text"
-                placeholder="Length"
-                className="form-input"
-                value={length}
-                onChange={(e) => {
-                  const val = formatHoses(count, material, width, e.target.value);
-                  handleRemarksChange(originalIndex, val);
-                }}
-                style={{ margin: 0, padding: '6px 8px', fontSize: '12px', borderRadius: '6px' }}
-              />
-            </div>
-          </div>
+        <div className={s.parts}>
+          {part('Count', count, v => set(formatHoses(v, material, width, length)))}
+          {part('Material', material, v => set(formatHoses(count, v, width, length)))}
+          {part('Width', width, v => set(formatHoses(count, material, v, length)))}
+          {part('Length', length, v => set(formatHoses(count, material, width, v)))}
         </div>
       );
     }
 
     // Default remarks text input
     return (
-      <input
-        type="text"
-        className="form-input"
-        value={value}
-        onChange={(e) => handleRemarksChange(originalIndex, e.target.value)}
-        placeholder="Optional remarks..."
-        style={{ margin: 0, padding: '8px 12px', fontSize: '12px', borderRadius: '8px', minWidth: '280px' }}
-      />
+      <Field label="Remarks" hideLabel>
+        <Input value={value} onChange={e => set(e.target.value)} placeholder="Remarks (optional)" />
+      </Field>
     );
   };
 
+  const STATUS_OPTIONS = [
+    { value: 'Provided', label: 'Provided', tone: s.optProvided },
+    { value: 'Not Provided', label: 'Not provided', tone: s.optMissing },
+    { value: 'Not Applicable', label: 'N/A', tone: s.optNa },
+  ] as const;
+
   if (loading) {
-    return (
-      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--muted)' }}>
-        <div style={{ display: 'inline-block', width: '32px', height: '32px', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '16px' }} />
-        <p>Loading Record of Equipment...</p>
-      </div>
-    );
+    return <LoadingBlock label="Loading record of equipment…" />;
   }
 
+  const backPath = `/${activeModule}/marine/first-entry/survey-report/edit/${id}`;
+  const groups = Object.entries(groupedRecords);
+  const answered = equipmentRecords.filter(r => r.status).length;
+
   return (
-    <div className="animate-in" style={{ padding: '4px', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '28px', borderBottom: '1px solid var(--border)', paddingBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link to={`/${activeModule}/marine/first-entry/survey-report/edit/${id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '12px', background: 'var(--surface)', color: 'var(--label)', border: '1px solid var(--border)', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }} className="hover-lift">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </Link>
-          <div>
-            <h1 className="section-header" style={{ margin: 0, fontSize: '24px', fontWeight: 850, letterSpacing: '-0.03em', color: 'var(--label)' }}>
-              Record of Equipment Checklist
-            </h1>
-            {surveyReport && (
-              <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500, marginTop: '4px' }}>
-                Vessel: <strong style={{ color: 'var(--label)' }}>{surveyReport.shipName}</strong> {surveyReport.uqmsNo ? `(UQMS No: ${surveyReport.uqmsNo})` : ''} | Report: <strong style={{ color: 'var(--label)' }}>{surveyReport.reportNo}</strong>
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="animate-in">
+      <PageHeader
+        back={{ href: backPath, label: 'Survey report' }}
+        title="Record of equipment"
+        description={surveyReport
+          ? [surveyReport.shipName, surveyReport.uqmsNo, surveyReport.reportNo].filter(Boolean).join(' · ')
+          : 'Recommended equipment for the vessel, grouped by code.'}
+        meta={equipmentRecords.length > 0 && <Badge tone={answered === equipmentRecords.length ? 'success' : 'neutral'}>{answered}/{equipmentRecords.length} answered</Badge>}
+      />
 
-      <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty}>
-        {Object.keys(groupedRecords).length === 0 ? (
-          <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-            No equipment questions found in the database. Please run the seeder first.
-          </div>
+      <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty} className={s.form}>
+        {groups.length === 0 ? (
+          <Card padding="none">
+            <EmptyState icon={<ClipboardList />} title="No equipment questions yet" description="Equipment questions are set up by an administrator in master data." />
+          </Card>
         ) : (
-          Object.entries(groupedRecords).map(([codeRefNo, items]) => (
-            <div key={codeRefNo} className="card animate-in" style={{ marginBottom: '24px' }}>
-              <div className="card-header" style={{ fontSize: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ background: 'var(--primary-glow)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '12px' }}>
-                  Code {codeRefNo}
-                </span>
-                Recommended Equipment Specification
-              </div>
-
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase' }}>Description</th>
-                      <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '340px' }}>Status</th>
-                      <th style={{ padding: '10px 12px', fontSize: '11px', color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', width: '320px' }}>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map(({ originalIndex, record }) => (
-                      <tr key={record.questionId._id} style={{ borderBottom: '1px solid var(--separator)' }}>
-                        {/* Question Description */}
-                        <td style={{ padding: '12px', fontSize: '13px', color: 'var(--label)', fontWeight: 500 }}>
-                          {record.questionId.description}
-                        </td>
-
-                        {/* Status Selectors */}
-                        <td style={{ padding: '12px' }}>
-                          <div style={{ display: 'inline-flex', gap: '4px', background: 'var(--bg-subtle)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                            {(['Provided', 'Not Provided', 'Not Applicable'] as const).map((opt) => {
-                              const isSelected = record.status === opt;
-                              let activeBg = 'transparent';
-                              let activeColor = 'var(--muted)';
-                              
-                              if (isSelected) {
-                                if (opt === 'Provided') {
-                                  activeBg = 'var(--green-subtle)';
-                                  activeColor = 'var(--green)';
-                                } else if (opt === 'Not Provided') {
-                                  activeBg = 'var(--red-subtle)';
-                                  activeColor = 'var(--red)';
-                                } else {
-                                  activeBg = 'var(--border)';
-                                  activeColor = 'var(--label)';
-                                }
-                              }
-
-                              return (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => handleStatusChange(originalIndex, opt)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    background: activeBg,
-                                    color: activeColor,
-                                    transition: 'all 0.15s ease',
-                                    outline: 'none',
-                                  }}
-                                >
-                                  {opt}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </td>
-
-                        {/* Remarks Input */}
-                        <td style={{ padding: '12px' }}>
-                          {renderRemarksField(record, originalIndex)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          groups.map(([codeRefNo, items]) => (
+            <Section key={codeRefNo} title={<><Badge tone="accent">Code {codeRefNo}</Badge> Recommended equipment</>} padding="none">
+              <ul className={s.items}>
+                {items.map(({ originalIndex, record }) => (
+                  <li key={record.questionId._id} className={s.item}>
+                    <p className={s.question}>{record.questionId.description}</p>
+                    <div className={s.segmented} role="radiogroup" aria-label={`Status: ${record.questionId.description}`}>
+                      {STATUS_OPTIONS.map(opt => {
+                        const on = record.status === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            className={`${s.opt} ${on ? `${s.optOn} ${opt.tone}` : ''}`}
+                            onClick={() => { handleStatusChange(originalIndex, opt.value); unsaved.markDirty(); }}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className={s.remarks}>{renderRemarksField(record, originalIndex)}</div>
+                  </li>
+                ))}
+              </ul>
+            </Section>
           ))
         )}
 
-        {/* Buttons Row */}
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '32px', marginBottom: '40px' }}>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={saving}
-            style={{ minWidth: '180px', marginBottom: 0 }}
-          >
-            {saving ? 'Saving...' : 'Save Record'}
-          </button>
-          
-          <Link to={`/${activeModule}/marine/first-entry/survey-report/edit/${id}`} style={{ textDecoration: 'none' }}>
-            <button type="button" className="btn-secondary" style={{ minWidth: '180px', marginBottom: 0 }}>
-              Cancel
-            </button>
-          </Link>
-        </div>
+        <StickyActionBar dirty={unsaved.dirty}>
+          <ButtonLink to={backPath}>Cancel</ButtonLink>
+          <Button type="submit" variant="primary" loading={saving} disabled={!canSave}
+            title={canSave ? undefined : 'You do not have permission to save this record.'}>
+            Save record
+          </Button>
+        </StickyActionBar>
       </form>
       {unsaved.dialog}
     </div>

@@ -1,30 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { Fragment, useState, useEffect } from 'react';
+import { Eye, FileDown, FileText, RefreshCw } from 'lucide-react';
+import { Button, EmptyState, Field, FormGrid, Input, Modal, Textarea } from '@/ui';
+import d from './DocumentFormModal.module.css';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
+import AdditionalRemarksModal from './AdditionalRemarksModal';
 
 interface DockingSurveyModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: ApiFirstEntrySurveyBooking | null;
   surveyReportId: string;
+  /** Pre-fills Client: the vessel's manager, as shown under Manager Details in the survey report. */
+  defaultClient?: string;
   onSuccess?: () => void;
 }
 
-export default function DockingSurveyModal({
-  isOpen,
+export default function DockingSurveyModal(props: DockingSurveyModalProps) {
+  // Mount the dialog only while open, so its form state starts fresh each time and hooks never run conditionally.
+  if (!props.isOpen || !props.booking) return null;
+  return <DockingSurveyDialog {...props} booking={props.booking} />;
+}
+
+function DockingSurveyDialog({
   onClose,
   booking,
   surveyReportId,
+  defaultClient = '',
   onSuccess
-}: DockingSurveyModalProps) {
-  if (!isOpen || !booking) return null;
+}: DockingSurveyModalProps & { booking: NonNullable<DockingSurveyModalProps['booking']> }) {
 
   // Derive default values from booking/vessel if available
   const vesselName = typeof booking.vesselId === 'object' && booking.vesselId ? (booking.vesselId as any).vesselName : booking.shipName;
   const vesselMaterial = typeof booking.vesselId === 'object' && booking.vesselId ? (booking.vesselId as any).material || 'Light Alloy' : 'Light Alloy';
 
-  const [client, setClient] = useState('DOLPHINE MARINE COLOMBO (PVT) LTD (MANAGERS)');
+  const [client, setClient] = useState(defaultClient);
   const [surveyLocation, setSurveyLocation] = useState(booking.portOfSurvey || 'DIKKOWITA FISHERIES HARBOUR');
   const [dockingPeriodStart, setDockingPeriodStart] = useState('');
   const [dockingPeriodEnd, setDockingPeriodEnd] = useState('');
@@ -68,6 +79,9 @@ export default function DockingSurveyModal({
   const [overboardValves, setOverboardValves] = useState('Overboard valves have been cleaned, overhauled and examined.');
   const [anodes, setAnodes] = useState('Fourteen (14) nos. of 1.8 kg block-type zinc alloy anodes were renewed at various hull positions and on the rudder.');
 
+  const [additionalRemarks, setAdditionalRemarks] = useState('');
+  const [remarksOpen, setRemarksOpen] = useState(false);
+
   // Preview & Action states
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -109,6 +123,7 @@ export default function DockingSurveyModal({
       rudderBearingPortPS, rudderBearingPortFA, rudderBearingStbdPS, rudderBearingStbdFA,
       overboardValves,
       anodes,
+      additionalRemarks,
       dateOfIssue: new Date().toISOString()
     };
   };
@@ -133,10 +148,10 @@ export default function DockingSurveyModal({
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (remarks: string) => {
     try {
       setGenerating(true);
-      const payload = getPayload();
+      const payload = { ...getPayload(), additionalRemarks: remarks };
 
       // 1. Create certificate in DB
       const res = await firstEntryService.createDockingSurveyCert(payload);
@@ -175,332 +190,155 @@ export default function DockingSurveyModal({
     setPaintDetails(newDetails);
   };
 
+  const pair = (
+    label: string,
+    rows: { side: string; a: [string, string, (v: string) => void]; b: [string, string, (v: string) => void] }[],
+  ) => (
+    <div>
+      <p className={d.subLabel}>{label}</p>
+      <div className={d.pairGrid}>
+        {rows.map(r => (
+          <Fragment key={r.side}>
+            <span className={d.pairSide}>{r.side}</span>
+            <Input aria-label={`${label} ${r.side} ${r.a[0]}`} placeholder={r.a[0]} value={r.a[1]} onChange={e => r.a[2](e.target.value)} />
+            <Input aria-label={`${label} ${r.side} ${r.b[0]}`} placeholder={r.b[0]} value={r.b[1]} onChange={e => r.b[2](e.target.value)} />
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0, 0, 0, 0.65)',
-      backdropFilter: 'blur(5px)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '24px',
-      animation: 'fadeIn 0.2s ease'
-    }}>
-      <div className="card animate-in" style={{
-        maxWidth: '1300px',
-        width: '100%',
-        height: '95vh',
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        boxShadow: 'var(--shadow-xl)',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        padding: 0
-      }}>
-        {/* Modal Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '18px 24px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--surface)'
-        }}>
-          <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--label)', margin: 0, letterSpacing: '-0.02em' }}>
-              DOCKING STATEMENT
-            </h3>
-            <p style={{ fontSize: '11px', color: 'var(--muted)', margin: '4px 0 0 0', fontWeight: 500 }}>
-              Specify survey findings and generate the docking survey certificate.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '24px',
-              fontWeight: 'bold',
-              color: 'var(--muted)',
-              cursor: 'pointer',
-              lineHeight: '1',
-              padding: '4px'
-            }}
-          >
-            &times;
-          </button>
-        </div>
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        dismissible={!generating}
+        size="xl"
+        flush
+        className={d.dialog}
+        title="Docking statement"
+        description={`${vesselName || 'Vessel'} · record the survey findings and generate the docking survey certificate.`}
+        footer={
+          <>
+            <Button onClick={onClose} disabled={generating}>Close</Button>
+            <Button icon={<RefreshCw />} onClick={handlePreview} loading={previewLoading} disabled={generating}>
+              {previewUrl ? 'Update preview' : 'Preview'}
+            </Button>
+            <Button variant="primary" icon={<FileDown />} onClick={() => setRemarksOpen(true)} loading={generating}>
+              Save & generate PDF
+            </Button>
+          </>
+        }
+      >
+        <div className={d.split}>
+          <div className={d.formPane}>
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>General</h3>
+              <FormGrid columns={2}>
+                <Field label="Client"><Input value={client} onChange={e => setClient(e.target.value)} /></Field>
+                <Field label="Survey location"><Input value={surveyLocation} onChange={e => setSurveyLocation(e.target.value)} /></Field>
+                <Field label="Docking start"><Input type="date" value={dockingPeriodStart} onChange={e => setDockingPeriodStart(e.target.value)} /></Field>
+                <Field label="Docking end"><Input type="date" value={dockingPeriodEnd} onChange={e => setDockingPeriodEnd(e.target.value)} /></Field>
+              </FormGrid>
+            </section>
 
-        {/* Modal Body */}
-        <div style={{
-          flex: 1,
-          display: 'grid',
-          gridTemplateColumns: '550px 1fr',
-          overflow: 'hidden'
-        }}>
-          {/* Left Panel: Form Inputs */}
-          <div style={{
-            padding: '24px',
-            borderRight: '1px solid var(--border)',
-            overflowY: 'auto',
-            background: 'var(--surface)'
-          }}>
-            {/* Meta Details */}
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              General Information
-            </h4>
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>Observations</h3>
+              <div className={d.stack}>
+                <Field label="Construction material"><Input value={constructionMaterial} onChange={e => setConstructionMaterial(e.target.value)} /></Field>
+                <Field label="Propeller details"><Input value={propellerDetails} onChange={e => setPropellerDetails(e.target.value)} /></Field>
+                <Field label="Tail shaft bearings"><Input value={tailShaftBearings} onChange={e => setTailShaftBearings(e.target.value)} /></Field>
+                <Field label="Bracket bearing"><Input value={bracketBearing} onChange={e => setBracketBearing(e.target.value)} /></Field>
+              </div>
+            </section>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-              <div>
-                <label className="form-label">Client</label>
-                <input type="text" className="form-input" value={client} onChange={(e) => setClient(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Survey Location</label>
-                <input type="text" className="form-input" value={surveyLocation} onChange={(e) => setSurveyLocation(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Docking Start Date</label>
-                <input type="date" className="form-input" value={dockingPeriodStart} onChange={(e) => setDockingPeriodStart(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Docking End Date</label>
-                <input type="date" className="form-input" value={dockingPeriodEnd} onChange={(e) => setDockingPeriodEnd(e.target.value)} />
-              </div>
-            </div>
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>Measurements & paint</h3>
+              <FormGrid columns={2}>
+                <Field label="Thickness measurements by" full><Input value={thicknessMeasurementsBy} onChange={e => setThicknessMeasurementsBy(e.target.value)} /></Field>
+                <Field label="TM report no."><Input value={tmReportNo} onChange={e => setTmReportNo(e.target.value)} /></Field>
+                <Field label="TM report date"><Input type="date" value={tmReportDate} onChange={e => setTmReportDate(e.target.value)} /></Field>
+                <Field label="Antifouling paint by"><Input value={antifoulingPaintBy} onChange={e => setAntifoulingPaintBy(e.target.value)} /></Field>
+                <Field label="Coating condition"><Input value={coatingCondition} onChange={e => setCoatingCondition(e.target.value)} /></Field>
+              </FormGrid>
 
-            <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-
-            {/* Findings Details */}
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              Observations
-            </h4>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '10px', marginBottom: '16px' }}>
-              <div>
-                <label className="form-label">Construction Material</label>
-                <input type="text" className="form-input" value={constructionMaterial} onChange={(e) => setConstructionMaterial(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Propeller Details</label>
-                <input type="text" className="form-input" value={propellerDetails} onChange={(e) => setPropellerDetails(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Tail Shaft Bearings</label>
-                <input type="text" className="form-input" value={tailShaftBearings} onChange={(e) => setTailShaftBearings(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Bracket Bearing</label>
-                <input type="text" className="form-input" value={bracketBearing} onChange={(e) => setBracketBearing(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              Measurements & Paint
-            </h4>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Thickness Measurements By</label>
-                <input type="text" className="form-input" value={thicknessMeasurementsBy} onChange={(e) => setThicknessMeasurementsBy(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">TM Report No.</label>
-                <input type="text" className="form-input" value={tmReportNo} onChange={(e) => setTmReportNo(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">TM Report Date</label>
-                <input type="date" className="form-input" value={tmReportDate} onChange={(e) => setTmReportDate(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Antifouling Paint By</label>
-                <input type="text" className="form-input" value={antifoulingPaintBy} onChange={(e) => setAntifoulingPaintBy(e.target.value)} />
-              </div>
-              <div>
-                <label className="form-label">Coating Condition</label>
-                <input type="text" className="form-input" value={coatingCondition} onChange={(e) => setCoatingCondition(e.target.value)} />
-              </div>
-            </div>
-
-            <label className="form-label">Paint Details of Under Water (5 Layers)</label>
-            <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-subtle)' }}>
-                    <th style={{ padding: '4px', border: '1px solid var(--border)', width: '30px' }}>Coat</th>
-                    <th style={{ padding: '4px', border: '1px solid var(--border)' }}>Product Name</th>
-                    <th style={{ padding: '4px', border: '1px solid var(--border)' }}>Product Number</th>
-                    <th style={{ padding: '4px', border: '1px solid var(--border)', width: '50px' }}>DFT (µm)</th>
-                    <th style={{ padding: '4px', border: '1px solid var(--border)' }}>Coat Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paintDetails.map((pd, idx) => (
-                    <tr key={idx}>
-                      <td style={{ padding: '2px', border: '1px solid var(--border)', textAlign: 'center' }}>{pd.coatNumber}</td>
-                      <td style={{ padding: '2px', border: '1px solid var(--border)' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none' }} value={pd.productName} onChange={(e) => updatePaintDetail(idx, 'productName', e.target.value)} /></td>
-                      <td style={{ padding: '2px', border: '1px solid var(--border)' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none' }} value={pd.productNumber} onChange={(e) => updatePaintDetail(idx, 'productNumber', e.target.value)} /></td>
-                      <td style={{ padding: '2px', border: '1px solid var(--border)' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none' }} value={pd.dft} onChange={(e) => updatePaintDetail(idx, 'dft', e.target.value)} /></td>
-                      <td style={{ padding: '2px', border: '1px solid var(--border)' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none' }} value={pd.coatType} onChange={(e) => updatePaintDetail(idx, 'coatType', e.target.value)} /></td>
+              <p className={`${d.subLabel} ${d.spaced}`}>Underwater paint details (5 coats)</p>
+              <div className={d.gridTableWrap}>
+                <table className={d.gridTable}>
+                  <thead>
+                    <tr>
+                      <th className={d.num}>Coat</th>
+                      <th>Product name</th>
+                      <th>Product no.</th>
+                      <th>DFT (µm)</th>
+                      <th>Coat type</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {paintDetails.map((pd, idx) => (
+                      <tr key={idx}>
+                        <td className={d.num}>{pd.coatNumber}</td>
+                        <td><input className={d.cellInput} aria-label={`Coat ${pd.coatNumber} product name`} value={pd.productName} onChange={e => updatePaintDetail(idx, 'productName', e.target.value)} /></td>
+                        <td><input className={d.cellInput} aria-label={`Coat ${pd.coatNumber} product number`} value={pd.productNumber} onChange={e => updatePaintDetail(idx, 'productNumber', e.target.value)} /></td>
+                        <td><input className={d.cellInput} aria-label={`Coat ${pd.coatNumber} DFT`} inputMode="decimal" value={pd.dft} onChange={e => updatePaintDetail(idx, 'dft', e.target.value)} /></td>
+                        <td><input className={d.cellInput} aria-label={`Coat ${pd.coatNumber} coat type`} value={pd.coatType} onChange={e => updatePaintDetail(idx, 'coatType', e.target.value)} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
-            <div style={{ borderTop: '1px solid var(--separator)', margin: '20px 0' }} />
-
-            <h4 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary)', marginBottom: '16px' }}>
-              Clearances & Additional
-            </h4>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label">Under Water Plate Renewals</label>
-              <textarea className="form-input" style={{ height: '60px', resize: 'vertical' }} value={plateRenewals} onChange={(e) => setPlateRenewals(e.target.value)} />
-            </div>
-
-            <label className="form-label">a) Stern Tube Bearing Bush Clearance</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px' }}>Port</span>
-              <input type="text" className="form-input" placeholder="P-S" value={sternTubeClearancePortPS} onChange={(e) => setSternTubeClearancePortPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="T-B" value={sternTubeClearancePortTB} onChange={(e) => setSternTubeClearancePortTB(e.target.value)} />
-              <span style={{ fontSize: '12px' }}>Stbd</span>
-              <input type="text" className="form-input" placeholder="P-S" value={sternTubeClearanceStbdPS} onChange={(e) => setSternTubeClearanceStbdPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="T-B" value={sternTubeClearanceStbdTB} onChange={(e) => setSternTubeClearanceStbdTB(e.target.value)} />
-            </div>
-
-            <label className="form-label">b) 'A' Bracket Clearance</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px' }}>Port</span>
-              <input type="text" className="form-input" placeholder="P-S" value={aBracketClearancePortPS} onChange={(e) => setABracketClearancePortPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="T-B" value={aBracketClearancePortTB} onChange={(e) => setABracketClearancePortTB(e.target.value)} />
-              <span style={{ fontSize: '12px' }}>Stbd</span>
-              <input type="text" className="form-input" placeholder="P-S" value={aBracketClearanceStbdPS} onChange={(e) => setABracketClearanceStbdPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="T-B" value={aBracketClearanceStbdTB} onChange={(e) => setABracketClearanceStbdTB(e.target.value)} />
-            </div>
-
-            <label className="form-label">c) Rudder Bearing Bush Clearance</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
-              <span style={{ fontSize: '12px' }}>Port</span>
-              <input type="text" className="form-input" placeholder="P-S" value={rudderBearingPortPS} onChange={(e) => setRudderBearingPortPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="F-A" value={rudderBearingPortFA} onChange={(e) => setRudderBearingPortFA(e.target.value)} />
-              <span style={{ fontSize: '12px' }}>Stbd</span>
-              <input type="text" className="form-input" placeholder="P-S" value={rudderBearingStbdPS} onChange={(e) => setRudderBearingStbdPS(e.target.value)} />
-              <input type="text" className="form-input" placeholder="F-A" value={rudderBearingStbdFA} onChange={(e) => setRudderBearingStbdFA(e.target.value)} />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label">Overboard Valves</label>
-              <textarea className="form-input" style={{ height: '50px', resize: 'vertical' }} value={overboardValves} onChange={(e) => setOverboardValves(e.target.value)} />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label className="form-label">Anodes</label>
-              <textarea className="form-input" style={{ height: '50px', resize: 'vertical' }} value={anodes} onChange={(e) => setAnodes(e.target.value)} />
-            </div>
-            
+            <section className={d.group}>
+              <h3 className={d.groupTitle}>Clearances & additional</h3>
+              <div className={d.stack}>
+                <Field label="Underwater plate renewals"><Textarea rows={2} value={plateRenewals} onChange={e => setPlateRenewals(e.target.value)} /></Field>
+                {pair('a) Stern tube bearing bush clearance', [
+                  { side: 'Port', a: ['P-S', sternTubeClearancePortPS, setSternTubeClearancePortPS], b: ['T-B', sternTubeClearancePortTB, setSternTubeClearancePortTB] },
+                  { side: 'Stbd', a: ['P-S', sternTubeClearanceStbdPS, setSternTubeClearanceStbdPS], b: ['T-B', sternTubeClearanceStbdTB, setSternTubeClearanceStbdTB] },
+                ])}
+                {pair("b) 'A' bracket clearance", [
+                  { side: 'Port', a: ['P-S', aBracketClearancePortPS, setABracketClearancePortPS], b: ['T-B', aBracketClearancePortTB, setABracketClearancePortTB] },
+                  { side: 'Stbd', a: ['P-S', aBracketClearanceStbdPS, setABracketClearanceStbdPS], b: ['T-B', aBracketClearanceStbdTB, setABracketClearanceStbdTB] },
+                ])}
+                {pair('c) Rudder bearing bush clearance', [
+                  { side: 'Port', a: ['P-S', rudderBearingPortPS, setRudderBearingPortPS], b: ['F-A', rudderBearingPortFA, setRudderBearingPortFA] },
+                  { side: 'Stbd', a: ['P-S', rudderBearingStbdPS, setRudderBearingStbdPS], b: ['F-A', rudderBearingStbdFA, setRudderBearingStbdFA] },
+                ])}
+                <Field label="Overboard valves"><Textarea rows={2} value={overboardValves} onChange={e => setOverboardValves(e.target.value)} /></Field>
+                <Field label="Anodes"><Textarea rows={2} value={anodes} onChange={e => setAnodes(e.target.value)} /></Field>
+              </div>
+            </section>
           </div>
 
-          {/* Right Panel: PDF Preview */}
-          <div style={{
-            background: 'var(--bg-subtle)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
+          <div className={d.previewPane}>
             {previewUrl ? (
-              <iframe
-                src={previewUrl}
-                title="Docking Survey PDF Preview"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none'
-                }}
-              />
+              <iframe src={previewUrl} title="Docking survey certificate preview" className={d.preview} />
             ) : (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--muted)',
-                padding: '40px',
-                textAlign: 'center'
-              }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📄</div>
-                <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
-                  No Preview Generated
-                </h4>
-                <p style={{ fontSize: '13px', maxWidth: '320px', lineHeight: '1.5', margin: '0 0 20px 0' }}>
-                  Click "Generate Preview" to review the PDF layout before finalizing the certificate.
-                </p>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handlePreview}
-                  disabled={previewLoading}
-                  style={{ minWidth: '150px' }}
-                >
-                  {previewLoading ? 'Loading...' : 'Generate Preview'}
-                </button>
+              <div className={d.previewEmpty}>
+                <EmptyState
+                  icon={<FileText />}
+                  title="No preview yet"
+                  description="Generate a preview to check the certificate layout before saving."
+                  action={<Button icon={<Eye />} onClick={handlePreview} loading={previewLoading}>Generate preview</Button>}
+                />
               </div>
             )}
           </div>
         </div>
-
-        {/* Modal Footer */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px',
-          padding: '16px 24px',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--surface)'
-        }}>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onClose}
-            disabled={generating}
-            style={{ marginBottom: 0, padding: '10px 20px', borderRadius: '10px' }}
-          >
-            Close
-          </button>
-
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handlePreview}
-            disabled={previewLoading || generating}
-            style={{ marginBottom: 0, padding: '10px 20px', borderRadius: '10px', color: 'var(--primary)', borderColor: 'rgba(59, 130, 246, 0.3)' }}
-          >
-            {previewLoading ? 'Loading Preview...' : 'Update Preview'}
-          </button>
-
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleGenerate}
-            disabled={generating}
-            style={{
-              marginBottom: 0,
-              padding: '10px 20px',
-              borderRadius: '10px',
-            }}
-          >
-            {generating ? 'Generating PDF...' : 'Save & Generate PDF'}
-          </button>
-        </div>
-      </div>
-    </div>
+      </Modal>
+      <AdditionalRemarksModal
+        isOpen={remarksOpen}
+        initialValue={additionalRemarks}
+        confirmText="Save & generate PDF"
+        onCancel={() => setRemarksOpen(false)}
+        onConfirm={(remarks) => {
+          setAdditionalRemarks(remarks);
+          setRemarksOpen(false);
+          handleGenerate(remarks);
+        }}
+      />
+    </>
   );
 }

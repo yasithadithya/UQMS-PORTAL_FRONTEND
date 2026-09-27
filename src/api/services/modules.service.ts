@@ -33,6 +33,8 @@ export const modulesService = {
       method: 'DELETE',
     }).then((res) => {
       invalidateCache(CACHE_KEYS.MODULES);
+      // The backend removes the deleted module from every role's permissions.
+      invalidateCache(CACHE_KEYS.ROLES);
       return res;
     });
   },

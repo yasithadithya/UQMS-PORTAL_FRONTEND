@@ -1,8 +1,9 @@
 import { useMemo, type ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { HR_TAB_GROUPS, findGroupForSubTab } from './hrTabs';
-import s from './hr.module.css';
+import { hrTabLabel, resolveHrTab, visibleHrGroups } from './hrTabs';
+import { PageHeader, Tabs } from '@/ui';
+import { HR_KEYS } from '../../utils/permissions';
 
 import HRDashboard from './HRDashboard';
 import EmployeeList from './EmployeeList';
@@ -43,75 +44,41 @@ const CONTENT: Record<string, (basePath: string) => ReactElement> = {
 export default function HRModulePage({ currentModule }: { currentModule: any }) {
   const { module } = useParams<{ module?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hasPermission } = useAuth();
+  const { can, canAny } = useAuth();
 
   const basePath = `/${module || 'hr'}`;
-  const isHrAdmin = hasPermission('hr', 'update');
+  // Anyone who can read at least one HR area sees the admin views; everyone else gets self-service only.
+  const isHrAdmin = canAny(HR_KEYS);
 
-  const groups = useMemo(
-    () => HR_TAB_GROUPS.filter(g => (isHrAdmin ? true : g.id === 'myhr')),
-    [isHrAdmin]
-  );
+  const groups = useMemo(() => visibleHrGroups(key => can(key), isHrAdmin), [can, isHrAdmin]);
+  const { tab: activeTab, group } = resolveHrTab(groups, searchParams.get('tab'), isHrAdmin);
+  const setTab = (tabId: string) => setSearchParams({ tab: tabId });
 
-  const defaultTab = isHrAdmin ? 'dashboard' : 'myhr';
-  const requestedTab = searchParams.get('tab') || defaultTab;
-  const activeGroup = findGroupForSubTab(requestedTab);
-  const isAllowed = !!activeGroup && groups.some(g => g.id === activeGroup.id);
-  const effectiveGroup = isAllowed ? activeGroup! : findGroupForSubTab(defaultTab)!;
-  const activeTab = isAllowed
-    ? (effectiveGroup.subTabs && effectiveGroup.id === requestedTab
-        ? effectiveGroup.subTabs[0].id
-        : requestedTab)
-    : defaultTab;
+  const render = CONTENT[activeTab] || CONTENT.myhr;
+  const hrName = currentModule?.name || 'HR';
 
-  const setTab = (tabId: string) => {
-    setSearchParams({ tab: tabId }, { replace: false });
-  };
-
-  const onGroupClick = (groupId: string) => {
-    const group = HR_TAB_GROUPS.find(g => g.id === groupId)!;
-    setTab(group.subTabs ? group.subTabs[0].id : group.id);
-  };
-
-  const render = CONTENT[activeTab] || CONTENT[defaultTab];
-
+  // Areas are picked in the sidebar; the page only switches between siblings (e.g. Attendance / Leaves / Holidays).
   return (
-    <div className="animate-in" style={{ padding: '4px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h1 className="greeting" style={{ animation: 'fadeUp .4s ease both' }}>Human Resources</h1>
-          <p style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 500 }}>
-            {isHrAdmin
-              ? 'Manage employees, attendance, leave, payroll, performance, training, and more.'
-              : 'Your personal HR portal — profile, attendance, leave, and payslips.'}
-          </p>
-        </div>
-      </div>
+    <div className="animate-in">
+      <PageHeader
+        breadcrumbs={[
+          { label: hrName, href: basePath },
+          ...(group.subTabs ? [{ label: group.label }] : []),
+          { label: hrTabLabel(activeTab) },
+        ]}
+        title={activeTab === 'dashboard' ? 'Human resources' : hrTabLabel(activeTab)}
+        description={activeTab === 'dashboard'
+          ? 'Employees, attendance, leave, payroll, performance and training at a glance.'
+          : activeTab === 'myhr' ? 'Your profile, attendance, leave and payslips.' : undefined}
+      />
 
-      <div className={s.groupTabs} style={{ marginBottom: effectiveGroup.subTabs ? '14px' : '24px' }}>
-        {groups.map(group => (
-          <button
-            key={group.id}
-            onClick={() => onGroupClick(group.id)}
-            className={`${s.groupTab} ${group.id === effectiveGroup.id ? s.groupTabActive : ''}`}
-          >
-            {group.label}
-          </button>
-        ))}
-      </div>
-
-      {effectiveGroup.subTabs && (
-        <div className={s.subTabs} style={{ marginBottom: '24px' }}>
-          {effectiveGroup.subTabs.map(sub => (
-            <button
-              key={sub.id}
-              onClick={() => setTab(sub.id)}
-              className={`${s.subTab} ${sub.id === activeTab ? s.subTabActive : ''}`}
-            >
-              {sub.label}
-            </button>
-          ))}
-        </div>
+      {group.subTabs && group.subTabs.length > 1 && (
+        <Tabs
+          label={`${group.label} sections`}
+          value={activeTab}
+          onValueChange={setTab}
+          items={group.subTabs.map(st => ({ value: st.id, label: st.label }))}
+        />
       )}
 
       {render(basePath)}

@@ -1,0 +1,117 @@
+/* Queue on the left, side lists on the right from 1280px; stacked below that. */
+.columns,
+.single {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (min-width: 1280px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  }
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ----- Website requests queue ----- */
+.queue {
+  min-width: 0;
+}
+
+.queueHeader {
+  margin-bottom: var(--space-3);
+}
+
+.queueTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.queueTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.queueDescription {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cellStrong {
+  color: var(--color-text-primary);
+}
+
+.cellSub {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+/* ----- Side lists ----- */
+.list {
+  list-style: none;
+}
+
+.list li + li .row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 60px;
+  padding: var(--space-3) var(--space-4);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+a.row:hover {
+  background: var(--color-surface-2);
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowSub {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .row {
+    padding: var(--space-3) var(--space-6);
+  }
+}

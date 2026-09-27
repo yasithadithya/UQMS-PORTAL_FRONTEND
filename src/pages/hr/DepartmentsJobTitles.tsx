@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { Badge, Modal, EmptyRow, Field } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 export default function DepartmentsJobTitles() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<any[]>([]);
@@ -89,9 +89,9 @@ export default function DepartmentsJobTitles() {
   if (loading) return <p className={s.mutedNote}>Loading...</p>;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '24px' }}>
+    <div className={s.twoCol}>
       <div>
-        <div className={s.topBar} style={{ marginBottom: '16px' }}>
+        <div className={s.topBar}>
           <h3 className={s.sectionTitle}>Departments</h3>
           <button className={s.addBtn} onClick={() => setDeptForm({ open: true, editing: null, name: '', description: '', headOfDepartment: '' })}>+ Add</button>
         </div>
@@ -127,7 +127,7 @@ export default function DepartmentsJobTitles() {
       </div>
 
       <div>
-        <div className={s.topBar} style={{ marginBottom: '16px' }}>
+        <div className={s.topBar}>
           <h3 className={s.sectionTitle}>Job Titles</h3>
           <button className={s.addBtn} onClick={() => setTitleForm({ open: true, editing: null, title: '', grade: '', description: '' })}>+ Add</button>
         </div>
@@ -169,22 +169,22 @@ export default function DepartmentsJobTitles() {
           onClose={() => setDeptForm({ ...deptForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setDeptForm({ ...deptForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveDept}>Save</button>
+              <Button variant="secondary" onClick={() => setDeptForm({ ...deptForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveDept}>Save</Button>
             </>
           }
         >
           <Field label="Name" required>
-            <input className="form-input" type="text" value={deptForm.name} onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} />
+            <Input type="text" value={deptForm.name} onChange={e => setDeptForm({ ...deptForm, name: e.target.value })} />
           </Field>
           <Field label="Description">
-            <input className="form-input" type="text" value={deptForm.description} onChange={e => setDeptForm({ ...deptForm, description: e.target.value })} />
+            <Input type="text" value={deptForm.description} onChange={e => setDeptForm({ ...deptForm, description: e.target.value })} />
           </Field>
           <Field label="Head of Department">
-            <select className="form-input" value={deptForm.headOfDepartment} onChange={e => setDeptForm({ ...deptForm, headOfDepartment: e.target.value })}>
+            <Select value={deptForm.headOfDepartment} onChange={e => setDeptForm({ ...deptForm, headOfDepartment: e.target.value })}>
               <option value="">None</option>
               {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-            </select>
+            </Select>
           </Field>
         </Modal>
       )}
@@ -196,29 +196,29 @@ export default function DepartmentsJobTitles() {
           onClose={() => setTitleForm({ ...titleForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setTitleForm({ ...titleForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveTitle}>Save</button>
+              <Button variant="secondary" onClick={() => setTitleForm({ ...titleForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveTitle}>Save</Button>
             </>
           }
         >
           <Field label="Title" required>
-            <input className="form-input" type="text" value={titleForm.title} onChange={e => setTitleForm({ ...titleForm, title: e.target.value })} />
+            <Input type="text" value={titleForm.title} onChange={e => setTitleForm({ ...titleForm, title: e.target.value })} />
           </Field>
           <Field label="Grade">
-            <input className="form-input" type="text" value={titleForm.grade} onChange={e => setTitleForm({ ...titleForm, grade: e.target.value })} placeholder="e.g. G5" />
+            <Input type="text" value={titleForm.grade} onChange={e => setTitleForm({ ...titleForm, grade: e.target.value })} placeholder="e.g. G5" />
           </Field>
           <Field label="Description">
-            <input className="form-input" type="text" value={titleForm.description} onChange={e => setTitleForm({ ...titleForm, description: e.target.value })} />
+            <Input type="text" value={titleForm.description} onChange={e => setTitleForm({ ...titleForm, description: e.target.value })} />
           </Field>
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!confirm}
+      <ConfirmDialog
+        open={!!confirm}
         title={confirm?.kind === 'dept' ? 'Delete Department' : 'Delete Job Title'}
         message="This is blocked if any active employee is still assigned to it."
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setConfirm(null)}
         onConfirm={doDelete}
       />

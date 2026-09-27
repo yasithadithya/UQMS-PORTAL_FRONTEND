@@ -89,6 +89,7 @@ export const CACHE_KEYS = {
   VESSEL_CODES: 'vesselCodes:list',
   VESSELS: 'vessels:list',
   USERS: 'users:list',
+  USER_DIRECTORY: 'users:directory',
   ROLES: 'roles:list',
   MODULES: 'modules:list',
   HR_EMPLOYEES: 'hr:employees',

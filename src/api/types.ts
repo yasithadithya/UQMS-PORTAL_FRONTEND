@@ -27,8 +27,25 @@ export interface ApiModule {
   description?: string;
   parentId?: string | ApiModule;
   order?: number;
+  /** Stable identifier of a system module (e.g. "marine.bookings"); permissions are checked by key. */
+  key?: string;
+  isSystem?: boolean;
+  /** false = permission-only module, not shown in navigation. */
+  navigable?: boolean;
+  /** Actions that can be granted on this module. */
+  actions?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Minimal user record returned by /users/directory (for pickers). */
+export interface ApiUserDirectoryEntry {
+  _id: string;
+  id: string;
+  username: string;
+  fullName?: string;
+  nameWithInitials?: string;
+  empNumber?: string;
 }
 
 export interface ApiRolePermission {
@@ -99,6 +116,8 @@ export interface ApiRequest {
   _id: string;
   requestNumber: string;
   rfsDocNo?: string;
+  /** Assigned on creation (staff) or on acceptance (website). */
+  jobNumber?: string;
   vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
@@ -119,6 +138,9 @@ export interface ApiRequest {
   status: 'active' | 'print' | 'reject' | 'success';
   /** Where the request came from. Absent on records created before this was tracked. */
   source?: 'staff' | 'web';
+  /** Review state of website requests. Absent on records created before this was tracked. */
+  approvalStatus?: 'pending' | 'accepted' | 'rejected';
+  reviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -420,6 +442,7 @@ export interface ApiSCCCOS {
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
   surveyorName?: string;
+  additionalRemarks?: string;
   dateOfIssue: string;
   issuedBy: ApiUser | string;
   eSignature?: ApiESignature;
@@ -468,6 +491,7 @@ export interface ApiDockingSurveyCert {
 
   overboardValves: string;
   anodes: string;
+  additionalRemarks?: string;
   dateOfIssue: string;
   eSignature?: ApiESignature;
   
@@ -551,6 +575,7 @@ export interface ApiSurveyReport {
   toiletCount: number;
   hasGalley: boolean;
   galleyRemarks?: string;
+  additionalRemarks?: string;
   machinery: {
     mainEngineFuelType: string;
     auxEngineCount: number;
@@ -625,3 +650,102 @@ export interface ApiSignatureStatus {
     location: string;
   } | null;
 }
+
+// ───────────── Finance ─────────────
+
+export type FeeCategory = 'survey' | 'transport' | 'additional';
+export type FeeCurrency = 'USD' | 'LKR';
+export type FeeUnit = 'visit' | 'trip' | 'hour' | 'lump sum';
+
+/** One line of the survey fee structure. Quotations copy its values, so edits never change issued quotations. */
+export interface ApiFeeItem {
+  _id: string;
+  name: string;
+  category: FeeCategory;
+  currency: FeeCurrency;
+  /** Published list fee, before discount. */
+  standardRate?: number;
+  /** Current prevailing fee, used on new quotation lines. */
+  rate: number;
+  unit: FeeUnit;
+  notes?: string;
+  isActive: boolean;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type FeeItemPayload = Omit<ApiFeeItem, '_id' | 'createdAt' | 'updatedAt' | 'standardRate'> & { standardRate?: number | null };
+
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'superseded';
+
+export interface QuotationLineItem {
+  feeItem?: string;
+  description: string;
+  currency: FeeCurrency;
+  rate: number;
+  quantity: number;
+  amountLkr: number;
+}
+
+export interface QuotationClient {
+  companyName: string;
+  address?: string;
+  contactPerson?: string;
+  email?: string;
+}
+
+type UserRef = { _id: string; username?: string; email?: string };
+
+export interface ApiQuotation {
+  _id: string;
+  request: string | (Pick<ApiRequest, '_id' | 'requestNumber' | 'jobNumber' | 'rfsDocNo' | 'vesselName' | 'companyName' | 'status'>);
+  requestNumber: string;
+  jobNumber?: string;
+  baseNumber: string;
+  revision: number;
+  quotationNumber: string;
+  quotationDate: string;
+  title: string;
+  vesselName?: string;
+  client: QuotationClient;
+  /** LKR per 1 USD. */
+  exchangeRate: number;
+  lineItems: QuotationLineItem[];
+  totalLkr: number;
+  notes: string[];
+  paymentTerms: string[];
+  preparedByName?: string;
+  preparedByDesignation?: string;
+  status: QuotationStatus;
+  statusReason?: string;
+  statusChangedAt?: string;
+  statusChangedBy?: string | UserRef;
+  revisedFrom?: string | { _id: string; quotationNumber: string; status: QuotationStatus };
+  createdBy?: string | UserRef;
+  updatedBy?: string | UserRef;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type QuotationPayload = {
+  request: string;
+  revisedFrom?: string;
+  status?: 'draft' | 'sent';
+  quotationDate: string;
+  title: string;
+  vesselName?: string;
+  client: QuotationClient;
+  exchangeRate: number;
+  lineItems: Omit<QuotationLineItem, 'amountLkr'>[];
+  notes: string[];
+  paymentTerms: string[];
+  preparedByName?: string;
+  preparedByDesignation?: string;
+};
+
+/** A request with no quotation yet, as listed when creating one. */
+export type QuotableRequest = Pick<
+  ApiRequest,
+  '_id' | 'requestNumber' | 'jobNumber' | 'rfsDocNo' | 'vesselName' | 'companyName' | 'contactPersonName' | 'companyEmail' | 'registerdAddress' | 'invoicingAddress' | 'status' | 'createdAt'
+>;

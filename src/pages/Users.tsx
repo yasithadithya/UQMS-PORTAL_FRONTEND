@@ -1,43 +1,78 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
+import { Pencil, Trash2, UserPlus, Users as UsersIcon, SearchX } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import s from './UserManagement.module.css';
+import { MODULE_KEYS, isSuperAdminRole } from '@/utils/permissions';
+import Pagination from '@/components/Pagination';
+import {
+    Badge, Button, ConfirmDialog, DataTable, Field, FormGrid, IconButton, Input, Modal, PageHeader, SearchInput, Select, Toolbar,
+    type Column,
+} from '@/ui';
+import s from './Users.module.css';
+
+type FormState = {
+    username: string; email: string; password: string; role: string; fullName: string;
+    nameWithInitials: string; phoneNumber: string; address: string; dob: string; empNumber: string;
+};
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+const EMPTY_FORM: FormState = {
+    username: '', email: '', password: '', role: '', fullName: '', nameWithInitials: '', phoneNumber: '', address: '', dob: '', empNumber: '',
+};
+
+const initialsOf = (name: string) =>
+    name.split(/[\s._-]+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2) || '?';
+
+const roleNameOf = (user: any): string =>
+    typeof user.role === 'object' && user.role ? user.role.roleName : String(user.role || '');
 
 export default function UsersPage() {
-    const { users, roles, addUser, updateUser, deleteUser, hasPermission } = useAuth();
-    const canDeleteUser = hasPermission('Admin', 'delete') || hasPermission('User Management', 'delete');
+    const { users, roles, addUser, updateUser, deleteUser, can, isSuperAdmin, user: currentUser } = useAuth();
+    const canCreateUser = can(MODULE_KEYS.adminUsers, 'create');
+    const canUpdateUser = can(MODULE_KEYS.adminUsers, 'update');
+    const canDeleteUser = can(MODULE_KEYS.adminUsers, 'delete');
+    // Only a super admin may assign the admin role or manage users who hold it (enforced by the backend too).
+    const assignableRoles = roles.filter(r => isSuperAdmin || !isSuperAdminRole(r));
+    const isProtectedUser = (u: any) => !isSuperAdmin && typeof u.role === 'object' && isSuperAdminRole(u.role);
+    const isSelf = (u: any) => (u._id || u.id) === currentUser?.id;
+
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        password: '',
-        role: '',
-        fullName: '',
-        nameWithInitials: '',
-        phoneNumber: '',
-        address: '',
-        dob: '',
-        empNumber: '',
-    });
-    const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
+    const [formData, setFormData] = useState<FormState>(EMPTY_FORM);
+    const [errors, setErrors] = useState<FormErrors>({});
     const [formError, setFormError] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    // List controls (client-side: the users list is already loaded in full)
+    const [query, setQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(25);
+
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        return users.filter((u: any) => {
+            if (roleFilter && roleNameOf(u) !== roleFilter) return false;
+            if (!q) return true;
+            return [u.username, u.fullName, u.email, u.phoneNumber, u.empNumber].some((v) => v && String(v).toLowerCase().includes(q));
+        });
+    }, [users, query, roleFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+    const currentPage = Math.min(page, totalPages);
+    const pageRows = filtered.slice((currentPage - 1) * limit, currentPage * limit);
+
+    const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+        setFormData((p) => ({ ...p, [key]: value }));
+        if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
+    };
 
     const openAdd = () => {
         setEditingUser(null);
-        setFormData({
-            username: '',
-            email: '',
-            password: '',
-            role: roles.length > 0 ? roles[0]._id : '',
-            fullName: '',
-            nameWithInitials: '',
-            phoneNumber: '',
-            address: '',
-            dob: '',
-            empNumber: '',
-        });
+        setFormData({ ...EMPTY_FORM, role: assignableRoles.length > 0 ? assignableRoles[0]._id : '' });
+        setErrors({});
         setFormError('');
         setShowModal(true);
     };
@@ -65,19 +100,29 @@ export default function UsersPage() {
             dob: dobStr,
             empNumber: user.empNumber || '',
         });
+        setErrors({});
         setFormError('');
         setShowModal(true);
     };
 
+    const validate = (): FormErrors => {
+        const e: FormErrors = {};
+        if (!formData.username.trim()) e.username = 'Enter a username.';
+        else if (formData.username.trim().length < 3) e.username = 'Use at least 3 characters.';
+        if (!formData.email.trim()) e.email = 'Enter an email address.';
+        else if (!/^\S+@\S+\.\S+$/.test(formData.email.trim())) e.email = 'Enter a valid email address.';
+        if (!formData.fullName.trim()) e.fullName = 'Enter the full name.';
+        if (!formData.phoneNumber.trim()) e.phoneNumber = 'Enter a phone number.';
+        if (!formData.role) e.role = 'Choose a role.';
+        if (!editingUser && !formData.password) e.password = 'Set a password for the new user.';
+        else if (formData.password && formData.password.length < 6) e.password = 'Use at least 6 characters.';
+        return e;
+    };
+
     const handleSave = async () => {
-        if (!formData.username || !formData.email || !formData.role || !formData.fullName || !formData.phoneNumber) {
-            setFormError('Username, email, role, full name, and phone number are required.');
-            return;
-        }
-        if (!editingUser && !formData.password) {
-            setFormError('Password is required for new users.');
-            return;
-        }
+        const found = validate();
+        setErrors(found);
+        if (Object.values(found).some(Boolean)) return;
 
         setSaving(true);
         setFormError('');
@@ -102,9 +147,9 @@ export default function UsersPage() {
                 const result = await updateUser(userId, payload);
                 if (!result.success) {
                     setFormError(result.error || 'Failed to update user');
-                    setSaving(false);
                     return;
                 }
+                toast.success(`${formData.username} updated.`);
             } else {
                 const result = await addUser({
                     username: formData.username,
@@ -120,9 +165,9 @@ export default function UsersPage() {
                 });
                 if (!result.success) {
                     setFormError(result.error || 'Failed to create user');
-                    setSaving(false);
                     return;
                 }
+                toast.success(`${formData.username} added.`);
             }
             setShowModal(false);
         } catch (err: any) {
@@ -132,9 +177,12 @@ export default function UsersPage() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        const result = await deleteUser(id);
-        setDeleteConfirm(null);
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        const result = await deleteUser(deleteTarget._id || deleteTarget.id);
+        setDeleting(false);
+        setDeleteTarget(null);
         if (result.success) {
             toast.success('User deleted.');
         } else {
@@ -142,365 +190,168 @@ export default function UsersPage() {
         }
     };
 
-    const getInitials = (username: string) => {
-        return username
-            .split(/[\s._-]+/)
-            .map((p) => p[0])
-            .join('')
-            .toUpperCase()
-            .slice(0, 2);
-    };
+    const roleNames = useMemo(() => Array.from(new Set(users.map(roleNameOf).filter(Boolean))).sort(), [users]);
 
-    const getRoleName = (user: any): string => {
-        if (typeof user.role === 'object' && user.role) return user.role.roleName;
-        return String(user.role || '');
-    };
+    const columns: Column<any>[] = [
+        {
+            key: 'user', header: 'User', primary: true,
+            cell: (u) => (
+                <div className={s.userCell}>
+                    <span className={`${s.avatar} ${isSuperAdminRole(u.role) ? s.avatarAdmin : ''}`} aria-hidden="true">
+                        {initialsOf(u.fullName || u.username)}
+                    </span>
+                    <span className={s.stack}>
+                        <span className={s.name}>
+                            {u.fullName || u.username}
+                            {isSelf(u) && <Badge tone="info">You</Badge>}
+                        </span>
+                        <span className={s.sub}>@{u.username}</span>
+                    </span>
+                </div>
+            ),
+        },
+        {
+            key: 'contact', header: 'Contact',
+            cell: (u) => (
+                <span className={s.stack}>
+                    <span>{u.email}</span>
+                    {u.phoneNumber && <span className={s.sub}>{u.phoneNumber}</span>}
+                </span>
+            ),
+        },
+        {
+            key: 'role', header: 'Role', nowrap: true,
+            cell: (u) => <Badge tone={isSuperAdminRole(u.role) ? 'accent' : 'neutral'} className={s.role}>{roleNameOf(u) || 'No role'}</Badge>,
+        },
+        { key: 'emp', header: 'Emp. no.', nowrap: true, hideOnMobile: true, cell: (u) => <span className="tabular">{u.empNumber || '—'}</span> },
+    ];
 
-    const roleColors: Record<string, string> = {
-        admin: '#EF4444',
-        inspector: '#3B82F6',
-        'senior inspector': '#8B5CF6',
-        surveyor: '#F59E0B',
-    };
+    const createButton = canCreateUser && (
+        <Button variant="primary" icon={<UserPlus />} onClick={openAdd} id="add-user-btn">Add user</Button>
+    );
 
-    const getRoleColor = (user: any) => {
-        const name = getRoleName(user).toLowerCase();
-        return roleColors[name] || '#007AFF';
-    };
+    const editingSelf = !!editingUser && isSelf(editingUser);
 
     return (
-        <>
-            <div className={s.topBar}>
-                <div>
-                    <h2 className="section-header" style={{ marginBottom: '4px' }}>User Management</h2>
-                    <p style={{ fontSize: '13px', color: 'var(--muted)' }}>{users.length} users registered</p>
-                </div>
-                <button className={s.addBtn} onClick={openAdd} id="add-user-btn">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Add User
-                </button>
-            </div>
+        <div className="animate-in">
+            <PageHeader
+                breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Users' }]}
+                title="Users"
+                description="People who can sign in, and the role that decides what each of them can see and do."
+                actions={createButton}
+            />
 
-            {/* Desktop Table */}
-            <div className={s.tableWrap}>
-                <table className={s.table}>
-                    <thead>
-                        <tr>
-                            <th>User / Name</th>
-                            <th>Contact</th>
-                            <th>Role</th>
-                            <th>Emp No</th>
-                            <th style={{ width: '120px' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {users.map((user) => {
-                            const userId = user._id || user.id || '';
-                            return (
-                                <tr key={userId}>
-                                    <td>
-                                        <div className={s.userCell}>
-                                            <div
-                                                className={s.avatar}
-                                                style={{ background: `linear-gradient(135deg, ${getRoleColor(user)}, #6366F1)` }}
-                                            >
-                                                {getInitials(user.fullName || user.username)}
-                                            </div>
-                                            <div>
-                                                <div className={s.userName}>{user.username}</div>
-                                                <div style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '2px' }}>{user.fullName}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div className={s.emailCell}>{user.email}</div>
-                                        <div style={{ fontSize: '12.5px', color: 'var(--muted)', marginTop: '2.5px' }}>{user.phoneNumber}</div>
-                                    </td>
-                                    <td>
-                                        <span
-                                            className={s.roleBadge}
-                                            style={{
-                                                background: `${getRoleColor(user)}14`,
-                                                color: getRoleColor(user),
-                                            }}
-                                        >
-                                            {getRoleName(user)}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>{user.empNumber || '-'}</span>
-                                    </td>
-                                    <td>
-                                        <div className={s.actions}>
-                                            <button className={s.actionBtn} onClick={() => openEdit(user)} title="Edit">
-                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            </button>
-                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} title="Delete" disabled={!canDeleteUser}>
-                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <Toolbar
+                attached
+                search={<SearchInput value={query} onChange={(v) => { setQuery(v); setPage(1); }} placeholder="Search name, username, email or employee no…" />}
+                filters={
+                    <Select aria-label="Filter by role" value={roleFilter} onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }} className={s.roleFilter}>
+                        <option value="">All roles</option>
+                        {roleNames.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </Select>
+                }
+                end={`${filtered.length} of ${users.length} users`}
+            />
+            <DataTable
+                attached
+                caption="Users"
+                columns={columns}
+                rows={pageRows}
+                getRowId={(u) => u._id || u.id}
+                onRowClick={(u) => { if (!(isProtectedUser(u) || (!canUpdateUser && !isSelf(u)))) openEdit(u); }}
+                empty={query || roleFilter
+                    ? { icon: <SearchX />, title: 'No matching users', description: 'Try a different search or role.' }
+                    : { icon: <UsersIcon />, title: 'No users yet', action: createButton }}
+                rowActions={(u) => (
+                    <>
+                        <IconButton label={`Edit ${u.username}`} icon={<Pencil />} size="sm"
+                            onClick={() => openEdit(u)} disabled={isProtectedUser(u) || (!canUpdateUser && !isSelf(u))} />
+                        <IconButton label={isSelf(u) ? "You can't delete yourself" : `Delete ${u.username}`} icon={<Trash2 />} size="sm" variant="dangerGhost"
+                            onClick={() => setDeleteTarget(u)} disabled={!canDeleteUser || isProtectedUser(u) || isSelf(u)} />
+                    </>
+                )}
+                footer={
+                    <Pagination page={currentPage} limit={limit} total={filtered.length} totalPages={totalPages} onPageChange={setPage} onLimitChange={(v) => { setLimit(v); setPage(1); }} />
+                }
+            />
 
-            {/* Mobile Cards */}
-            <div className={s.mobileCards}>
-                {users.map((user) => {
-                    const userId = user._id || user.id || '';
-                    return (
-                        <div key={userId} className={s.mobileCard}>
-                            <div className={s.mobileCardTop}>
-                                <div
-                                    className={s.avatar}
-                                    style={{ background: `linear-gradient(135deg, ${getRoleColor(user)}, #6366F1)` }}
-                                >
-                                    {getInitials(user.fullName || user.username)}
-                                </div>
-                                <div className={s.mobileCardInfo}>
-                                    <div className={s.userName}>{user.username}</div>
-                                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--label)', marginTop: '2px' }}>{user.fullName}</div>
-                                    <div className={s.mobileEmail}>{user.email}</div>
-                                    <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px' }}>📞 {user.phoneNumber}</div>
-                                    {user.empNumber && <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>Emp No: {user.empNumber}</div>}
-                                </div>
-                            </div>
-                            <div className={s.mobileCardBottom}>
-                                <span
-                                    className={s.roleBadge}
-                                    style={{
-                                        background: `${getRoleColor(user)}14`,
-                                        color: getRoleColor(user),
-                                    }}
-                                >
-                                    {getRoleName(user)}
-                                </span>
-                                <div className={s.actions}>
-                                    <button className={s.actionBtn} onClick={() => openEdit(user)}>Edit</button>
-                                    <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} disabled={!canDeleteUser}>Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+            <Modal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                dismissible={!saving}
+                size="lg"
+                title={editingUser ? `Edit ${editingUser.username}` : 'Add user'}
+                description={editingUser ? undefined : 'They can sign in with their username or email and this password.'}
+                footer={
+                    <>
+                        <Button onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
+                        <Button variant="primary" onClick={handleSave} loading={saving} id="user-save-btn">
+                            {editingUser ? 'Save changes' : 'Add user'}
+                        </Button>
+                    </>
+                }
+            >
+                {formError && <p className={s.formError} role="alert">{formError}</p>}
+                <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} noValidate>
+                    <FormGrid columns={2}>
+                        <Field label="Full name" required error={errors.fullName} id="user-fullname-input">
+                            <Input placeholder="John Doe" value={formData.fullName} onChange={(e) => set('fullName', e.target.value)} autoFocus />
+                        </Field>
+                        <Field label="Name with initials" hint="Used on surveyor stamps and signatures" id="user-namewithinitials-input">
+                            <Input placeholder="J. Doe" value={formData.nameWithInitials} onChange={(e) => set('nameWithInitials', e.target.value)} />
+                        </Field>
+                        <Field label="Username" required error={errors.username} id="user-username-input">
+                            <Input placeholder="e.g. johndoe" autoComplete="off" value={formData.username} onChange={(e) => set('username', e.target.value)} />
+                        </Field>
+                        <Field label="Email" required error={errors.email} id="user-email-input">
+                            <Input type="email" inputMode="email" placeholder="john@example.com" value={formData.email} onChange={(e) => set('email', e.target.value)} />
+                        </Field>
+                        <Field label="Phone number" required error={errors.phoneNumber} id="user-phonenumber-input">
+                            <Input type="tel" inputMode="tel" placeholder="+94 77 123 4567" value={formData.phoneNumber} onChange={(e) => set('phoneNumber', e.target.value)} />
+                        </Field>
+                        <Field label="Role" required error={errors.role} id="user-role-select"
+                            hint={editingSelf ? "You can't change your own role." : undefined}>
+                            <Select value={formData.role} disabled={editingSelf} onChange={(e) => set('role', e.target.value)}>
+                                {roles.length === 0 && <option value="">No roles available</option>}
+                                {roles.filter(r => assignableRoles.includes(r) || r._id === formData.role).map((r) => (
+                                    <option key={r._id} value={r._id}>{r.roleName}</option>
+                                ))}
+                            </Select>
+                        </Field>
+                        <Field label="Employee no." id="user-empnumber-input">
+                            <Input placeholder="EMP001" value={formData.empNumber} onChange={(e) => set('empNumber', e.target.value)} />
+                        </Field>
+                        <Field label="Date of birth" id="user-dob-input">
+                            <Input type="date" value={formData.dob} onChange={(e) => set('dob', e.target.value)} />
+                        </Field>
+                        <Field label="Address" full id="user-address-input">
+                            <Input placeholder="123 Main St, City" value={formData.address} onChange={(e) => set('address', e.target.value)} />
+                        </Field>
+                        <Field
+                            label={editingUser ? 'New password' : 'Password'}
+                            required={!editingUser}
+                            full
+                            error={errors.password}
+                            hint={editingUser ? 'Leave blank to keep the current password.' : 'At least 6 characters.'}
+                            id="user-password-input"
+                        >
+                            <Input type="password" autoComplete="new-password" value={formData.password} onChange={(e) => set('password', e.target.value)} />
+                        </Field>
+                    </FormGrid>
+                    <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+                </form>
+            </Modal>
 
-            {/* Add/Edit Modal */}
-            {showModal && (
-                <div className={s.overlay} onClick={() => setShowModal(false)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-                        <div className={s.modalHeader}>
-                            <h3 className={s.modalTitle}>{editingUser ? 'Edit User' : 'Add New User'}</h3>
-                            <button className={s.closeBtn} onClick={() => setShowModal(false)}>✕</button>
-                        </div>
-
-                        <div className={s.modalBody} style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
-                            {formError && (
-                                <div
-                                    style={{
-                                        background: 'var(--red-subtle)',
-                                        color: 'var(--red)',
-                                        fontSize: '13px',
-                                        fontWeight: 500,
-                                        padding: '10px 14px',
-                                        borderRadius: '10px',
-                                        marginBottom: '16px',
-                                        textAlign: 'center',
-                                        border: '1px solid rgba(239,68,68,.15)',
-                                    }}
-                                >
-                                    {formError}
-                                </div>
-                            )}
-
-                            <div className={s.modalGrid}>
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Username <span style={{ color: 'var(--red)' }}>*</span></label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="e.g. johndoe"
-                                        value={formData.username}
-                                        onChange={(e) => setFormData((p) => ({ ...p, username: e.target.value }))}
-                                        id="user-username-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Email Address <span style={{ color: 'var(--red)' }}>*</span></label>
-                                    <input
-                                        className="form-input"
-                                        type="email"
-                                        placeholder="e.g. john@example.com"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))}
-                                        id="user-email-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Full Name <span style={{ color: 'var(--red)' }}>*</span></label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="John Doe"
-                                        value={formData.fullName}
-                                        onChange={(e) => setFormData((p) => ({ ...p, fullName: e.target.value }))}
-                                        id="user-fullname-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Name with Initials</label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="J. Doe"
-                                        value={formData.nameWithInitials}
-                                        onChange={(e) => setFormData((p) => ({ ...p, nameWithInitials: e.target.value }))}
-                                        id="user-namewithinitials-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Phone Number <span style={{ color: 'var(--red)' }}>*</span></label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="+1234567890"
-                                        value={formData.phoneNumber}
-                                        onChange={(e) => setFormData((p) => ({ ...p, phoneNumber: e.target.value }))}
-                                        id="user-phonenumber-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Employee Number</label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="EMP001"
-                                        value={formData.empNumber}
-                                        onChange={(e) => setFormData((p) => ({ ...p, empNumber: e.target.value }))}
-                                        id="user-empnumber-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Date of Birth</label>
-                                    <input
-                                        className="form-input"
-                                        type="date"
-                                        value={formData.dob}
-                                        onChange={(e) => setFormData((p) => ({ ...p, dob: e.target.value }))}
-                                        id="user-dob-input"
-                                    />
-                                </div>
-
-                                <div className={s.fieldGroup}>
-                                    <label className="form-label">Role <span style={{ color: 'var(--red)' }}>*</span></label>
-                                    <select
-                                        className="form-input"
-                                        value={formData.role}
-                                        onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))}
-                                        id="user-role-select"
-                                    >
-                                        {roles.length === 0 && <option value="">No roles available</option>}
-                                        {roles.map((r) => (
-                                            <option key={r._id} value={r._id}>
-                                                {r.roleName}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className={`${s.fieldGroup} ${s.fullWidth}`}>
-                                    <label className="form-label">Address</label>
-                                    <input
-                                        className="form-input"
-                                        type="text"
-                                        placeholder="123 Main St, City, Country"
-                                        value={formData.address}
-                                        onChange={(e) => setFormData((p) => ({ ...p, address: e.target.value }))}
-                                        id="user-address-input"
-                                    />
-                                </div>
-
-                                <div className={`${s.fieldGroup} ${s.fullWidth}`}>
-                                    <label className="form-label">
-                                        Password {editingUser && <span style={{ fontWeight: 400, color: 'var(--separator)' }}>(leave blank to keep current)</span>} {!editingUser && <span style={{ color: 'var(--red)' }}>*</span>}
-                                    </label>
-                                    <input
-                                        className="form-input"
-                                        type="password"
-                                        placeholder={editingUser ? 'Leave blank to keep current' : 'Min 6 characters'}
-                                        value={formData.password}
-                                        onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
-                                        id="user-password-input"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className={s.modalFooter}>
-                            <button
-                                className="btn-secondary"
-                                style={{ width: '100%', minWidth: 0 }}
-                                onClick={() => setShowModal(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn-primary"
-                                style={{ width: '100%', minWidth: 0, marginBottom: 0 }}
-                                onClick={handleSave}
-                                disabled={saving}
-                                id="user-save-btn"
-                            >
-                                {saving ? 'Saving…' : editingUser ? 'Save Changes' : 'Add User'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation */}
-            {deleteConfirm && (
-                <div className={s.overlay} onClick={() => setDeleteConfirm(null)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px' }}>
-                        <div className={s.modalBody} style={{ textAlign: 'center', padding: '28px 24px' }}>
-                            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
-                            <h3 className={s.modalTitle} style={{ marginBottom: '8px' }}>Delete User?</h3>
-                            <p style={{ fontSize: '13px', color: 'var(--muted)' }}>This action cannot be undone.</p>
-                        </div>
-                        <div className={s.modalFooter}>
-                            <button
-                                className="btn-secondary"
-                                style={{ width: '100%', minWidth: 0 }}
-                                onClick={() => setDeleteConfirm(null)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn-primary"
-                                style={{ width: '100%', minWidth: 0, marginBottom: 0, background: 'var(--red)' }}
-                                onClick={() => handleDelete(deleteConfirm)}
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title={`Delete ${deleteTarget?.fullName || deleteTarget?.username || 'user'}?`}
+                message="They will no longer be able to sign in. This can't be undone."
+                confirmText="Delete user"
+                destructive
+                loading={deleting}
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
+        </div>
     );
 }

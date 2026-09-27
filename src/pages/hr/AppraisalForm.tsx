@@ -4,6 +4,7 @@ import { hrService } from '../../api';
 import { Modal, Field } from './hrShared';
 import s from './hr.module.css';
 
+import { Button, Input, Select, Textarea } from '@/ui';
 interface RatingRow {
   criteria: string;
   rating: number;
@@ -71,9 +72,9 @@ export default function AppraisalForm({
 
   const footer = (
     <>
-      <button className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-      <button className="btn-secondary" onClick={() => save(false)} disabled={saving}>Save Draft</button>
-      <button className="btn-primary" onClick={() => save(true)} disabled={saving}>Submit</button>
+      <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
+      <Button variant="secondary" onClick={() => save(false)} disabled={saving}>Save Draft</Button>
+      <Button variant="primary" onClick={() => save(true)} disabled={saving}>Submit</Button>
     </>
   );
 
@@ -81,52 +82,52 @@ export default function AppraisalForm({
     <Modal title={appraisal ? 'Edit Appraisal (Draft)' : 'New Appraisal'} onClose={onClose} size="wide" footer={footer}>
       <div className={`${s.modalGrid} ${s.modalGrid3}`}>
         <Field label="Employee" required>
-          <select className="form-input" value={employee} onChange={e => setEmployee(e.target.value)} disabled={!!appraisal}>
+          <Select value={employee} onChange={e => setEmployee(e.target.value)} disabled={!!appraisal}>
             <option value="">Select</option>
             {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Cycle" required>
-          <select className="form-input" value={cycle} onChange={e => setCycle(e.target.value)} disabled={!!appraisal}>
+          <Select value={cycle} onChange={e => setCycle(e.target.value)} disabled={!!appraisal}>
             <option value="">Select</option>
             {cycles.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Reviewer" required>
-          <select className="form-input" value={reviewer} onChange={e => setReviewer(e.target.value)}>
+          <Select value={reviewer} onChange={e => setReviewer(e.target.value)}>
             <option value="">Select</option>
             {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName}</option>)}
-          </select>
+          </Select>
         </Field>
       </div>
 
-      <div style={{ marginBottom: '16px' }}>
+      <div className={s.spaced}>
         <div className={s.dynHead}>
-          <label className="form-label" style={{ marginBottom: 0 }}>Ratings (1–5)</label>
+          <span className={s.groupLabel}>Ratings (1–5)</span>
           <button className={s.actionBtn} onClick={() => setRatings([...ratings, { criteria: '', rating: 3, comments: '' }])}>
             + Add Criteria
           </button>
         </div>
         {ratings.map((r, i) => (
-          <div key={i} className={s.dynRow} style={{ gridTemplateColumns: '2fr 80px 2fr auto' }}>
-            <input className="form-input" style={{ marginBottom: 0 }} type="text" placeholder="Criteria" value={r.criteria} onChange={e => updateRating(i, { criteria: e.target.value })} />
-            <select className="form-input" style={{ marginBottom: 0 }} value={r.rating} onChange={e => updateRating(i, { rating: Number(e.target.value) })}>
+          <div key={i} className={`${s.dynRow} ${s.dynRatings}`}>
+            <Input type="text" placeholder="Criteria" value={r.criteria} onChange={e => updateRating(i, { criteria: e.target.value })} />
+            <Select value={r.rating} onChange={e => updateRating(i, { rating: Number(e.target.value) })}>
               {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <input className="form-input" style={{ marginBottom: 0 }} type="text" placeholder="Comments" value={r.comments} onChange={e => updateRating(i, { comments: e.target.value })} />
+            </Select>
+            <Input type="text" placeholder="Comments" value={r.comments} onChange={e => updateRating(i, { comments: e.target.value })} />
             <button className={s.iconBtn} onClick={() => setRatings(ratings.filter((_, idx) => idx !== i))} aria-label="Remove">✕</button>
           </div>
         ))}
       </div>
 
       <Field label="Strengths">
-        <textarea className="form-input form-textarea" rows={2} value={strengths} onChange={e => setStrengths(e.target.value)} />
+        <Textarea rows={2} value={strengths} onChange={e => setStrengths(e.target.value)} />
       </Field>
       <Field label="Areas for Improvement">
-        <textarea className="form-input form-textarea" rows={2} value={areasForImprovement} onChange={e => setAreasForImprovement(e.target.value)} />
+        <Textarea rows={2} value={areasForImprovement} onChange={e => setAreasForImprovement(e.target.value)} />
       </Field>
       <Field label="Reviewer Comments">
-        <textarea className="form-input form-textarea" rows={2} value={reviewerComments} onChange={e => setReviewerComments(e.target.value)} />
+        <Textarea rows={2} value={reviewerComments} onChange={e => setReviewerComments(e.target.value)} />
       </Field>
     </Modal>
   );

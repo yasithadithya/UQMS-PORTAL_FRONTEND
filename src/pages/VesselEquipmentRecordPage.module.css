@@ -1,0 +1,111 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 1200px;
+}
+
+.items {
+  list-style: none;
+}
+
+/* Question | status | remarks on wide screens; stacked on narrow ones. */
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-4);
+}
+
+.item + .item {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+@media (min-width: 1024px) {
+  .item {
+    grid-template-columns: minmax(0, 1.2fr) auto minmax(260px, 1fr);
+    gap: var(--space-5);
+    padding: var(--space-4) var(--space-6);
+  }
+}
+
+.question {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-primary);
+  padding-top: 6px;
+}
+
+.segmented {
+  display: inline-flex;
+  align-self: start;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.opt {
+  height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+
+.opt:hover:not(.optOn) {
+  color: var(--color-text-primary);
+}
+
+.optOn {
+  font-weight: var(--weight-semibold);
+}
+
+.optProvided {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+  color: var(--color-success-fg);
+}
+
+.optMissing {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger-fg);
+}
+
+.optNa {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+.remarks {
+  min-width: 0;
+}
+
+.parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+
+.note {
+  padding-top: 8px;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--color-text-tertiary);
+}
+
+@media (pointer: coarse) {
+  .opt {
+    height: 40px;
+  }
+}

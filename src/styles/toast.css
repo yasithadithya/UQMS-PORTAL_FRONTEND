@@ -1,0 +1,54 @@
+/* react-toastify themed with design tokens. Imported after the library CSS so these win. */
+:root {
+  --toastify-color-light: var(--color-surface-3);
+  --toastify-text-color-light: var(--color-text-primary);
+  --toastify-color-info: var(--color-info-fg);
+  --toastify-color-success: var(--color-success-fg);
+  --toastify-color-warning: var(--color-warning-fg);
+  --toastify-color-error: var(--color-danger-fg);
+  --toastify-color-progress-light: var(--color-accent);
+  --toastify-font-family: var(--font-sans);
+  --toastify-toast-bd-radius: var(--radius-md);
+  --toastify-toast-min-height: 56px;
+  --toastify-toast-width: 380px;
+  --toastify-z-index: var(--z-toast);
+}
+
+.Toastify__toast {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border-strong);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+}
+
+.Toastify__toast--success { border-left-color: var(--color-success-fg); }
+.Toastify__toast--error { border-left-color: var(--color-danger-fg); }
+.Toastify__toast--warning { border-left-color: var(--color-warning-fg); }
+.Toastify__toast--info { border-left-color: var(--color-info-fg); }
+
+.Toastify__progress-bar {
+  height: 2px;
+  opacity: .5 !important;
+}
+
+.Toastify__close-button {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+  align-self: flex-start;
+}
+
+.Toastify__close-button:hover {
+  color: var(--color-text-primary);
+}
+
+/* Clear the mobile bottom tab bar. */
+@media (max-width: 767px) {
+  .Toastify__toast-container--top-right {
+    top: max(8px, env(safe-area-inset-top));
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+}

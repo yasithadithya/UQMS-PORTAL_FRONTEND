@@ -1,0 +1,256 @@
+/*
+ * The "paper" preview of the final survey report (Part C). It mirrors the printed document, so it is
+ * always a white sheet with its own fixed ink colours, whatever the app theme.
+ * Class names are global but everything is scoped under .paper-sheet.
+ */
+.paper-sheet {
+  --paper-ink: #111827;
+  --paper-muted: #4b5563;
+  --paper-accent: #7a5c0a;
+  --paper-line: #e5e7eb;
+  --paper-field: #fbf8ee;
+  --paper-focus: rgba(166, 131, 26, .18);
+  color-scheme: light;
+  background: #ffffff;
+  color: var(--paper-ink);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
+  padding: 56px;
+  margin-bottom: var(--space-6);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+@media (max-width: 767px) {
+  .paper-sheet {
+    padding: var(--space-5) var(--space-4);
+    font-size: 14px;
+  }
+}
+
+.paper-sheet .paper-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-5);
+  margin-bottom: var(--space-8);
+  border-bottom: 2px solid var(--paper-accent);
+}
+
+.paper-sheet .paper-title {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--paper-accent);
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+}
+
+.paper-sheet .paper-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--paper-muted);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.paper-sheet .paper-docref {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--paper-muted);
+}
+
+.paper-sheet .paper-section-title {
+  margin: 36px 0 18px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--paper-line);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--paper-accent);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.paper-sheet .paper-paragraph {
+  margin-bottom: 18px;
+  text-align: justify;
+}
+
+/* A paragraph with an add/remove control pinned to its corner. */
+.paper-sheet .paper-row {
+  position: relative;
+  margin-bottom: 15px;
+  padding-right: 72px;
+}
+
+.paper-sheet .paper-input {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 4px;
+  padding: 2px 8px;
+  border: none;
+  border-bottom: 1px dashed var(--paper-accent);
+  border-radius: 4px;
+  outline: none;
+  background: var(--paper-field);
+  color: var(--paper-accent);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  transition: background var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.paper-sheet .paper-input:focus {
+  background: #fff;
+  border-bottom: 2px solid var(--paper-accent);
+  box-shadow: 0 0 0 3px var(--paper-focus);
+}
+
+.paper-sheet .paper-input[type="date"] {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.paper-sheet .paper-table {
+  width: 100%;
+  margin: 18px 0;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.paper-sheet .paper-table-wrap {
+  overflow-x: auto;
+}
+
+.paper-sheet .paper-table th,
+.paper-sheet .paper-table td {
+  padding: 8px 12px;
+  border: 1px solid var(--paper-line);
+  text-align: left;
+}
+
+.paper-sheet .paper-table th {
+  background: #f8fafc;
+  color: var(--paper-accent);
+  font-weight: 700;
+}
+
+/* ----- Hull inspection checklist ----- */
+.paper-sheet .paper-checklist {
+  margin: 0 0 20px 20px;
+  list-style: none;
+}
+
+.paper-sheet .paper-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.paper-sheet .paper-check-row input {
+  width: 16px;
+  height: 16px;
+  margin-top: 6px;
+  flex-shrink: 0;
+  accent-color: var(--paper-accent);
+  cursor: pointer;
+}
+
+.paper-sheet .paper-check-row label {
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+}
+
+/* ----- Add / remove row buttons ----- */
+.paper-sheet .paper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: #ffffff;
+  font: 600 13px/1.4 var(--font-sans);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.paper-sheet .paper-btn-add {
+  margin: 4px 0 16px;
+  color: var(--paper-accent);
+}
+
+.paper-sheet .paper-btn-add:hover {
+  background: var(--paper-field);
+}
+
+.paper-sheet .paper-btn-danger {
+  padding: 2px 10px;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.paper-sheet .paper-btn-danger:hover {
+  background: #fef2f2;
+}
+
+.paper-sheet .paper-btn-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* ----- Signature ----- */
+.paper-sheet .paper-signature {
+  margin-top: 50px;
+  padding-top: 30px;
+  border-top: 1px dashed var(--paper-line);
+}
+
+.paper-sheet .paper-sign-block {
+  max-width: 460px;
+  margin-top: 24px;
+}
+
+.paper-sheet .paper-sign-stamp {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.paper-sheet .paper-sign-stamp img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.paper-sheet .paper-sign-text {
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.paper-sheet .paper-sign-pending {
+  padding: 18px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  color: var(--paper-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.paper-sheet .paper-signline {
+  margin: 10px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--paper-ink);
+  font-weight: 700;
+}

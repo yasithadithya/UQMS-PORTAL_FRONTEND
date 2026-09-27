@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { Badge, Modal, EmptyRow, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import AppraisalForm from './AppraisalForm';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 type Section = 'appraisals' | 'goals' | 'cycles';
 
 export default function PerformanceView() {
@@ -130,10 +130,10 @@ export default function PerformanceView() {
         </div>
         <div className={s.headerActions}>
           {section !== 'cycles' && (
-            <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={cycleFilter} onChange={e => setCycleFilter(e.target.value)}>
+            <Select className={s.inlineControl} value={cycleFilter} onChange={e => setCycleFilter(e.target.value)}>
               <option value="">All cycles</option>
               {cycles.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-            </select>
+            </Select>
           )}
           {section === 'cycles' && <button className={s.addBtn} onClick={() => setCycleForm({ open: true, editing: null, name: '', type: 'Annual', periodStart: '', periodEnd: '', status: 'Open' })}>+ New Cycle</button>}
           {section === 'goals' && <button className={s.addBtn} onClick={() => setGoalForm({ open: true, editing: null, employee: '', cycle: cycleFilter, title: '', kpi: '', targetValue: '', weight: 0, progress: 0, status: 'NotStarted', dueDate: '' })}>+ New Goal</button>}
@@ -196,11 +196,11 @@ export default function PerformanceView() {
                     </td>
                     <td>{g.kpi || '—'}{g.targetValue ? ` / ${g.targetValue}` : ''}</td>
                     <td>{g.weight}%</td>
-                    <td style={{ minWidth: '120px' }}>
-                      <div className={s.progressTrack} style={{ marginBottom: '4px' }}>
+                    <td className={s.progressCell}>
+                      <div className={`${s.progressTrack} ${s.progressSpaced}`}>
                         <div className={s.progressFill} style={{ width: `${g.progress}%` }} />
                       </div>
-                      <span className={s.cellSub} style={{ display: 'inline' }}>{g.progress}%</span>
+                      <span className={s.cellSubInline}>{g.progress}%</span>
                     </td>
                     <td><Badge status={g.status} /></td>
                     <td className={s.alignRight}>
@@ -258,33 +258,33 @@ export default function PerformanceView() {
           onClose={() => setCycleForm({ ...cycleForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setCycleForm({ ...cycleForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveCycle}>Save</button>
+              <Button variant="secondary" onClick={() => setCycleForm({ ...cycleForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveCycle}>Save</Button>
             </>
           }
         >
           <Field label="Name" required>
-            <input className="form-input" type="text" value={cycleForm.name} onChange={e => setCycleForm({ ...cycleForm, name: e.target.value })} placeholder="e.g. Annual Review 2026" />
+            <Input type="text" value={cycleForm.name} onChange={e => setCycleForm({ ...cycleForm, name: e.target.value })} placeholder="e.g. Annual Review 2026" />
           </Field>
           <div className={s.modalGrid}>
             <Field label="Type">
-              <select className="form-input" value={cycleForm.type} onChange={e => setCycleForm({ ...cycleForm, type: e.target.value })}>
+              <Select value={cycleForm.type} onChange={e => setCycleForm({ ...cycleForm, type: e.target.value })}>
                 {['Annual', 'SemiAnnual', 'Quarterly', 'Probation'].map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+              </Select>
             </Field>
             {cycleForm.editing && (
               <Field label="Status">
-                <select className="form-input" value={cycleForm.status} onChange={e => setCycleForm({ ...cycleForm, status: e.target.value })}>
+                <Select value={cycleForm.status} onChange={e => setCycleForm({ ...cycleForm, status: e.target.value })}>
                   <option value="Open">Open</option>
                   <option value="Closed">Closed</option>
-                </select>
+                </Select>
               </Field>
             )}
             <Field label="Period Start" required>
-              <input className="form-input" type="date" value={cycleForm.periodStart} onChange={e => setCycleForm({ ...cycleForm, periodStart: e.target.value })} />
+              <Input type="date" value={cycleForm.periodStart} onChange={e => setCycleForm({ ...cycleForm, periodStart: e.target.value })} />
             </Field>
             <Field label="Period End" required>
-              <input className="form-input" type="date" value={cycleForm.periodEnd} onChange={e => setCycleForm({ ...cycleForm, periodEnd: e.target.value })} />
+              <Input type="date" value={cycleForm.periodEnd} onChange={e => setCycleForm({ ...cycleForm, periodEnd: e.target.value })} />
             </Field>
           </div>
         </Modal>
@@ -296,48 +296,48 @@ export default function PerformanceView() {
           onClose={() => setGoalForm({ ...goalForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setGoalForm({ ...goalForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveGoal}>Save</button>
+              <Button variant="secondary" onClick={() => setGoalForm({ ...goalForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveGoal}>Save</Button>
             </>
           }
         >
           <div className={s.modalGrid}>
             <Field label="Employee" required>
-              <select className="form-input" value={goalForm.employee} onChange={e => setGoalForm({ ...goalForm, employee: e.target.value })}>
+              <Select value={goalForm.employee} onChange={e => setGoalForm({ ...goalForm, employee: e.target.value })}>
                 <option value="">Select</option>
                 {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="Cycle">
-              <select className="form-input" value={goalForm.cycle} onChange={e => setGoalForm({ ...goalForm, cycle: e.target.value })}>
+              <Select value={goalForm.cycle} onChange={e => setGoalForm({ ...goalForm, cycle: e.target.value })}>
                 <option value="">None</option>
                 {cycles.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
+              </Select>
             </Field>
           </div>
           <Field label="Title" required>
-            <input className="form-input" type="text" value={goalForm.title} onChange={e => setGoalForm({ ...goalForm, title: e.target.value })} />
+            <Input type="text" value={goalForm.title} onChange={e => setGoalForm({ ...goalForm, title: e.target.value })} />
           </Field>
           <div className={s.modalGrid}>
             <Field label="KPI">
-              <input className="form-input" type="text" value={goalForm.kpi} onChange={e => setGoalForm({ ...goalForm, kpi: e.target.value })} placeholder="e.g. Inspections completed" />
+              <Input type="text" value={goalForm.kpi} onChange={e => setGoalForm({ ...goalForm, kpi: e.target.value })} placeholder="e.g. Inspections completed" />
             </Field>
             <Field label="Target">
-              <input className="form-input" type="text" value={goalForm.targetValue} onChange={e => setGoalForm({ ...goalForm, targetValue: e.target.value })} placeholder="e.g. 50 per quarter" />
+              <Input type="text" value={goalForm.targetValue} onChange={e => setGoalForm({ ...goalForm, targetValue: e.target.value })} placeholder="e.g. 50 per quarter" />
             </Field>
             <Field label="Weight %">
-              <input className="form-input" type="number" min={0} max={100} value={goalForm.weight} onChange={e => setGoalForm({ ...goalForm, weight: Number(e.target.value) })} />
+              <Input type="number" min={0} max={100} value={goalForm.weight} onChange={e => setGoalForm({ ...goalForm, weight: Number(e.target.value) })} />
             </Field>
             <Field label="Progress %">
-              <input className="form-input" type="number" min={0} max={100} value={goalForm.progress} onChange={e => setGoalForm({ ...goalForm, progress: Number(e.target.value) })} />
+              <Input type="number" min={0} max={100} value={goalForm.progress} onChange={e => setGoalForm({ ...goalForm, progress: Number(e.target.value) })} />
             </Field>
             <Field label="Status">
-              <select className="form-input" value={goalForm.status} onChange={e => setGoalForm({ ...goalForm, status: e.target.value })}>
+              <Select value={goalForm.status} onChange={e => setGoalForm({ ...goalForm, status: e.target.value })}>
                 {['NotStarted', 'InProgress', 'Completed', 'Cancelled'].map(st => <option key={st} value={st}>{st}</option>)}
-              </select>
+              </Select>
             </Field>
             <Field label="Due Date">
-              <input className="form-input" type="date" value={goalForm.dueDate} onChange={e => setGoalForm({ ...goalForm, dueDate: e.target.value })} />
+              <Input type="date" value={goalForm.dueDate} onChange={e => setGoalForm({ ...goalForm, dueDate: e.target.value })} />
             </Field>
           </div>
         </Modal>
@@ -355,13 +355,13 @@ export default function PerformanceView() {
 
       {viewAppraisal && (
         <Modal title={`Appraisal — ${viewAppraisal.employee?.firstName} ${viewAppraisal.employee?.lastName}`} onClose={() => setViewAppraisal(null)} size="wide">
-          <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px' }}>
+          <div className={`${s.inlineGroup} ${s.spaced}`}>
             <span><strong>Cycle:</strong> {viewAppraisal.cycle?.name}</span>
             <span><strong>Reviewer:</strong> {viewAppraisal.reviewer?.firstName} {viewAppraisal.reviewer?.lastName}</span>
             <span><strong>Status:</strong> <Badge status={viewAppraisal.status} /></span>
             {viewAppraisal.overallRating && <span><strong>Overall:</strong> {viewAppraisal.overallRating} / 5</span>}
           </div>
-          <div className={s.tableWrap} style={{ marginBottom: '16px' }}>
+          <div className={`${s.tableWrap} ${s.spaced}`}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -381,19 +381,19 @@ export default function PerformanceView() {
               </tbody>
             </table>
           </div>
-          {viewAppraisal.strengths && <p style={{ fontSize: '13px', marginBottom: '8px' }}><strong>Strengths:</strong> {viewAppraisal.strengths}</p>}
-          {viewAppraisal.areasForImprovement && <p style={{ fontSize: '13px', marginBottom: '8px' }}><strong>Areas for improvement:</strong> {viewAppraisal.areasForImprovement}</p>}
-          {viewAppraisal.reviewerComments && <p style={{ fontSize: '13px', marginBottom: '8px' }}><strong>Reviewer comments:</strong> {viewAppraisal.reviewerComments}</p>}
-          {viewAppraisal.employeeComments && <p style={{ fontSize: '13px' }}><strong>Employee comments:</strong> {viewAppraisal.employeeComments}</p>}
+          {viewAppraisal.strengths && <p className={s.detailPara}><strong>Strengths:</strong> {viewAppraisal.strengths}</p>}
+          {viewAppraisal.areasForImprovement && <p className={s.detailPara}><strong>Areas for improvement:</strong> {viewAppraisal.areasForImprovement}</p>}
+          {viewAppraisal.reviewerComments && <p className={s.detailPara}><strong>Reviewer comments:</strong> {viewAppraisal.reviewerComments}</p>}
+          {viewAppraisal.employeeComments && <p className={s.detailPara}><strong>Employee comments:</strong> {viewAppraisal.employeeComments}</p>}
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteGoalId}
+      <ConfirmDialog
+        open={!!deleteGoalId}
         title="Delete Goal"
         message="Delete this goal permanently?"
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteGoalId(null)}
         onConfirm={deleteGoal}
       />

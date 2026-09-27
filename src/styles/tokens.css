@@ -1,0 +1,188 @@
+/*
+ * UQMS design tokens.
+ *
+ * Components use the semantic --color-* / --space-* / --text-* tokens only; never raw colors.
+ *
+ * Dark is the default theme; [data-theme='light'] overrides colors only.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- Color: surfaces (elevation = lighter surface, not shadow) ---------- */
+  --color-bg: #0A0E16;
+  --color-surface-1: #111723;   /* cards, sidebar, table body */
+  --color-surface-2: #161E2D;   /* inputs, hovered rows, raised panels */
+  --color-surface-3: #1E2839;   /* popovers, pressed/selected */
+  --color-overlay: rgba(3, 6, 12, .72);
+
+  --color-border-subtle: rgba(148, 163, 184, .10);
+  --color-border: rgba(148, 163, 184, .18);
+  --color-border-strong: rgba(148, 163, 184, .32);
+
+  /* ---------- Color: text ---------- */
+  --color-text-primary: #E8ECF3;
+  --color-text-secondary: #B1BACB;
+  --color-text-tertiary: #8390A6;
+  --color-text-disabled: #5B667A;
+
+  /* ---------- Color: brand accent (UQMS gold) ---------- */
+  --color-accent: #D4AF37;          /* fills: primary buttons, active indicators */
+  --color-accent-hover: #E2C15A;
+  --color-accent-pressed: #C29E2B;
+  --color-on-accent: #1A1406;       /* text/icons on an accent fill */
+  --color-accent-text: #E0BE55;     /* accent-colored text/icons on surfaces */
+  --color-accent-subtle: rgba(212, 175, 55, .12);
+  --color-accent-muted: rgba(212, 175, 55, .22);
+  --color-focus: #E0BE55;
+
+  /* ---------- Color: status (fg = text/icon, bg = tint, border = outline) ---------- */
+  --color-success-fg: #34D399;
+  --color-success-bg: rgba(52, 211, 153, .12);
+  --color-success-border: rgba(52, 211, 153, .32);
+  --color-success-solid: #10B981;
+
+  --color-warning-fg: #FB923C;
+  --color-warning-bg: rgba(251, 146, 60, .12);
+  --color-warning-border: rgba(251, 146, 60, .32);
+  --color-warning-solid: #EA7A26;
+
+  --color-danger-fg: #F87171;
+  --color-danger-bg: rgba(248, 113, 113, .12);
+  --color-danger-border: rgba(248, 113, 113, .34);
+  --color-danger-solid: #DC2626;
+
+  --color-info-fg: #60A5FA;
+  --color-info-bg: rgba(96, 165, 250, .12);
+  --color-info-border: rgba(96, 165, 250, .32);
+  --color-info-solid: #2563EB;
+
+  --color-neutral-fg: #B1BACB;
+  --color-neutral-bg: rgba(148, 163, 184, .12);
+  --color-neutral-border: rgba(148, 163, 184, .28);
+
+  /* ---------- Typography ---------- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+
+  /* Body text stays at 15px: text was deliberately enlarged before, and the app is also used on tablets in the field. */
+  --text-xs: 12px;   /* captions, badges */
+  --text-sm: 13px;   /* secondary/meta text, table headers */
+  --text-md: 14px;   /* dense UI: table cells, controls */
+  --text-base: 15px; /* body text, form inputs */
+  --text-lg: 17px;   /* section titles */
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---------- Spacing (4px grid) ---------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+
+  /* ---------- Shape & elevation ---------- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  --shadow-popover: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 1px var(--color-border);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, .55), 0 0 0 1px var(--color-border);
+
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+
+  /* ---------- Sizing ---------- */
+  --control-h-sm: 30px;
+  --control-h-md: 36px;
+  --control-h-lg: 44px;
+  --touch-target: 44px;
+
+  /* ---------- Motion ---------- */
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+
+  /* ---------- Layering ---------- */
+  --z-sticky: 20;
+  --z-nav: 50;
+  --z-overlay: 10050;
+  --z-toast: 10100;
+
+  /* Translucent bars (phone top bar, bottom tab bar) */
+  --color-topbar-bg: rgba(10, 14, 22, .82);
+  --color-tabbar-bg: rgba(17, 23, 35, .94);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-bg: #F4F5F7;
+  --color-surface-1: #FFFFFF;
+  --color-surface-2: #F1F3F6;
+  --color-surface-3: #E6E9EF;
+  --color-overlay: rgba(15, 23, 42, .45);
+
+  --color-border-subtle: rgba(15, 23, 42, .07);
+  --color-border: rgba(15, 23, 42, .13);
+  --color-border-strong: rgba(15, 23, 42, .24);
+
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #3B4658;
+  --color-text-tertiary: #5B6678;
+  --color-text-disabled: #98A1B0;
+
+  --color-accent: #C9A227;
+  --color-accent-hover: #B8911F;
+  --color-accent-pressed: #A6831A;
+  --color-on-accent: #1A1406;
+  --color-accent-text: #8A6A0E;
+  --color-accent-subtle: rgba(184, 145, 31, .10);
+  --color-accent-muted: rgba(184, 145, 31, .20);
+  --color-focus: #A6831A;
+
+  --color-success-fg: #047857;
+  --color-success-bg: rgba(4, 120, 87, .08);
+  --color-success-border: rgba(4, 120, 87, .28);
+  --color-success-solid: #059669;
+
+  --color-warning-fg: #C2410C;
+  --color-warning-bg: rgba(194, 65, 12, .08);
+  --color-warning-border: rgba(194, 65, 12, .28);
+  --color-warning-solid: #EA580C;
+
+  --color-danger-fg: #B91C1C;
+  --color-danger-bg: rgba(185, 28, 28, .07);
+  --color-danger-border: rgba(185, 28, 28, .28);
+  --color-danger-solid: #DC2626;
+
+  --color-info-fg: #1D4ED8;
+  --color-info-bg: rgba(29, 78, 216, .07);
+  --color-info-border: rgba(29, 78, 216, .26);
+  --color-info-solid: #2563EB;
+
+  --color-neutral-fg: #3B4658;
+  --color-neutral-bg: rgba(15, 23, 42, .06);
+  --color-neutral-border: rgba(15, 23, 42, .18);
+
+  --shadow-popover: 0 8px 24px rgba(15, 23, 42, .12), 0 0 0 1px var(--color-border);
+  --shadow-modal: 0 24px 64px rgba(15, 23, 42, .18), 0 0 0 1px var(--color-border);
+
+  --color-topbar-bg: rgba(255, 255, 255, .86);
+  --color-tabbar-bg: rgba(255, 255, 255, .95);
+}

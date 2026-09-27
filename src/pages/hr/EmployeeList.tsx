@@ -64,7 +64,7 @@ export default function EmployeeList({ basePath }: { basePath: string }) {
         <p className={s.mutedNote}>Loading employees...</p>
       ) : (
         <>
-          <div className={s.tableWrap} style={{ marginBottom: '16px' }}>
+          <div className={`${s.tableWrap} ${s.spaced}`}>
             <table className={s.table}>
               <thead>
                 <tr>

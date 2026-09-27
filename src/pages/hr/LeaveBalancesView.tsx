@@ -5,6 +5,7 @@ import { PageHeader, EmptyRow, FilterBar, Field } from './hrShared';
 import Pagination from '../../components/Pagination';
 import s from './hr.module.css';
 
+import { Select } from '@/ui';
 export default function LeaveBalancesView() {
   const now = new Date();
   const [balances, setBalances] = useState<any[]>([]);
@@ -47,15 +48,15 @@ export default function LeaveBalancesView() {
 
       <FilterBar>
         <Field label="Year" className={s.filterField}>
-          <select className="form-input" value={year} onChange={e => { setYear(Number(e.target.value)); setPage(1); }}>
+          <Select value={year} onChange={e => { setYear(Number(e.target.value)); setPage(1); }}>
             {Array.from({ length: 4 }, (_, i) => now.getFullYear() + 1 - i).map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+          </Select>
         </Field>
         <Field label="Employee" className={s.filterField}>
-          <select className="form-input" value={employeeId} onChange={e => { setEmployeeId(e.target.value); setPage(1); }}>
+          <Select value={employeeId} onChange={e => { setEmployeeId(e.target.value); setPage(1); }}>
             <option value="">All employees</option>
             {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-          </select>
+          </Select>
         </Field>
       </FilterBar>
 
@@ -85,14 +86,14 @@ export default function LeaveBalancesView() {
                     <td>{b.totalDays}</td>
                     <td>{b.usedDays}</td>
                     <td>{b.pendingDays}</td>
-                    <td className={s.cellStrong} style={{ color: remaining <= 0 ? 'var(--red)' : 'var(--green)' }}>{remaining}</td>
+                    <td className={`${s.cellStrong} ${remaining <= 0 ? s.textDanger : s.textSuccess}`}>{remaining}</td>
                   </tr>
                 );
               })}
               {balances.length === 0 && <EmptyRow colSpan={6} text={`No balances found for ${year}. Use "Initialize Balances" under Settings → Leave Types.`} />}
             </tbody>
           </table>
-          <div style={{ padding: '0 20px 16px' }}>
+          <div>
             <Pagination page={page} limit={limit} total={total} totalPages={pages} onPageChange={setPage} onLimitChange={setLimit} />
           </div>
         </div>

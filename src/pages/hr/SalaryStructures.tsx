@@ -4,6 +4,7 @@ import { hrService } from '../../api';
 import { PageHeader, FilterBar, Field, formatMoney, formatDate } from './hrShared';
 import s from './hr.module.css';
 
+import { Button, Input, Select } from '@/ui';
 interface AllowanceRow {
   name: string;
   amount: number;
@@ -80,44 +81,44 @@ export default function SalaryStructures() {
 
       <FilterBar>
         <Field label="Employee" className={s.filterField}>
-          <select className="form-input" value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
+          <Select value={employeeId} onChange={e => setEmployeeId(e.target.value)}>
             <option value="">-- Select Employee --</option>
             {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-          </select>
+          </Select>
         </Field>
         {structure && (
-          <p className={s.mutedNote} style={{ marginBottom: '10px' }}>
+          <p className={`${s.mutedNote} ${s.spaced}`}>
             Active since {formatDate(structure.effectiveFrom)} — Basic {formatMoney(structure.basicSalary)}
           </p>
         )}
       </FilterBar>
 
       {employeeId && !loading && (
-        <div className={`card ${s.formCard}`}>
-          <h3 className={s.sectionTitle} style={{ marginBottom: '20px' }}>
+        <div className={`${s.card} ${s.formCard}`}>
+          <h3 className={`${s.sectionTitle} ${s.spaced}`}>
             {structure ? 'Update Salary Structure' : 'Set Salary Structure'}
           </h3>
 
           <div className={s.modalGrid}>
             <Field label="Basic Salary (Rs.)" required>
-              <input className="form-input" type="number" min={0} value={basicSalary || ''} onChange={e => setBasicSalary(Number(e.target.value))} />
+              <Input type="number" min={0} value={basicSalary || ''} onChange={e => setBasicSalary(Number(e.target.value))} />
             </Field>
             <Field label="Effective From">
-              <input className="form-input" type="date" value={effectiveFrom} onChange={e => setEffectiveFrom(e.target.value)} />
+              <Input type="date" value={effectiveFrom} onChange={e => setEffectiveFrom(e.target.value)} />
             </Field>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
+          <div className={s.spaced}>
             <div className={s.dynHead}>
-              <label className="form-label" style={{ marginBottom: 0 }}>Allowances ({formatMoney(totalAllowances)} total)</label>
+              <span className={s.groupLabel}>Allowances ({formatMoney(totalAllowances)} total)</span>
               <button className={s.actionBtn} onClick={() => setAllowances([...allowances, { name: '', amount: 0, isTaxable: true }])}>
                 + Add Allowance
               </button>
             </div>
             {allowances.map((a, i) => (
-              <div key={i} className={s.dynRow} style={{ gridTemplateColumns: '2fr 1fr auto auto' }}>
-                <input className="form-input" style={{ marginBottom: 0 }} type="text" placeholder="Name (e.g. Transport)" value={a.name} onChange={e => updateAllowance(i, { name: e.target.value })} />
-                <input className="form-input" style={{ marginBottom: 0 }} type="number" min={0} placeholder="Amount" value={a.amount || ''} onChange={e => updateAllowance(i, { amount: Number(e.target.value) })} />
+              <div key={i} className={`${s.dynRow} ${s.dynAllowances}`}>
+                <Input type="text" placeholder="Name (e.g. Transport)" value={a.name} onChange={e => updateAllowance(i, { name: e.target.value })} />
+                <Input type="number" min={0} placeholder="Amount" value={a.amount || ''} onChange={e => updateAllowance(i, { amount: Number(e.target.value) })} />
                 <label className={s.checkInline}>
                   <input type="checkbox" checked={a.isTaxable} onChange={e => updateAllowance(i, { isTaxable: e.target.checked })} />
                   Taxable
@@ -128,10 +129,10 @@ export default function SalaryStructures() {
             {allowances.length === 0 && <p className={s.mutedNote}>No allowances defined.</p>}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button className="btn-primary" style={{ marginBottom: 0 }} onClick={save} disabled={saving}>
+          <div className={s.cardFooter}>
+            <Button variant="primary"  onClick={save} disabled={saving}>
               {saving ? 'Saving...' : 'Save Structure'}
-            </button>
+            </Button>
           </div>
         </div>
       )}

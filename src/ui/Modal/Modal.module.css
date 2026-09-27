@@ -1,0 +1,209 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--color-overlay);
+  backdrop-filter: blur(2px);
+  animation: fadeIn var(--duration-base) var(--ease-standard);
+}
+
+.modal {
+  --modal-w: 560px;
+  position: fixed;
+  z-index: var(--z-overlay);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(var(--modal-w), calc(100vw - 32px));
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  outline: none;
+  animation: modalIn var(--duration-base) var(--ease-standard);
+}
+
+.sm { --modal-w: 420px; }
+.md { --modal-w: 560px; }
+.lg { --modal-w: 800px; }
+.xl { --modal-w: 1100px; }
+.full {
+  inset: 0;
+  transform: none;
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  animation: fadeIn var(--duration-base) var(--ease-standard);
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+}
+
+.description {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px -8px 0 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.close:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  overscroll-behavior: contain;
+}
+
+.bodyFlush {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.confirmBody {
+  padding: var(--space-5) var(--space-5) var(--space-4);
+}
+
+.confirmMessage {
+  margin-top: var(--space-2);
+  font-size: var(--text-md);
+  color: var(--color-text-secondary);
+}
+
+.confirmBody + .footer {
+  border-top: none;
+  padding-top: 0;
+  padding-bottom: var(--space-5);
+}
+
+/* ---------- Drawer ---------- */
+.drawer {
+  position: fixed;
+  z-index: var(--z-overlay);
+  top: 0;
+  bottom: 0;
+  width: min(var(--drawer-w, 480px), 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-modal);
+  outline: none;
+}
+
+.drawer-right {
+  right: 0;
+  animation: slideInRight var(--duration-base) var(--ease-standard);
+}
+
+.drawer-left {
+  left: 0;
+  animation: slideInLeft var(--duration-base) var(--ease-standard);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---------- Phones: large dialogs and drawers become sheets ---------- */
+@media (max-width: 767px) {
+  .lg,
+  .xl {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100vw;
+    max-height: 94vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: sheetUp var(--duration-base) var(--ease-standard);
+  }
+
+  .drawer {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-height: 90vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    animation: sheetUp var(--duration-base) var(--ease-standard);
+  }
+
+  .footer {
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  }
+
+  .footer > * {
+    flex: 1;
+  }
+}

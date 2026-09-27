@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { PageHeader, Badge, Modal, EmptyRow, Field } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 export default function LeaveTypesManagement() {
   const [types, setTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,9 +88,9 @@ export default function LeaveTypesManagement() {
         subtitle="Entitlements and carry-forward rules"
         action={
           <>
-            <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={initYear} onChange={e => setInitYear(Number(e.target.value))}>
+            <Select className={s.inlineControl} value={initYear} onChange={e => setInitYear(Number(e.target.value))}>
               {Array.from({ length: 3 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            </Select>
             <button className={s.actionBtn} onClick={() => setInitConfirm(true)}>Initialize Balances</button>
             <button className={s.addBtn} onClick={() => openForm()}>+ Add Leave Type</button>
           </>
@@ -137,45 +137,45 @@ export default function LeaveTypesManagement() {
           onClose={() => setFormOpen(false)}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setFormOpen(false)}>Cancel</button>
-              <button className="btn-primary" onClick={save}>Save</button>
+              <Button variant="secondary" onClick={() => setFormOpen(false)}>Cancel</Button>
+              <Button variant="primary" onClick={save}>Save</Button>
             </>
           }
         >
           <Field label="Name" required>
-            <input className="form-input" type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Annual" />
+            <Input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Annual" />
           </Field>
           <Field label="Default Days Per Year" required>
-            <input className="form-input" type="number" min={0} value={form.defaultDaysPerYear} onChange={e => setForm({ ...form, defaultDaysPerYear: Number(e.target.value) })} />
+            <Input type="number" min={0} value={form.defaultDaysPerYear} onChange={e => setForm({ ...form, defaultDaysPerYear: Number(e.target.value) })} />
           </Field>
-          <label className={s.checkLabel} style={{ marginBottom: '14px' }}>
+          <label className={`${s.checkLabel} ${s.spaced}`}>
             <input type="checkbox" checked={form.isPaidLeave} onChange={e => setForm({ ...form, isPaidLeave: e.target.checked })} />
             Paid leave
           </label>
-          <label className={s.checkLabel} style={{ marginBottom: '14px' }}>
+          <label className={`${s.checkLabel} ${s.spaced}`}>
             <input type="checkbox" checked={form.isCarryForwardAllowed} onChange={e => setForm({ ...form, isCarryForwardAllowed: e.target.checked })} />
             Allow carry forward
           </label>
           {form.isCarryForwardAllowed && (
             <Field label="Max Carry Forward Days">
-              <input className="form-input" type="number" min={0} value={form.maxCarryForwardDays} onChange={e => setForm({ ...form, maxCarryForwardDays: Number(e.target.value) })} />
+              <Input type="number" min={0} value={form.maxCarryForwardDays} onChange={e => setForm({ ...form, maxCarryForwardDays: Number(e.target.value) })} />
             </Field>
           )}
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteId}
+      <ConfirmDialog
+        open={!!deleteId}
         title="Delete Leave Type"
         message="Delete this leave type? This is blocked if any requests or balances reference it."
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteId(null)}
         onConfirm={remove}
       />
 
-      <ConfirmModal
-        isOpen={initConfirm}
+      <ConfirmDialog
+        open={initConfirm}
         title="Initialize Leave Balances"
         message={`Create ${initYear} leave balances for every active employee and leave type? Existing balances are left untouched.`}
         confirmText="Initialize"

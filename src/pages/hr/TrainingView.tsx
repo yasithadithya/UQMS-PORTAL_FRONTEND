@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { PageHeader, Badge, Modal, EmptyRow, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
 export default function TrainingView() {
   const [programs, setPrograms] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -172,10 +172,10 @@ export default function TrainingView() {
 
           <div className={s.topBar}>
             <h3 className={s.sectionTitle}>Sessions</h3>
-            <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={programFilter} onChange={e => setProgramFilter(e.target.value)}>
+            <Select className={s.inlineControl} value={programFilter} onChange={e => setProgramFilter(e.target.value)}>
               <option value="">All programs</option>
               {programs.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-            </select>
+            </Select>
           </div>
 
           <div className={s.tableWrap}>
@@ -221,26 +221,26 @@ export default function TrainingView() {
           onClose={() => setProgramForm({ ...programForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setProgramForm({ ...programForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveProgram}>Save</button>
+              <Button variant="secondary" onClick={() => setProgramForm({ ...programForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveProgram}>Save</Button>
             </>
           }
         >
           <Field label="Name" required>
-            <input className="form-input" type="text" value={programForm.name} onChange={e => setProgramForm({ ...programForm, name: e.target.value })} />
+            <Input type="text" value={programForm.name} onChange={e => setProgramForm({ ...programForm, name: e.target.value })} />
           </Field>
           <Field label="Description">
-            <textarea className="form-input form-textarea" rows={2} value={programForm.description} onChange={e => setProgramForm({ ...programForm, description: e.target.value })} />
+            <Textarea rows={2} value={programForm.description} onChange={e => setProgramForm({ ...programForm, description: e.target.value })} />
           </Field>
           <div className={`${s.modalGrid} ${s.modalGrid3}`}>
             <Field label="Category">
-              <input className="form-input" type="text" value={programForm.category} onChange={e => setProgramForm({ ...programForm, category: e.target.value })} placeholder="e.g. Safety" />
+              <Input type="text" value={programForm.category} onChange={e => setProgramForm({ ...programForm, category: e.target.value })} placeholder="e.g. Safety" />
             </Field>
             <Field label="Provider">
-              <input className="form-input" type="text" value={programForm.provider} onChange={e => setProgramForm({ ...programForm, provider: e.target.value })} />
+              <Input type="text" value={programForm.provider} onChange={e => setProgramForm({ ...programForm, provider: e.target.value })} />
             </Field>
             <Field label="Hours">
-              <input className="form-input" type="number" min={0} value={programForm.durationHours || ''} onChange={e => setProgramForm({ ...programForm, durationHours: Number(e.target.value) })} />
+              <Input type="number" min={0} value={programForm.durationHours || ''} onChange={e => setProgramForm({ ...programForm, durationHours: Number(e.target.value) })} />
             </Field>
           </div>
         </Modal>
@@ -252,37 +252,37 @@ export default function TrainingView() {
           onClose={() => setSessionForm({ ...sessionForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setSessionForm({ ...sessionForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveSession}>Save</button>
+              <Button variant="secondary" onClick={() => setSessionForm({ ...sessionForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveSession}>Save</Button>
             </>
           }
         >
           <Field label="Program" required>
-            <select className="form-input" value={sessionForm.program} onChange={e => setSessionForm({ ...sessionForm, program: e.target.value })}>
+            <Select value={sessionForm.program} onChange={e => setSessionForm({ ...sessionForm, program: e.target.value })}>
               <option value="">Select</option>
               {programs.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-            </select>
+            </Select>
           </Field>
           <div className={s.modalGrid}>
             <Field label="Start Date" required>
-              <input className="form-input" type="date" value={sessionForm.startDate} onChange={e => setSessionForm({ ...sessionForm, startDate: e.target.value })} />
+              <Input type="date" value={sessionForm.startDate} onChange={e => setSessionForm({ ...sessionForm, startDate: e.target.value })} />
             </Field>
             <Field label="End Date">
-              <input className="form-input" type="date" value={sessionForm.endDate} onChange={e => setSessionForm({ ...sessionForm, endDate: e.target.value })} />
+              <Input type="date" value={sessionForm.endDate} onChange={e => setSessionForm({ ...sessionForm, endDate: e.target.value })} />
             </Field>
             <Field label="Trainer">
-              <input className="form-input" type="text" value={sessionForm.trainer} onChange={e => setSessionForm({ ...sessionForm, trainer: e.target.value })} />
+              <Input type="text" value={sessionForm.trainer} onChange={e => setSessionForm({ ...sessionForm, trainer: e.target.value })} />
             </Field>
             <Field label="Location">
-              <input className="form-input" type="text" value={sessionForm.location} onChange={e => setSessionForm({ ...sessionForm, location: e.target.value })} />
+              <Input type="text" value={sessionForm.location} onChange={e => setSessionForm({ ...sessionForm, location: e.target.value })} />
             </Field>
             <Field label="Capacity (0 = unlimited)">
-              <input className="form-input" type="number" min={0} value={sessionForm.capacity} onChange={e => setSessionForm({ ...sessionForm, capacity: Number(e.target.value) })} />
+              <Input type="number" min={0} value={sessionForm.capacity} onChange={e => setSessionForm({ ...sessionForm, capacity: Number(e.target.value) })} />
             </Field>
             <Field label="Status">
-              <select className="form-input" value={sessionForm.status} onChange={e => setSessionForm({ ...sessionForm, status: e.target.value })}>
+              <Select value={sessionForm.status} onChange={e => setSessionForm({ ...sessionForm, status: e.target.value })}>
                 {['Scheduled', 'Completed', 'Cancelled'].map(st => <option key={st} value={st}>{st}</option>)}
-              </select>
+              </Select>
             </Field>
           </div>
         </Modal>
@@ -291,14 +291,14 @@ export default function TrainingView() {
       {enrollSession && (
         <Modal title={`Enrollments — ${enrollSession.program?.name} (${formatDate(enrollSession.startDate)})`} onClose={() => { setEnrollSession(null); setEnrollments([]); }} size="wide">
           {enrollSession.status === 'Scheduled' && (
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <select className="form-input" style={{ marginBottom: 0, flex: 1 }} value={enrollEmployeeId} onChange={e => setEnrollEmployeeId(e.target.value)}>
+            <div className={`${s.inlineGroup} ${s.spaced}`}>
+              <Select className={`${s.inlineControl} ${s.grow}`} value={enrollEmployeeId} onChange={e => setEnrollEmployeeId(e.target.value)}>
                 <option value="">-- Select employee to enroll --</option>
                 {employees
                   .filter(emp => !enrollments.some(en => en.employee?._id === emp._id && en.status !== 'Cancelled'))
                   .map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-              </select>
-              <button className="btn-primary" style={{ marginBottom: 0 }} onClick={enroll}>Enroll</button>
+              </Select>
+              <Button variant="primary"  onClick={enroll}>Enroll</Button>
             </div>
           )}
           <div className={s.tableWrap}>
@@ -319,7 +319,7 @@ export default function TrainingView() {
                     </td>
                     <td>
                       <Badge status={en.status} />
-                      {en.completedAt && <span className={s.cellSub} style={{ display: 'inline', marginLeft: '6px' }}>{formatDate(en.completedAt)}</span>}
+                      {en.completedAt && <span className={s.cellSubInline}>{formatDate(en.completedAt)}</span>}
                     </td>
                     <td className={s.alignRight}>
                       <div className={s.actionRow}>
@@ -341,12 +341,12 @@ export default function TrainingView() {
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteProgramId}
+      <ConfirmDialog
+        open={!!deleteProgramId}
         title="Delete Training Program"
         message="Delete this program? This is blocked if it has any sessions."
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteProgramId(null)}
         onConfirm={deleteProgram}
       />

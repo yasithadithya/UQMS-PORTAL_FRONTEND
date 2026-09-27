@@ -4,7 +4,11 @@ import { toast } from 'react-toastify';
 import { apiUrl, firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntryFullReport, ApiChecklistItem, ApiSurveyType } from '@/api';
 import { useAuth } from '@/context/AuthContext';
-import ConfirmModal from '@/components/ConfirmModal';
+import { Anchor, Award, CheckCircle2, ClipboardList, Download, Eye, FileText, PenLine, RefreshCw } from 'lucide-react';
+import {
+  Badge, Button, ButtonLink, Card, ConfirmDialog, EmptyState, LoadingBlock, Modal, PageHeader, Section, Spinner, StickyActionBar,
+  buttonClassName,
+} from '@/ui';
 import ScccosModal from '@/components/ScccosModal';
 import DockingSurveyModal from '@/components/DockingSurveyModal';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
@@ -12,6 +16,7 @@ import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal
 import type { SignableDocType } from '@/api';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime, formatSigningDate } from '@/utils/date';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 /** A stored document opened in the signing viewer. */
 type OpenSignableDocument = {
@@ -26,7 +31,10 @@ export default function FirstEntryFullReportPage() {
   const { id, module } = useParams<{ id: string; module?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, can } = useAuth();
+  const canEditReport = can(MODULE_KEYS.marineReports, 'update');
+  const canIssueCertificates = can(MODULE_KEYS.marineCertificates, 'create');
+  const canViewCertificates = can(MODULE_KEYS.marineCertificates, 'read');
 
   // Derive the base path for this First Entry module
   const basePath = (() => {
@@ -644,68 +652,46 @@ export default function FirstEntryFullReportPage() {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '80px', textAlign: 'center', color: 'var(--muted)' }}>
-        <div
-          style={{
-            display: 'inline-block',
-            width: '32px',
-            height: '32px',
-            border: '3px solid var(--border)',
-            borderTopColor: 'var(--primary)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            marginBottom: '16px',
-          }}
-        />
-        <p>Loading survey checklist...</p>
-      </div>
-    );
+    return <LoadingBlock label="Loading survey checklist…" />;
   }
 
   if (!report) {
     return (
-      <div className={s.container}>
-        <div className={s.emptyState}>
-          <h3>First Entry Full Report Not Found</h3>
-          <p>We could not retrieve or generate a full checklist report for this survey report.</p>
-          <Link to={`${basePath}?tab=reports`}>
-            <button className="btn-primary" style={{ marginTop: '16px' }}>
-              Go Back
-            </button>
-          </Link>
-        </div>
-      </div>
+      <Card padding="none">
+        <EmptyState
+          icon={<ClipboardList />}
+          title="Full report not found"
+          description="We couldn't load or generate the checklist report for this survey report."
+          action={<ButtonLink to={`${basePath}?tab=reports`}>Back to survey reports</ButtonLink>}
+        />
+      </Card>
     );
   }
 
-
   return (
     <div className={s.container}>
-      <Link to={`${basePath}?tab=reports`} className={s.backLink}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        Back to Survey Reports
-      </Link>
+      <PageHeader
+        back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
+        title="Survey check sheet"
+        description={`Report ${surveyReport?.reportNo || '—'}${vessel?.vesselName ? ` · ${vessel.vesselName}` : ''}`}
+        meta={<Badge tone={progressStats.percentage === 100 ? 'success' : 'neutral'}>{progressStats.completed}/{progressStats.total} checked</Badge>}
+      />
 
       {/* Header Info Panel */}
       <div className={s.headerCard}>
-        <div className={s.headerTop}>
-          <div>
-            <h1 className={s.title}>Survey Check Sheet Report</h1>
-            <p className={s.subtitle}>
-              Report No: <strong style={{ color: 'var(--label)' }}>{surveyReport?.reportNo || 'N/A'}</strong> &bull; Booking Ref
-            </p>
+        <div className={s.progressWrap}>
+          <div className={s.progressText}>
+            Progress: {progressStats.completed} / {progressStats.total} ({progressStats.percentage}%)
           </div>
-          <div className={s.progressWrap}>
-            <div className={s.progressText}>
-              Progress: {progressStats.completed} / {progressStats.total} ({progressStats.percentage}%)
-            </div>
-            <div className={s.progressBarBg}>
-              <div className={s.progressBarFill} style={{ width: `${progressStats.percentage}%` }} />
-            </div>
+          <div
+            className={s.progressBarBg}
+            role="progressbar"
+            aria-label="Checklist progress"
+            aria-valuenow={progressStats.percentage}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className={s.progressBarFill} style={{ width: `${progressStats.percentage}%` }} />
           </div>
         </div>
 
@@ -731,119 +717,56 @@ export default function FirstEntryFullReportPage() {
             </span>
           </div>
         </div>
-        <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--separator)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <div>
+        <div className={s.reportRow}>
+          <div className={s.reportInfo}>
             {report.dailyReportPdfGeneratedAt ? (
-              <span style={{ fontSize: '13.5px', color: 'var(--secondary)', fontWeight: 500 }}>
-                📄 Daily Report PDF: <a href={apiUrl(`/first-entry-full-reports/public-pdf/${report._id}`)} target="_blank" rel="noreferrer" style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline' }}>{report.dailyReportPdfFilename || 'View PDF'}</a>
-                <span style={{ color: 'var(--muted)', marginLeft: '8px', fontSize: '12px' }}>
-                  (Generated: {formatDateTime(report.dailyReportPdfGeneratedAt)})
+              <>
+                <span className={s.reportLine}>
+                  <FileText aria-hidden="true" />
+                  Daily report PDF:{' '}
+                  <a href={apiUrl(`/first-entry-full-reports/public-pdf/${report._id}`)} target="_blank" rel="noreferrer">
+                    {report.dailyReportPdfFilename || 'View PDF'}
+                  </a>
+                  <span className={s.reportMeta}>Generated {formatDateTime(report.dailyReportPdfGeneratedAt)}</span>
                 </span>
                 {report.eSignature ? (
-                  <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: 'var(--green)', fontWeight: 600 }}>
-                    ✓ Signed electronically by {report.eSignature.signedByName} on {formatSigningDate(report.eSignature.signedAt)}
-                  </span>
+                  <Badge tone="success" icon={<CheckCircle2 />}>
+                    Signed by {report.eSignature.signedByName} on {formatSigningDate(report.eSignature.signedAt)}
+                  </Badge>
                 ) : (
-                  <span style={{ display: 'block', marginTop: '4px', fontSize: '12.5px', color: 'var(--orange)', fontWeight: 600 }}>
-                    Not signed yet
-                  </span>
+                  <Badge tone="warning" dot>Not signed yet</Badge>
                 )}
-              </span>
+              </>
             ) : (
-              <span style={{ fontSize: '13.5px', color: 'var(--muted)' }}>
-                No daily report PDF generated yet.
-              </span>
+              <span className={s.reportMeta}>No daily report PDF generated yet.</span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className={s.reportActions}>
             {report.dailyReportPdfGeneratedAt && (
-              <button
-                className="btn-secondary"
-                onClick={handleViewDailyReport}
-                style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px', width: 'auto', minWidth: 'unset' }}
-              >
-                {report.eSignature ? 'View Signed Daily Report' : 'View & Sign Daily Report'}
-              </button>
+              <Button size="sm" icon={<PenLine />} onClick={handleViewDailyReport}>
+                {report.eSignature ? 'View signed daily report' : 'View & sign daily report'}
+              </Button>
             )}
-            <button
-              className="btn-primary"
+            <Button
+              size="sm"
+              variant="primary"
+              icon={<Eye />}
               onClick={handlePreviewDailyReport}
-              disabled={previewLoading || generatingPdf || !!report.eSignature}
+              loading={previewLoading}
+              disabled={generatingPdf || !!report.eSignature}
               title={report.eSignature ? 'The daily report is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
-              style={{ marginBottom: 0, padding: '8px 16px', fontSize: '13px', width: 'auto', minWidth: 'unset' }}
             >
-              {previewLoading ? 'Loading Preview...' : 'Preview & Generate Daily Report'}
-            </button>
+              Preview & generate daily report
+            </Button>
             {isScccosEligible && booking && (
-              surveyReport?.status === 'COS Generated' ? (
-                <button
-                  className="btn-primary"
-                  onClick={handleViewCos}
-                  style={{
-                    marginBottom: 0,
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    width: 'auto',
-                    minWidth: 'unset',
-                    background: 'var(--primary)',
-                    borderColor: 'var(--primary)'
-                  }}
-                >
-                  View COS
-                </button>
-              ) : (
-                <button
-                  className="btn-primary"
-                  onClick={() => setIsScccosModalOpen(true)}
-                  style={{
-                    marginBottom: 0,
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    width: 'auto',
-                    minWidth: 'unset',
-                    background: 'var(--green)',
-                    borderColor: 'var(--green)'
-                  }}
-                >
-                  Generate SSC COS Certificate
-                </button>
-              )
+              surveyReport?.status === 'COS Generated'
+                ? <Button size="sm" icon={<Award />} onClick={handleViewCos} disabled={!canViewCertificates}>View COS</Button>
+                : <Button size="sm" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCertificates}>Generate SSC COS</Button>
             )}
-            
             {isDockingSurveyEligible && booking && (
-              dockingSurveyCertExists ? (
-                <button
-                  className="btn-primary"
-                  onClick={handleViewDockingSurvey}
-                  style={{
-                    marginBottom: 0,
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    width: 'auto',
-                    minWidth: 'unset',
-                    background: 'var(--primary)',
-                    borderColor: 'var(--primary)'
-                  }}
-                >
-                  View Docking Survey
-                </button>
-              ) : (
-                <button
-                  className="btn-primary"
-                  onClick={() => setIsDockingSurveyModalOpen(true)}
-                  style={{
-                    marginBottom: 0,
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    width: 'auto',
-                    minWidth: 'unset',
-                    background: 'var(--blue)',
-                    borderColor: 'var(--blue)'
-                  }}
-                >
-                  Generate Docking Survey
-                </button>
-              )
+              dockingSurveyCertExists
+                ? <Button size="sm" icon={<Anchor />} onClick={handleViewDockingSurvey} disabled={!canViewCertificates}>View docking survey</Button>
+                : <Button size="sm" icon={<Anchor />} onClick={() => setIsDockingSurveyModalOpen(true)} disabled={!canIssueCertificates}>Generate docking survey</Button>
             )}
           </div>
         </div>
@@ -851,16 +774,14 @@ export default function FirstEntryFullReportPage() {
 
       {/* Checklist Sections grouped by Question Category */}
       {Object.keys(groupedChecklist).length === 0 ? (
-        <div className="card" style={{ padding: '60px 40px', textAlign: 'center', borderStyle: 'dashed', borderWidth: '2px', background: 'transparent' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.6 }}>📋</div>
-          <h3 style={{ fontSize: '18px', color: 'var(--text)', marginBottom: '8px' }}>No Checklist Questions Found</h3>
-          <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
-            There are no checklist questions matching the survey category, boat type, area of operation, or vessel code for this report.
-          </p>
-          <button className={s.regenerateBtn} onClick={handleRegenerate}>
-            Force Reload Questions
-          </button>
-        </div>
+        <Card padding="none">
+          <EmptyState
+            icon={<ClipboardList />}
+            title="No checklist questions"
+            description="No checklist questions match this report's survey category, boat type, area of operation or vessel code."
+            action={<Button icon={<RefreshCw />} onClick={handleRegenerate}>Reload questions</Button>}
+          />
+        </Card>
       ) : (
         Object.entries(groupedChecklist).map(([qCategory, items]) => {
           const isOpen = expandedGroups[qCategory] !== false;
@@ -886,14 +807,14 @@ export default function FirstEntryFullReportPage() {
                   {qCategory}
                   <span className={s.groupCount}>{count} Items</span>
                 </span>
-                <button type="button" className="btn-secondary" style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', marginBottom: 0 }} onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}>
+                <Button size="sm" variant="ghost" icon={<RefreshCw />} onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}>
                   Regenerate
-                </button>
+                </Button>
               </div>
 
               {isOpen && (
                 <div className={s.groupBody}>
-                  <div className={s.questionsList} style={{ marginTop: '20px' }}>
+                  <div className={s.questionsList}>
                     {items.map((item) => {
                       const question = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
                       const itemKey = item._id || String(item.originalIndex);
@@ -907,7 +828,7 @@ export default function FirstEntryFullReportPage() {
                             <div className={s.questionText}>
                               {question?.item || (question as any)?.question || 'Unknown Item'}
                               {question?.description && (
-                                <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '4px', fontWeight: 'normal' }}>
+                                <div className={s.questionDescription}>
                                   {question.description}
                                 </div>
                               )}
@@ -929,15 +850,14 @@ export default function FirstEntryFullReportPage() {
 
                             {/* Checked Checkbox */}
                             <div className={s.statusPills}>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isLocked ? 'not-allowed' : 'pointer' }}>
+                              <label className={`${s.checkedLabel} ${isLocked ? s.checkedLocked : ''}`}>
                                 <input
                                   type="checkbox"
                                   checked={item.isChecked || false}
                                   onChange={(e) => handleCheckedChange(item.originalIndex, e.target.checked)}
                                   disabled={isLocked}
-                                  style={{ width: '18px', height: '18px' }}
                                 />
-                                <span style={{ fontWeight: '500', fontSize: '14px' }}>Checked</span>
+                                <span>Checked</span>
                               </label>
                             </div>
                           </div>
@@ -1014,11 +934,10 @@ export default function FirstEntryFullReportPage() {
                                 accept=".pdf,.doc,.docx,image/*"
                                 disabled={isLocked || isUploadingThis}
                                 className={s.uploadTrigger}
-                                containerStyle={isLocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                 text={
                                   isUploadingThis ? (
                                     <>
-                                      <div style={{ display: 'inline-block', width: '12px', height: '12px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'currentColor', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                      <Spinner size={12} label="Uploading" />
                                       Uploading...
                                     </>
                                   ) : (
@@ -1151,21 +1070,19 @@ export default function FirstEntryFullReportPage() {
                             />
                             <div className={s.editActions}>
                               <button
-                                className="btn-secondary"
+                                className={buttonClassName({ size: "sm" })}
                                 onClick={() => {
                                   setEditingRemarkId(null);
                                   setEditingRemarkText('');
                                 }}
                                 disabled={updatingRemark}
-                                style={{ padding: '4px 12px', fontSize: '12px', height: 'auto', marginBottom: 0 }}
                               >
                                 Cancel
                               </button>
                               <button
-                                className="btn-primary"
+                                className={buttonClassName({ variant: "primary", size: "sm" })}
                                 onClick={() => handleEditRemark(rem._id)}
                                 disabled={updatingRemark || !editingRemarkText.trim()}
-                                style={{ padding: '4px 12px', fontSize: '12px', height: 'auto', marginBottom: 0 }}
                               >
                                 {updatingRemark ? 'Saving...' : 'Save'}
                               </button>
@@ -1233,21 +1150,19 @@ export default function FirstEntryFullReportPage() {
                                       />
                                       <div className={s.editActions}>
                                         <button
-                                          className="btn-secondary"
+                                          className={buttonClassName({ size: "sm" })}
                                           onClick={() => {
                                             setEditingCommentId(null);
                                             setEditingCommentText('');
                                           }}
                                           disabled={updatingComment}
-                                          style={{ padding: '3px 10px', fontSize: '11px', height: 'auto', marginBottom: 0 }}
                                         >
                                           Cancel
                                         </button>
                                         <button
-                                          className="btn-primary"
+                                          className={buttonClassName({ variant: "primary", size: "sm" })}
                                           onClick={() => handleEditComment(rem._id, comment._id)}
                                           disabled={updatingComment || !editingCommentText.trim()}
-                                          style={{ padding: '3px 10px', fontSize: '11px', height: 'auto', marginBottom: 0 }}
                                         >
                                           {updatingComment ? 'Saving...' : 'Save'}
                                         </button>
@@ -1320,153 +1235,76 @@ export default function FirstEntryFullReportPage() {
             rows={4}
             disabled={postingRemark}
           />
-          <button
+          <Button
             type="submit"
-            className="btn-primary"
-            disabled={postingRemark || !newRemarkText.trim()}
-            style={{ width: 'auto', alignSelf: 'flex-end', padding: '10px 24px', marginBottom: 0 }}
+            variant="primary"
+            className={s.remarkSubmit}
+            loading={postingRemark}
+            disabled={!newRemarkText.trim() || !canEditReport}
           >
-            {postingRemark ? 'Posting...' : 'Post General Remark'}
-          </button>
+            Post general remark
+          </Button>
         </form>
       </div>
 
       {isScccosEligible && booking && (
-        <div className="card animate-in" style={{ marginTop: '24px', padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-          <div>
-            <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--label)' }}>Small Craft Code Certificate of Survey</h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--muted)', margin: '4px 0 0 0' }}>
-              {surveyReport?.status === 'COS Generated'
-                ? 'The statutory survey certificate has been generated for this Survey Report.'
-                : 'The survey visit is completed. Configure survey findings and generate the statutory SSC Certificate of Survey PDF.'
-              }
-            </p>
-          </div>
-          {surveyReport?.status === 'COS Generated' ? (
-            <button
-              className="btn-primary"
-              onClick={handleViewCos}
-              style={{
-                marginBottom: 0,
-                padding: '10px 20px',
-                fontSize: '13px',
-                borderRadius: '8px',
-                background: 'var(--primary)',
-                borderColor: 'var(--primary)',
-                fontWeight: 600,
-                width: 'auto',
-                minWidth: 'unset'
-              }}
-            >
-              View COS
-            </button>
-          ) : (
-            <button
-              className="btn-primary"
-              onClick={() => setIsScccosModalOpen(true)}
-              style={{
-                marginBottom: 0,
-                padding: '10px 20px',
-                fontSize: '13px',
-                borderRadius: '8px',
-                background: 'var(--green)',
-                borderColor: 'var(--green)',
-                fontWeight: 600,
-                width: 'auto',
-                minWidth: 'unset'
-              }}
-            >
-              Generate SSC COS Certificate
-            </button>
-          )}
-        </div>
+        <Section
+          className={s.cosCard}
+          title="Small Craft Code Certificate of Survey"
+          description={surveyReport?.status === 'COS Generated'
+            ? 'The statutory survey certificate has been generated for this survey report.'
+            : 'The survey visit is complete. Record the findings and generate the SSC Certificate of Survey.'}
+          actions={surveyReport?.status === 'COS Generated'
+            ? <Button icon={<Download />} onClick={handleViewCos} disabled={!canViewCertificates}>View COS</Button>
+            : <Button variant="primary" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCertificates}>Generate SSC COS</Button>}
+        />
       )}
 
-      {/* Floating Bottom Unsaved Changes Banner */}
       {hasChanges && (
-        <div className={s.footerBar}>
-          <span className={s.footerText}>You have unsaved changes in the survey checklist.</span>
-          <div className={s.footerButtons}>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleDiscard}
-              disabled={saving}
-              style={{ marginBottom: 0 }}
-            >
-              Discard Changes
-            </button>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSave}
-              disabled={saving}
-              style={{ marginBottom: 0 }}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        </div>
+        <StickyActionBar dirty>
+          <Button onClick={handleDiscard} disabled={saving}>Discard changes</Button>
+          <Button variant="primary" onClick={handleSave} loading={saving} disabled={!canEditReport}>Save changes</Button>
+        </StickyActionBar>
       )}
 
-      <div style={{ height: '80px' }} /> {/* Spacer so bottom banner doesn't cover contents */}
-
-      <ConfirmModal
-        isOpen={showDiscardConfirm}
+      <ConfirmDialog
+        open={showDiscardConfirm}
         title="Discard Unsaved Changes"
         message="Are you sure you want to discard your unsaved changes?"
         confirmText="Discard"
         cancelText="Cancel"
         onConfirm={handleConfirmDiscard}
         onCancel={() => setShowDiscardConfirm(false)}
-        isDestructive={true}
+        destructive
       />
 
-      <ConfirmModal
-        isOpen={showRegenerateConfirm}
+      <ConfirmDialog
+        open={showRegenerateConfirm}
         title="Regenerate Checklist"
         message="Warning: Regenerating will reload all questions from the database matching the criteria. Any unsaved checklist status updates might be overwritten. Do you want to proceed?"
         confirmText="Regenerate"
         cancelText="Cancel"
         onConfirm={handleConfirmRegenerate}
         onCancel={() => setShowRegenerateConfirm(false)}
-        isDestructive={true}
+        destructive
       />
 
-      {showPreviewModal && previewUrl && (
-        <div className={s.overlay} style={{ padding: 0 }}>
-          <div className={s.modal} style={{ maxWidth: '100%', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0, border: 'none' }}>
-            <div className={s.modalHeader}>
-              <h3 className={s.modalTitle}>Daily Visit Report PDF Preview</h3>
-              <button className={s.closeBtn} type="button" onClick={handleClosePreview}>
-                &times;
-              </button>
-            </div>
-
-            <div className={s.modalBody} style={{ flex: 1, padding: '16px 24px', position: 'relative' }}>
-              <iframe
-                src={previewUrl}
-                title="Daily Visit Report PDF Preview"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                }}
-              />
-            </div>
-
-            <div className={s.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
-              <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={generatingPdf}>
-                Cancel
-              </button>
-              <button className="btn-primary" type="button" onClick={handleGenerateDailyReport} disabled={generatingPdf}>
-                {generatingPdf ? 'Generating...' : 'Generate Daily Report'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={showPreviewModal && !!previewUrl}
+        onClose={handleClosePreview}
+        dismissible={!generatingPdf}
+        size="xl"
+        title="Daily visit report preview"
+        description="Check the PDF, then generate the daily report."
+        footer={
+          <>
+            <Button onClick={handleClosePreview} disabled={generatingPdf}>Cancel</Button>
+            <Button variant="primary" onClick={handleGenerateDailyReport} loading={generatingPdf} disabled={!canEditReport}>Generate daily report</Button>
+          </>
+        }
+      >
+        {previewUrl && <iframe src={previewUrl} title="Daily visit report preview" className={s.previewFrame} />}
+      </Modal>
 
       {openDocument && (
         <SignableDocumentModal
@@ -1503,6 +1341,7 @@ export default function FirstEntryFullReportPage() {
           onClose={() => setIsDockingSurveyModalOpen(false)}
           booking={booking as any}
           surveyReportId={surveyReport?._id || ''}
+          defaultClient={vessel?.managerName || booking?.managedBy || surveyReport?.managedBy || ''}
           onSuccess={() => {
             toast.success('Docking Survey Certificate generated successfully.');
             setDockingSurveyCertExists(true);

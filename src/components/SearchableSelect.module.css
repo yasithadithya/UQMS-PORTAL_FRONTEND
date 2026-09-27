@@ -1,147 +1,246 @@
+/* Shared by SearchableSelect and SearchableMultiSelect; matches the ui kit Field + control. */
 .wrapper {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   width: 100%;
+  min-width: 0;
 }
 
 .label {
-  display: block;
-  font-family: var(--font-title);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--secondary);
-  margin-bottom: 6px;
-  padding-left: 2px;
-  letter-spacing: .02em;
-  text-transform: uppercase;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.required {
+  color: var(--color-danger-fg);
 }
 
 .control {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--bg-subtle);
-  color: var(--label);
-  padding: 12px 14px;
-  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  text-align: left;
   cursor: pointer;
-  transition: border-color .2s, box-shadow .2s;
+  transition: border-color var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
 }
 
-.control:focus {
+.control:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+}
+
+.control:focus-visible,
+.control[aria-expanded='true'] {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .controlDisabled {
+  background: var(--color-bg);
+  color: var(--color-text-tertiary);
   cursor: not-allowed;
-  opacity: .6;
 }
 
 .controlText {
-  font-size: 15px;
+  min-width: 0;
+  font-size: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .placeholder {
-  color: var(--muted);
+  color: var(--color-text-tertiary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .caret {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  color: var(--muted);
-  transition: transform .2s;
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
 .caretOpen {
   transform: rotate(180deg);
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.clearBtn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
 }
 
-.clearBtn {
-  font-size: 16px;
-  line-height: 1;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 0 4px;
+.clearBtn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .clearBtn:hover {
-  color: var(--label);
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
 }
 
 .dropdown {
   position: absolute;
-  z-index: 60;
+  top: 100%;
   left: 0;
   right: 0;
-  margin-top: 8px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-lg);
-  padding: 12px;
+  z-index: 60;
+  margin-top: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-popover);
+  animation: fadeIn var(--duration-fast) var(--ease-standard);
 }
 
 .search {
   width: 100%;
-  border: 1px solid var(--border);
-  background: var(--bg-subtle);
-  color: var(--label);
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 14.5px;
-  margin-bottom: 10px;
+  height: 34px;
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
 }
 
 .search:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
+  border-color: var(--color-accent);
 }
 
 .list {
-  max-height: 220px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 1px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   width: 100%;
+  min-height: 34px;
+  padding: 6px var(--space-2);
   border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--label);
-  padding: 8px 10px;
-  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
   text-align: left;
   cursor: pointer;
-  font-size: 14.5px;
-  transition: background .2s, color .2s;
 }
 
+.option:hover,
 .optionHighlight {
-  background: rgba(148,163,184,.12);
+  background: var(--color-surface-3);
+}
+
+.option input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
 }
 
 .optionActive {
-  background: rgba(59,130,246,.16);
-  color: var(--primary);
+  color: var(--color-accent-text);
+  font-weight: var(--weight-medium);
 }
 
 .empty {
-  font-size: 13.5px;
-  color: var(--muted);
-  padding: 8px 4px;
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--text-md);
+  color: var(--color-text-tertiary);
+}
+
+/* ----- Multi-select chips ----- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 4px 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipRemove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.chipRemove svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chipRemove:hover {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+@media (pointer: coarse) {
+  .control {
+    height: var(--control-h-lg);
+  }
+
+  .option {
+    min-height: var(--touch-target);
+  }
 }

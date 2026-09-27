@@ -2,11 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import Pagination from '../../components/Pagination';
-import ConfirmModal from '../../components/ConfirmModal';
 import { PageHeader, Badge, EmptyRow, Modal, Field } from './hrShared';
 import s from './hr.module.css';
+import { useAuth } from '../../context/AuthContext';
+import { MODULE_KEYS } from '../../utils/permissions';
 
+import { Button, ConfirmDialog, Select, Textarea } from '@/ui';
 export default function LeaveManagement({ basePath }: { basePath: string }) {
+  const { can } = useAuth();
+  const canApprove = can(MODULE_KEYS.hrLeave, 'approve');
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -76,13 +80,13 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
         subtitle={`${total} request${total === 1 ? '' : 's'}`}
         action={
           <>
-            <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+            <Select className={s.inlineControl} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
               <option value="">All statuses</option>
               <option value="Pending">Pending</option>
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
               <option value="Cancelled">Cancelled</option>
-            </select>
+            </Select>
             <button className={s.actionBtn} onClick={fetchRequests}>Refresh</button>
           </>
         }
@@ -114,15 +118,15 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
                   <td>{req.leaveType?.name || 'Unknown'}</td>
                   <td>{new Date(req.startDate).toLocaleDateString()} - {new Date(req.endDate).toLocaleDateString()}</td>
                   <td>{req.totalDays}</td>
-                  <td style={{ maxWidth: '220px' }}>
+                  <td className={s.clip}>
                     {req.reason || '—'}
                     {req.status === 'Rejected' && req.rejectionReason && (
-                      <span className={s.cellSub} style={{ color: 'var(--red)' }}>Rejected: {req.rejectionReason}</span>
+                      <span className={`${s.cellSub} ${s.textDanger}`}>Rejected: {req.rejectionReason}</span>
                     )}
                   </td>
                   <td><Badge status={req.status} /></td>
                   <td className={s.alignRight}>
-                    {req.status === 'Pending' && (
+                    {req.status === 'Pending' && canApprove && (
                       <div className={s.actionRow}>
                         <button className={`${s.actionBtn} ${s.actionSuccess}`} onClick={() => setApproveId(req._id)}>Approve</button>
                         <button className={`${s.actionBtn} ${s.actionDanger}`} onClick={() => { setRejectId(req._id); setRejectReason(''); }}>Reject</button>
@@ -134,14 +138,14 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
               {requests.length === 0 && <EmptyRow colSpan={7} text="No leave requests found." />}
             </tbody>
           </table>
-          <div style={{ padding: '0 20px 16px' }}>
+          <div>
             <Pagination page={page} limit={limit} total={total} totalPages={pages} onPageChange={setPage} onLimitChange={setLimit} />
           </div>
         </div>
       )}
 
-      <ConfirmModal
-        isOpen={!!approveId}
+      <ConfirmDialog
+        open={!!approveId}
         title="Approve Leave"
         message="Approve this leave request? The employee's balance will be deducted and attendance marked as On Leave."
         confirmText="Approve"
@@ -156,15 +160,14 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
           onClose={() => { setRejectId(null); setRejectReason(''); }}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => { setRejectId(null); setRejectReason(''); }}>Cancel</button>
-              <button className="btn-primary" style={{ background: 'var(--red)', borderColor: 'var(--red)' }} onClick={handleReject}>Reject</button>
+              <Button variant="secondary" onClick={() => { setRejectId(null); setRejectReason(''); }}>Cancel</Button>
+              <Button variant="danger" onClick={handleReject}>Reject</Button>
             </>
           }
         >
-          <p className={s.mutedNote} style={{ marginBottom: '16px' }}>Provide a reason for rejecting this request. The pending balance will be restored.</p>
+          <p className={`${s.mutedNote} ${s.spaced}`}>Provide a reason for rejecting this request. The pending balance will be restored.</p>
           <Field label="Reason">
-            <textarea
-              className="form-input form-textarea"
+            <Textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
               rows={3}

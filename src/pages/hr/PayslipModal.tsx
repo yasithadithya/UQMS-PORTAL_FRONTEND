@@ -36,7 +36,7 @@ export default function PayslipModal({ runId, onClose, selfService = false }: { 
   return (
     <Modal title={`Payslip — ${data.month}/${data.year}`} onClose={onClose}>
       <div className={s.payMeta}>
-        <p style={{ fontWeight: 600, marginBottom: '6px' }}>{data.employee?.firstName} {data.employee?.lastName} · {data.employee?.employeeId}</p>
+        <p className={s.cellStrong}>{data.employee?.firstName} {data.employee?.lastName} · {data.employee?.employeeId}</p>
         <p className={s.mutedNote}>
           Attendance: {data.daysWorked}/{data.workingDaysInMonth} days worked
           {data.leaveDaysPaid > 0 && ` · ${data.leaveDaysPaid} paid leave`}
@@ -73,7 +73,7 @@ export default function PayslipModal({ runId, onClose, selfService = false }: { 
       </div>
 
       <div className={s.payTotal}>
-        <span style={{ fontSize: '16px', fontWeight: 700 }}>Net Pay</span>
+        <span className={s.sectionTitle}>Net pay</span>
         <span className={s.payTotalValue}>{formatMoney(data.netSalary)}</span>
       </div>
     </Modal>

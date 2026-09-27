@@ -1,0 +1,25 @@
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.summary {
+  margin-bottom: var(--space-4);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-6);
+}
+
+.facts dt {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+.facts dd {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}

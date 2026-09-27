@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { hrService } from '../../api';
 import { Badge, Modal, Field, formatDate } from './hrShared';
-import ConfirmModal from '../../components/ConfirmModal';
 import s from './hr.module.css';
 
+import { Button, ConfirmDialog, Input, Select } from '@/ui';
 type Section = 'checklists' | 'templates';
 
 interface TemplateItem {
@@ -132,16 +132,16 @@ export default function OnboardingView() {
         <div className={s.headerActions}>
           {section === 'checklists' && (
             <>
-              <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+              <Select className={s.inlineControl} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
                 <option value="">All types</option>
                 <option value="Onboarding">Onboarding</option>
                 <option value="Offboarding">Offboarding</option>
-              </select>
-              <select className="form-input" style={{ marginBottom: 0, width: 'auto' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              </Select>
+              <Select className={s.inlineControl} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 <option value="">All statuses</option>
                 <option value="InProgress">In Progress</option>
                 <option value="Completed">Completed</option>
-              </select>
+              </Select>
               <button className={s.addBtn} onClick={() => setStartForm({ ...startForm, open: true })}>+ Start Checklist</button>
             </>
           )}
@@ -152,7 +152,7 @@ export default function OnboardingView() {
       </div>
 
       {loading ? <p className={s.mutedNote}>Loading...</p> : section === 'checklists' ? (
-        <div className={s.gridAuto} style={{ marginBottom: 0 }}>
+        <div className={`${s.gridAuto} ${s.flush}`}>
           {checklists.map(cl => (
             <div key={cl._id} className={s.entityCard}>
               <div className={s.entityCardHead}>
@@ -160,37 +160,36 @@ export default function OnboardingView() {
                   <div className={s.entityTitle}>{cl.employee?.firstName} {cl.employee?.lastName}</div>
                   <div className={s.entityMeta}>{cl.employee?.employeeId} · started {formatDate(cl.startDate)}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div className={s.inlineGroup}>
                   <Badge status={cl.type === 'Onboarding' ? 'Scheduled' : 'Pending'} label={cl.type} />
                   <Badge status={cl.status} />
                 </div>
               </div>
 
-              <div className={s.progressTrack} style={{ marginBottom: '4px' }}>
+              <div className={`${s.progressTrack} ${s.progressSpaced}`}>
                 <div className={`${s.progressFill} ${cl.status === 'Completed' ? s.progressFillDone : ''}`} style={{ width: `${progressOf(cl)}%` }} />
               </div>
               <div className={s.entityMeta}>{progressOf(cl)}% complete</div>
 
               {cl.tasks.map((task: any, i: number) => (
                 <div key={i} className={s.taskRow}>
-                  <div style={{ flex: 1 }}>
+                  <div className={s.grow}>
                     <div className={`${s.taskTitle} ${task.status === 'Done' ? s.taskTitleDone : ''}`}>{task.title}</div>
                     <div className={s.taskMeta}>
                       {task.dueDate && `Due ${formatDate(task.dueDate)}`}
                       {task.assignee && ` · ${task.assignee.firstName} ${task.assignee.lastName}`}
                     </div>
                   </div>
-                  <select
-                    className={`form-input ${s.miniSelect}`}
+                  <Select className={s.miniSelect}
                     value={task.status}
                     onChange={e => updateTask(cl, i, { status: e.target.value })}
                   >
                     {['Pending', 'InProgress', 'Done', 'Skipped'].map(st => <option key={st} value={st}>{st}</option>)}
-                  </select>
+                  </Select>
                 </div>
               ))}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+              <div className={s.cardFooter}>
                 <button className={`${s.actionBtn} ${s.actionDanger}`} onClick={() => setDeleteChecklistId(cl._id)}>Delete</button>
               </div>
             </div>
@@ -198,21 +197,21 @@ export default function OnboardingView() {
           {checklists.length === 0 && <p className={s.mutedNote}>No checklists match the current filters.</p>}
         </div>
       ) : (
-        <div className={s.gridAuto} style={{ marginBottom: 0 }}>
+        <div className={`${s.gridAuto} ${s.flush}`}>
           {templates.map(tpl => (
             <div key={tpl._id} className={`${s.entityCard} ${tpl.isActive ? '' : s.inactive}`}>
               <div className={s.entityCardHead}>
                 <div className={s.entityTitle}>{tpl.name}</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div className={s.inlineGroup}>
                   <Badge status={tpl.type === 'Onboarding' ? 'Scheduled' : 'Pending'} label={tpl.type} />
                   {!tpl.isActive && <Badge status="Cancelled" label="Inactive" />}
                 </div>
               </div>
-              <ol style={{ paddingLeft: '18px', marginBottom: '12px' }}>
+              <ol className={s.itemList}>
                 {tpl.items.map((item: any, i: number) => (
-                  <li key={i} style={{ fontSize: '13px', marginBottom: '4px', color: 'var(--secondary)' }}>
+                  <li key={i}>
                     {item.title}
-                    <span className={s.entityMeta} style={{ display: 'inline', marginLeft: '4px' }}>(day {item.dueOffsetDays})</span>
+                    <span className={s.cellSubInline}>(day {item.dueOffsetDays})</span>
                   </li>
                 ))}
               </ol>
@@ -233,34 +232,34 @@ export default function OnboardingView() {
           onClose={() => setTemplateForm({ ...templateForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setTemplateForm({ ...templateForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={saveTemplate}>Save Template</button>
+              <Button variant="secondary" onClick={() => setTemplateForm({ ...templateForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={saveTemplate}>Save Template</Button>
             </>
           }
         >
-          <div className={s.modalGrid} style={{ gridTemplateColumns: '2fr 1fr' }}>
+          <div className={`${s.modalGrid} ${s.modalGridWideFirst}`}>
             <Field label="Name" required>
-              <input className="form-input" type="text" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g. Standard Onboarding" />
+              <Input type="text" value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} placeholder="e.g. Standard Onboarding" />
             </Field>
             <Field label="Type" required>
-              <select className="form-input" value={templateForm.type} onChange={e => setTemplateForm({ ...templateForm, type: e.target.value })}>
+              <Select value={templateForm.type} onChange={e => setTemplateForm({ ...templateForm, type: e.target.value })}>
                 <option value="Onboarding">Onboarding</option>
                 <option value="Offboarding">Offboarding</option>
-              </select>
+              </Select>
             </Field>
           </div>
 
           <div className={s.dynHead}>
-            <label className="form-label" style={{ marginBottom: 0 }}>Items</label>
+            <span className={s.groupLabel}>Items</span>
             <button className={s.actionBtn} onClick={() => setTemplateForm({ ...templateForm, items: [...templateForm.items, { title: '', description: '', dueOffsetDays: 0 }] })}>
               + Add Item
             </button>
           </div>
           {templateForm.items.map((item, i) => (
-            <div key={i} className={s.dynRow} style={{ gridTemplateColumns: '2fr 2fr 90px auto' }}>
-              <input className="form-input" style={{ marginBottom: 0 }} type="text" placeholder="Task title" value={item.title} onChange={e => updateItem(i, { title: e.target.value })} />
-              <input className="form-input" style={{ marginBottom: 0 }} type="text" placeholder="Description" value={item.description} onChange={e => updateItem(i, { description: e.target.value })} />
-              <input className="form-input" style={{ marginBottom: 0 }} type="number" min={0} title="Due after N days" value={item.dueOffsetDays} onChange={e => updateItem(i, { dueOffsetDays: Number(e.target.value) })} />
+            <div key={i} className={`${s.dynRow} ${s.dynTasks}`}>
+              <Input type="text" placeholder="Task title" value={item.title} onChange={e => updateItem(i, { title: e.target.value })} />
+              <Input type="text" placeholder="Description" value={item.description} onChange={e => updateItem(i, { description: e.target.value })} />
+              <Input type="number" min={0} title="Due after N days" value={item.dueOffsetDays} onChange={e => updateItem(i, { dueOffsetDays: Number(e.target.value) })} />
               <button className={s.iconBtn} onClick={() => setTemplateForm({ ...templateForm, items: templateForm.items.filter((_, idx) => idx !== i) })} aria-label="Remove">✕</button>
             </div>
           ))}
@@ -275,44 +274,44 @@ export default function OnboardingView() {
           onClose={() => setStartForm({ ...startForm, open: false })}
           footer={
             <>
-              <button className="btn-secondary" onClick={() => setStartForm({ ...startForm, open: false })}>Cancel</button>
-              <button className="btn-primary" onClick={startChecklist}>Start</button>
+              <Button variant="secondary" onClick={() => setStartForm({ ...startForm, open: false })}>Cancel</Button>
+              <Button variant="primary" onClick={startChecklist}>Start</Button>
             </>
           }
         >
           <Field label="Employee" required>
-            <select className="form-input" value={startForm.employeeId} onChange={e => setStartForm({ ...startForm, employeeId: e.target.value })}>
+            <Select value={startForm.employeeId} onChange={e => setStartForm({ ...startForm, employeeId: e.target.value })}>
               <option value="">Select</option>
               {employees.map(emp => <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName} ({emp.employeeId})</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Template" required>
-            <select className="form-input" value={startForm.templateId} onChange={e => setStartForm({ ...startForm, templateId: e.target.value })}>
+            <Select value={startForm.templateId} onChange={e => setStartForm({ ...startForm, templateId: e.target.value })}>
               <option value="">Select</option>
               {templates.filter(t => t.isActive).map(t => <option key={t._id} value={t._id}>{t.name} ({t.type})</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Start Date">
-            <input className="form-input" type="date" value={startForm.startDate} onChange={e => setStartForm({ ...startForm, startDate: e.target.value })} />
+            <Input type="date" value={startForm.startDate} onChange={e => setStartForm({ ...startForm, startDate: e.target.value })} />
           </Field>
         </Modal>
       )}
 
-      <ConfirmModal
-        isOpen={!!deleteTemplateId}
+      <ConfirmDialog
+        open={!!deleteTemplateId}
         title="Delete Template"
         message="Delete this template? If checklists reference it, it will be deactivated instead."
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteTemplateId(null)}
         onConfirm={removeTemplate}
       />
-      <ConfirmModal
-        isOpen={!!deleteChecklistId}
+      <ConfirmDialog
+        open={!!deleteChecklistId}
         title="Delete Checklist"
         message="Delete this checklist and its task progress permanently?"
         confirmText="Delete"
-        isDestructive
+        destructive
         onCancel={() => setDeleteChecklistId(null)}
         onConfirm={removeChecklist}
       />

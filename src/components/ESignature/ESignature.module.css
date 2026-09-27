@@ -1,48 +1,4 @@
-/* ── Full-screen document modal ───────────────────────── */
-.fullscreen {
-  position: fixed;
-  inset: 0;
-  z-index: 9990;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  animation: fadeIn 0.2s ease;
-}
-
-.fullscreenHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.fullscreenTitle {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--label);
-}
-
-.closeBtn {
-  background: none;
-  border: none;
-  font-size: 26px;
-  line-height: 1;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-}
-
-.closeBtn:hover {
-  color: var(--label);
-  background: var(--fill);
-}
-
-/* ── Viewer ───────────────────────────────────────────── */
+/* ── Viewer (inside the full-screen ui/Modal) ─────────── */
 .viewer {
   flex: 1;
   min-height: 0;
@@ -55,15 +11,15 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
 }
 
 .toolbarActions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -71,20 +27,29 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
+  padding: 4px var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.statusBadge svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .statusSigned {
-  color: var(--green);
-  background: var(--green-subtle);
+  color: var(--color-success-fg);
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
 }
 
 .statusPending {
-  color: var(--orange);
-  background: var(--orange-subtle);
+  color: var(--color-warning-fg);
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
 }
 
 .pages {
@@ -95,16 +60,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg-subtle);
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg);
 }
 
+/* PDF pages are paper: white in both themes. */
 .page {
   position: relative;
   flex-shrink: 0;
   background: #fff;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-popover);
 }
 
 .canvas {
@@ -115,22 +81,22 @@
 
 .message {
   margin: auto;
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
+  width: min(420px, 100%);
 }
 
 .refreshing {
   position: sticky;
   bottom: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  color: #fff;
-  background: rgba(15, 23, 42, 0.8);
+  padding: 6px var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  background: var(--color-surface-3);
+  box-shadow: var(--shadow-popover);
 }
 
-/* ── Signature field overlay ──────────────────────────── */
+/* ── Signature field overlay (sits on the white page, so paper colours) ── */
 .field {
   position: absolute;
   display: flex;
@@ -142,34 +108,42 @@
 }
 
 .fieldActive {
-  border: 2px dashed #2563eb;
-  background: rgba(37, 99, 235, 0.1);
+  border: 2px dashed #A6831A;
+  background: rgba(212, 175, 55, .12);
   cursor: pointer;
   animation: fieldPulse 1.8s ease-in-out infinite;
-  transition: background var(--transition);
+  transition: background var(--duration-fast) var(--ease-standard);
 }
 
 .fieldActive:hover,
 .fieldActive:focus-visible {
-  background: rgba(37, 99, 235, 0.2);
+  background: rgba(212, 175, 55, .22);
   outline: none;
   animation: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, .4);
 }
 
 .fieldLocked {
   border: 2px dashed #94a3b8;
-  background: rgba(148, 163, 184, 0.12);
+  background: rgba(148, 163, 184, .12);
   cursor: not-allowed;
 }
 
 .fieldLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #1e3a8a;
-  background: rgba(255, 255, 255, 0.9);
+  color: #6b5210;
+  background: rgba(255, 255, 255, .92);
+}
+
+.fieldLabel svg {
+  width: 14px;
+  height: 14px;
 }
 
 .fieldLocked .fieldLabel {
@@ -178,8 +152,8 @@
 }
 
 @keyframes fieldPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.35); }
-  50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, .35); }
+  50% { box-shadow: 0 0 0 6px rgba(212, 175, 55, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -187,53 +161,20 @@
 }
 
 /* ── Sign confirmation dialog ─────────────────────────── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
+.signForm {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.dialog {
-  width: 100%;
-  max-width: 520px;
-  margin-bottom: 0;
-  padding: 24px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-lg);
-}
-
-.dialogTitle {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--label);
-}
-
-.dialogText {
-  margin: 0 0 16px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--secondary);
-}
-
-/* The stamp preview mirrors the printed stamp, so it stays on a paper-white background in both themes. */
+/* The stamp preview mirrors the printed stamp, so it stays on paper white in both themes. */
 .stampPreview {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   background: #fff;
   color: #1f2937;
 }
@@ -256,24 +197,13 @@
   overflow-wrap: anywhere;
 }
 
-.dialogHint {
-  margin: 6px 0 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--orange);
-}
-
-.dialogActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 20px;
-}
-
 @media (max-width: 480px) {
   .stampPreview {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .toolbar {
+    padding: var(--space-2) var(--space-4);
   }
 }

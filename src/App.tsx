@@ -7,6 +7,7 @@ import LoginPage from '@/components/LoginPage';
 import BootScreen from '@/components/BootScreen';
 import { AccessDenied, NotFound } from '@/components/StatusPage';
 import { resolveModuleTrail } from '@/utils/modules';
+import { MODULE_KEYS, type ModuleKey } from '@/utils/permissions';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -25,24 +26,31 @@ import VesselEquipmentRecordPage from '@/pages/VesselEquipmentRecordPage';
 import EditSurveyReport from '@/pages/EditSurveyReport';
 
 
-function AdminGate({ children }: { children: React.ReactNode }) {
-  const { isAdmin } = useAuth();
-  if (!isAdmin) return <AccessDenied />;
+/** Renders the page only when the user holds `action` on the module with this key. */
+function PermissionGate({ module, action = 'read', children }: { module: ModuleKey; action?: string; children: React.ReactNode }) {
+  const { modulesLoaded, can } = useAuth();
+  if (!modulesLoaded) return <ModulesLoading />;
+  if (!can(module, action)) return <AccessDenied />;
   return <>{children}</>;
 }
 
-/** Guards the explicit First Entry routes, which bypass GenericModulePage's module access check. */
-function FirstEntryGate({ children }: { children: React.ReactNode }) {
+/**
+ * Guards the explicit First Entry routes, which bypass GenericModulePage's module access check:
+ * every level of the path must be readable, plus the sub-module permission the page needs.
+ */
+function FirstEntryGate({ module: required, action = 'read', children }: { module: ModuleKey; action?: string; children: React.ReactNode }) {
   const { module } = useParams();
-  const { modules, modulesLoaded, canAccessModule } = useAuth();
+  const { modules, modulesLoaded, canAccessModule, can } = useAuth();
   if (!modulesLoaded) return <ModulesLoading />;
   const { trail, matched } = resolveModuleTrail(modules, [module || '', 'marine', 'first-entry']);
   if (matched < 3) return <NotFound />;
-  if (trail.some(m => !canAccessModule(m._id))) return <AccessDenied />;
+  if (trail.some(m => !canAccessModule(m._id)) || !can(required, action)) return <AccessDenied />;
   return <>{children}</>;
 }
 
-const fe = (page: React.ReactNode) => <FirstEntryGate>{page}</FirstEntryGate>;
+const fe = (required: ModuleKey, action: string, page: React.ReactNode) => (
+  <FirstEntryGate module={required} action={action}>{page}</FirstEntryGate>
+);
 
 const BOOT_FLAG = 'uqms_backend_booted';
 
@@ -76,22 +84,22 @@ function Root() {
       <AuthGate>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/users" element={<AdminGate><UsersPage /></AdminGate>} />
+          <Route path="/users" element={<PermissionGate module={MODULE_KEYS.adminUsers}><UsersPage /></PermissionGate>} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/modules" element={<AdminGate><ModulesPage /></AdminGate>} />
-          <Route path="/roles" element={<AdminGate><RolesPage /></AdminGate>} />
-          <Route path="/checklist-management" element={<AdminGate><ChecklistManagement /></AdminGate>} />
+          <Route path="/modules" element={<PermissionGate module={MODULE_KEYS.adminModules}><ModulesPage /></PermissionGate>} />
+          <Route path="/roles" element={<PermissionGate module={MODULE_KEYS.adminRoles}><RolesPage /></PermissionGate>} />
+          <Route path="/checklist-management" element={<PermissionGate module={MODULE_KEYS.adminMasterData}><ChecklistManagement /></PermissionGate>} />
 
           {/* First Entry Sub-Sub-Module Custom Routes (under Marine) */}
-          <Route path="/:module/marine/first-entry/create" element={fe(<CreateFirstEntry />)} />
-          <Route path="/:module/marine/first-entry/edit/:id" element={fe(<CreateFirstEntry />)} />
-          <Route path="/:module/marine/first-entry/survey-booking/create" element={fe(<CreateFirstEntrySurveyBooking />)} />
-          <Route path="/:module/marine/first-entry/survey-booking/edit/:id" element={fe(<CreateFirstEntrySurveyBooking />)} />
-          <Route path="/:module/marine/first-entry/survey-report/create" element={fe(<CreateFirstEntrySurveyReport />)} />
-          <Route path="/:module/marine/first-entry/survey-report/edit/:id" element={fe(<CreateFirstEntrySurveyReport />)} />
-          <Route path="/:module/marine/first-entry/survey-report/equipment-record/:id" element={fe(<VesselEquipmentRecordPage />)} />
-          <Route path="/:module/marine/first-entry/survey-report/full/:id" element={fe(<FirstEntryFullReportPage />)} />
-          <Route path="/:module/marine/first-entry/survey-report/final/:id" element={fe(<EditSurveyReport />)} />
+          <Route path="/:module/marine/first-entry/create" element={fe(MODULE_KEYS.marineEntries, 'create', <CreateFirstEntry />)} />
+          <Route path="/:module/marine/first-entry/edit/:id" element={fe(MODULE_KEYS.marineEntries, 'read', <CreateFirstEntry />)} />
+          <Route path="/:module/marine/first-entry/survey-booking/create" element={fe(MODULE_KEYS.marineBookings, 'create', <CreateFirstEntrySurveyBooking />)} />
+          <Route path="/:module/marine/first-entry/survey-booking/edit/:id" element={fe(MODULE_KEYS.marineBookings, 'read', <CreateFirstEntrySurveyBooking />)} />
+          <Route path="/:module/marine/first-entry/survey-report/create" element={fe(MODULE_KEYS.marineReports, 'create', <CreateFirstEntrySurveyReport />)} />
+          <Route path="/:module/marine/first-entry/survey-report/edit/:id" element={fe(MODULE_KEYS.marineReports, 'read', <CreateFirstEntrySurveyReport />)} />
+          <Route path="/:module/marine/first-entry/survey-report/equipment-record/:id" element={fe(MODULE_KEYS.marineReports, 'read', <VesselEquipmentRecordPage />)} />
+          <Route path="/:module/marine/first-entry/survey-report/full/:id" element={fe(MODULE_KEYS.marineReports, 'read', <FirstEntryFullReportPage />)} />
+          <Route path="/:module/marine/first-entry/survey-report/final/:id" element={fe(MODULE_KEYS.marineCertificates, 'read', <EditSurveyReport />)} />
 
           {/* Catch-all dynamic route for DB modules (supports unlimited nesting) */}
           <Route path="/:module" element={<GenericModulePage />} />

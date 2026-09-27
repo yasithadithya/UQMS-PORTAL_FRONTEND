@@ -5,8 +5,12 @@ import Pagination from '../../components/Pagination';
 import ConfirmModal from '../../components/ConfirmModal';
 import { PageHeader, Badge, EmptyRow, Modal, Field } from './hrShared';
 import s from './hr.module.css';
+import { useAuth } from '../../context/AuthContext';
+import { MODULE_KEYS } from '../../utils/permissions';
 
 export default function LeaveManagement({ basePath }: { basePath: string }) {
+  const { can } = useAuth();
+  const canApprove = can(MODULE_KEYS.hrLeave, 'approve');
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -122,7 +126,7 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
                   </td>
                   <td><Badge status={req.status} /></td>
                   <td className={s.alignRight}>
-                    {req.status === 'Pending' && (
+                    {req.status === 'Pending' && canApprove && (
                       <div className={s.actionRow}>
                         <button className={`${s.actionBtn} ${s.actionSuccess}`} onClick={() => setApproveId(req._id)}>Approve</button>
                         <button className={`${s.actionBtn} ${s.actionDanger}`} onClick={() => { setRejectId(req._id); setRejectReason(''); }}>Reject</button>

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS, isNavigable } from '@/utils/permissions';
 import { modulesService } from '@/api/services/modules.service';
 import { toast } from 'react-toastify';
 import s from './UserManagement.module.css';
 
 export default function ModulesPage() {
-    const { modules, refreshModules, setModulesOptimistic, hasPermission } = useAuth();
-    const canDeleteModule = hasPermission('Admin', 'delete') || hasPermission('Module Management', 'delete');
+    const { modules, refreshModules, setModulesOptimistic, can } = useAuth();
+    const canCreateModule = can(MODULE_KEYS.adminModules, 'create');
+    const canUpdateModule = can(MODULE_KEYS.adminModules, 'update');
+    const canDeleteModule = can(MODULE_KEYS.adminModules, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingModule, setEditingModule] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -178,6 +181,7 @@ export default function ModulesPage() {
                 // Exclude self and all descendants when editing
                 if (editingModule && child._id === editingModule._id) continue;
                 if (excludedIds.has(child._id)) continue;
+                if (!isNavigable(child)) continue;
                 options.push({ id: child._id, label: child.name, depth });
                 addOptions(child._id, depth + 1);
             }
@@ -256,12 +260,14 @@ export default function ModulesPage() {
                     <h2 className="section-header" style={{ marginBottom: '4px' }}>Module Management</h2>
                     <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Manage system features and sub-features</p>
                 </div>
-                <button className={s.addBtn} onClick={openAdd}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Add Module
-                </button>
+                {canCreateModule && (
+                    <button className={s.addBtn} onClick={openAdd}>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        Add Module
+                    </button>
+                )}
             </div>
 
             <div className={s.tableWrap}>
@@ -279,7 +285,7 @@ export default function ModulesPage() {
                         {sortedModules.map((mod) => (
                             <tr 
                                 key={mod._id}
-                                draggable={true}
+                                draggable={canUpdateModule}
                                 onDragStart={(e) => {
                                     setDraggedId(mod._id);
                                     e.dataTransfer.effectAllowed = 'move';
@@ -307,7 +313,7 @@ export default function ModulesPage() {
                                     handleDrop(mod);
                                 }}
                                 style={{
-                                    cursor: 'grab',
+                                    cursor: canUpdateModule ? 'grab' : 'default',
                                     opacity: draggedId === mod._id ? 0.4 : 1,
                                     borderTop: dragOverId === mod._id ? '2px solid var(--primary)' : undefined,
                                     transition: 'all 0.15s ease'
@@ -316,7 +322,15 @@ export default function ModulesPage() {
                                 <td>
                                     <div style={{ fontWeight: 500, color: 'var(--text)', paddingLeft: `${((mod as any).depth || 0) * 24}px`, display: 'flex', alignItems: 'center' }}>
                                         {(mod as any).depth > 0 ? <span style={{ color: 'var(--separator)', marginRight: '8px', opacity: 0.5 }}>{'↳'.repeat(1)}</span> : null}
-                                        {mod.name}
+                                        <span style={{ opacity: isNavigable(mod) ? 1 : 0.7 }}>{mod.name}</span>
+                                        {mod.isSystem && (
+                                            <span
+                                                title={`System module (${mod.key})${isNavigable(mod) ? '' : ' - permission only, not shown in navigation'}`}
+                                                style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '6px', background: 'var(--primary-subtle)', color: 'var(--primary)' }}
+                                            >
+                                                SYSTEM
+                                            </span>
+                                        )}
                                     </div>
                                 </td>
                                 <td>{mod.description || <span style={{ color: 'var(--muted)' }}>No description</span>}</td>
@@ -333,16 +347,18 @@ export default function ModulesPage() {
                                 </td>
                                 <td>
                                     <div className={s.actions}>
-                                        <button className={s.actionBtn} onClick={() => openEdit(mod)} title="Edit">
+                                        <button className={s.actionBtn} onClick={() => openEdit(mod)} title="Edit" disabled={!canUpdateModule}>
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                 <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         </button>
-                                        <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete" disabled={!canDeleteModule}>
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                                <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                                            </svg>
-                                        </button>
+                                        {!mod.isSystem && (
+                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(mod._id)} title="Delete" disabled={!canDeleteModule}>
+                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                                    <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -374,8 +390,15 @@ export default function ModulesPage() {
                                 </div>
                             )}
 
+                            {editingModule?.isSystem && (
+                                <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
+                                    System module <code>{editingModule.key}</code>: permissions and routes depend on it, so only the description and order can be changed.
+                                </p>
+                            )}
+
                             <label className="form-label">Module Name</label>
                             <input
+                                disabled={!!editingModule?.isSystem}
                                 className="form-input"
                                 type="text"
                                 placeholder="e.g. Reporting"
@@ -395,6 +418,7 @@ export default function ModulesPage() {
                             <label className="form-label">Parent Module (Optional)</label>
                             <select
                                 className="form-input"
+                                disabled={!!editingModule?.isSystem}
                                 value={formData.parentId}
                                 onChange={(e) => setFormData((p) => ({ ...p, parentId: e.target.value }))}
                             >

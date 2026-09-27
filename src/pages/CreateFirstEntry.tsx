@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
@@ -27,6 +29,8 @@ export default function CreateFirstEntry() {
   const { id, module } = useParams<{ id?: string; module?: string }>(); // FirstEntry ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineEntries, isEdit ? 'update' : 'create');
 
   // Metadata Dropdowns
   const [requests, setRequests] = useState<ApiRequest[]>([]);
@@ -1431,7 +1435,8 @@ export default function CreateFirstEntry() {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading}
+            disabled={loading || !canSave}
+            title={canSave ? undefined : 'You do not have permission to save this record.'}
             style={{ minWidth: '180px', marginBottom: 0 }}
           >
             {loading ? 'Saving...' : 'Save First Entry'}

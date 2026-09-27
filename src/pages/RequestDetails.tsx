@@ -19,6 +19,7 @@ import SearchableSelect from '@/components/SearchableSelect';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
 import { formatDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 import s from './NewRequest.module.css';
 
 const escapeHtml = (text: string) =>
@@ -185,8 +186,9 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 }
 
 export default function RequestDetailsPage() {
-  const { hasPermission } = useAuth();
-  const canDelete = hasPermission('Admin', 'delete') || hasPermission('New Request', 'delete');
+  const { can } = useAuth();
+  const canDelete = can(MODULE_KEYS.newRequest, 'delete');
+  const canReview = can(MODULE_KEYS.newRequest, 'update');
   const params = useParams();
   const id = params.submodule || (params['*'] ? params['*'].split('/')[0] : undefined);
   const navigate = useNavigate();
@@ -207,7 +209,14 @@ export default function RequestDetailsPage() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [pendingSignedPdf, setPendingSignedPdf] = useState<File | null>(null);
-  const [pendingConfirm, setPendingConfirm] = useState<{ title: string; message: string; action: () => Promise<void> } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmText?: string;
+    isDestructive?: boolean;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [reviewing, setReviewing] = useState(false);
 
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -379,6 +388,36 @@ export default function RequestDetailsPage() {
     });
   };
 
+  const handleReviewWebRequest = (decision: 'accept' | 'reject') => {
+    if (!request) return;
+    setPendingConfirm({
+      title: decision === 'accept' ? 'Accept website request?' : 'Reject website request?',
+      message:
+        decision === 'accept'
+          ? 'This request will be given a job number and moved to New Request.'
+          : 'This request will be rejected and removed from the dashboard.',
+      confirmText: decision === 'accept' ? 'Accept' : 'Reject',
+      isDestructive: decision === 'reject',
+      action: async () => {
+        setReviewing(true);
+        try {
+          const res = decision === 'accept'
+            ? await requestsService.acceptWebRequest(request._id)
+            : await requestsService.rejectWebRequest(request._id);
+          toast.success(
+            decision === 'accept' ? `Accepted. Job number ${res.data.jobNumber} assigned.` : 'Request rejected.'
+          );
+          setRequest(res.data);
+          setForm(requestToForm(res.data));
+        } catch (err: any) {
+          toast.error(err.message || `Failed to ${decision} request.`);
+        } finally {
+          setReviewing(false);
+        }
+      },
+    });
+  };
+
   const handleSurveyPdfAction = async () => {
     if (!request || printingPdf) return;
 
@@ -479,6 +518,8 @@ export default function RequestDetailsPage() {
   }
 
   const documents = request?.documents || [];
+  const awaitingReview = request?.approvalStatus === 'pending';
+  const isRejectedWebRequest = request?.approvalStatus === 'rejected';
 
   return (
     <div className="animate-in">
@@ -486,7 +527,11 @@ export default function RequestDetailsPage() {
         <div className={s.detailTitleBlock}>
           <div className={s.detailTitleRow}>
             <h2 className="section-header">{request ? request.requestNumber : 'Request'}</h2>
-            {request && <span className={requestStatusClass(request.status)}>{requestStatusLabel(request.status)}</span>}
+            {request && (awaitingReview ? (
+              <span className={`${s.statusBadge} ${s.statusPending}`}>Pending Review</span>
+            ) : (
+              <span className={requestStatusClass(request.status)}>{requestStatusLabel(request.status)}</span>
+            ))}
           </div>
           <p className={s.detailSubtitle}>
             {request ? `${request.companyName} / ${request.vesselName}` : 'Loading request information'}
@@ -497,7 +542,29 @@ export default function RequestDetailsPage() {
           <button className="btn-secondary" type="button" onClick={() => navigate(-1)}>
             Back
           </button>
-          {request && (
+          {request && awaitingReview && (
+            <>
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => handleReviewWebRequest('reject')}
+                disabled={!canReview || reviewing}
+                style={{ color: 'var(--red)' }}
+              >
+                Reject
+              </button>
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={() => handleReviewWebRequest('accept')}
+                disabled={!canReview || reviewing}
+                style={{ background: 'var(--green)' }}
+              >
+                {reviewing ? 'Saving...' : 'Accept'}
+              </button>
+            </>
+          )}
+          {request && !awaitingReview && !isRejectedWebRequest && (
             request.status === 'print' ? (
               <button className="btn-secondary" type="button" onClick={handleSurveyPdfAction} disabled={printingPdf}>
                 {printingPdf ? 'Preparing PDF...' : 'View Pdf'}
@@ -508,7 +575,7 @@ export default function RequestDetailsPage() {
               </button>
             )
           )}
-          {request && !editing && (
+          {request && !editing && !awaitingReview && !isRejectedWebRequest && canReview && (
             <button className="btn-primary" type="button" onClick={handleEdit}>
               Edit
             </button>
@@ -529,6 +596,10 @@ export default function RequestDetailsPage() {
       ) : (
         <>
           <div className={s.summaryGrid}>
+            <div className={s.summaryTile}>
+              <span>Job No</span>
+              <strong>{request.jobNumber || (awaitingReview ? 'On acceptance' : '-')}</strong>
+            </div>
             <div className={s.summaryTile}>
               <span>UQMS</span>
               <strong>{request.uqmsNumber || '-'}</strong>
@@ -1025,10 +1096,10 @@ export default function RequestDetailsPage() {
               <button className="btn-secondary btn-inline" type="button" onClick={handleClosePreview} disabled={printingPdf || sendingEmail}>
                 Cancel
               </button>
-              <button className="btn-primary btn-inline" type="button" onClick={handleFinalizePrint} disabled={printingPdf || sendingEmail}>
+              <button className="btn-primary btn-inline" type="button" onClick={handleFinalizePrint} disabled={!canReview || printingPdf || sendingEmail}>
                 {printingPdf ? 'Printing...' : 'Print PDF'}
               </button>
-              <button className="btn-primary btn-inline" type="button" onClick={handlePrintAndSend} disabled={printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
+              <button className="btn-primary btn-inline" type="button" onClick={handlePrintAndSend} disabled={!canReview || printingPdf || sendingEmail} style={{ background: 'var(--green)' }}>
                 {sendingEmail ? 'Sending...' : 'Print & Send'}
               </button>
             </div>
@@ -1040,8 +1111,8 @@ export default function RequestDetailsPage() {
         isOpen={!!pendingConfirm}
         title={pendingConfirm?.title || ''}
         message={pendingConfirm?.message || ''}
-        confirmText="Delete"
-        isDestructive
+        confirmText={pendingConfirm?.confirmText || 'Delete'}
+        isDestructive={pendingConfirm?.isDestructive ?? true}
         onConfirm={() => {
           const action = pendingConfirm?.action;
           setPendingConfirm(null);

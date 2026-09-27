@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS, isSuperAdminRole } from '@/utils/permissions';
 import s from './UserManagement.module.css';
 
 export default function UsersPage() {
-    const { users, roles, addUser, updateUser, deleteUser, hasPermission } = useAuth();
-    const canDeleteUser = hasPermission('Admin', 'delete') || hasPermission('User Management', 'delete');
+    const { users, roles, addUser, updateUser, deleteUser, can, isSuperAdmin, user: currentUser } = useAuth();
+    const canCreateUser = can(MODULE_KEYS.adminUsers, 'create');
+    const canUpdateUser = can(MODULE_KEYS.adminUsers, 'update');
+    const canDeleteUser = can(MODULE_KEYS.adminUsers, 'delete');
+    // Only a super admin may assign the admin role or manage users who hold it (enforced by the backend too).
+    const assignableRoles = roles.filter(r => isSuperAdmin || !isSuperAdminRole(r));
+    const isProtectedUser = (u: any) => !isSuperAdmin && typeof u.role === 'object' && isSuperAdminRole(u.role);
+    const isSelf = (u: any) => (u._id || u.id) === currentUser?.id;
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -30,7 +37,7 @@ export default function UsersPage() {
             username: '',
             email: '',
             password: '',
-            role: roles.length > 0 ? roles[0]._id : '',
+            role: assignableRoles.length > 0 ? assignableRoles[0]._id : '',
             fullName: '',
             nameWithInitials: '',
             phoneNumber: '',
@@ -175,12 +182,14 @@ export default function UsersPage() {
                     <h2 className="section-header" style={{ marginBottom: '4px' }}>User Management</h2>
                     <p style={{ fontSize: '13px', color: 'var(--muted)' }}>{users.length} users registered</p>
                 </div>
-                <button className={s.addBtn} onClick={openAdd} id="add-user-btn">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Add User
-                </button>
+                {canCreateUser && (
+                    <button className={s.addBtn} onClick={openAdd} id="add-user-btn">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        Add User
+                    </button>
+                )}
             </div>
 
             {/* Desktop Table */}
@@ -234,12 +243,12 @@ export default function UsersPage() {
                                     </td>
                                     <td>
                                         <div className={s.actions}>
-                                            <button className={s.actionBtn} onClick={() => openEdit(user)} title="Edit">
+                                            <button className={s.actionBtn} onClick={() => openEdit(user)} title="Edit" disabled={isProtectedUser(user) || (!canUpdateUser && !isSelf(user))}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
                                             </button>
-                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} title="Delete" disabled={!canDeleteUser}>
+                                            <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} title="Delete" disabled={!canDeleteUser || isProtectedUser(user) || isSelf(user)}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
@@ -285,8 +294,8 @@ export default function UsersPage() {
                                     {getRoleName(user)}
                                 </span>
                                 <div className={s.actions}>
-                                    <button className={s.actionBtn} onClick={() => openEdit(user)}>Edit</button>
-                                    <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} disabled={!canDeleteUser}>Delete</button>
+                                    <button className={s.actionBtn} onClick={() => openEdit(user)} disabled={isProtectedUser(user) || (!canUpdateUser && !isSelf(user))}>Edit</button>
+                                    <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(userId)} disabled={!canDeleteUser || isProtectedUser(user) || isSelf(user)}>Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -413,9 +422,11 @@ export default function UsersPage() {
                                         value={formData.role}
                                         onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))}
                                         id="user-role-select"
+                                        disabled={!!editingUser && isSelf(editingUser)}
+                                        title={editingUser && isSelf(editingUser) ? "You can't change your own role." : undefined}
                                     >
                                         {roles.length === 0 && <option value="">No roles available</option>}
-                                        {roles.map((r) => (
+                                        {roles.filter(r => assignableRoles.includes(r) || r._id === formData.role).map((r) => (
                                             <option key={r._id} value={r._id}>
                                                 {r.roleName}
                                             </option>

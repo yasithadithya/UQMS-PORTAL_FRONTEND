@@ -4,6 +4,8 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { firstEntryService, vesselEquipmentRecordService } from '@/api';
 import type { ApiFirstEntrySurveyReport, ApiVesselEquipmentRecordItem } from '@/api';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 // Parsers and formatters for structured remarks
 const parseLifeRafts = (val: string) => {
@@ -67,6 +69,8 @@ const formatHoses = (count: string, material: string, width: string, length: str
 };
 
 export default function VesselEquipmentRecordPage() {
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineReports, 'update');
   const navigate = useNavigate();
   const unsaved = useUnsavedChanges();
   const { id, module } = useParams<{ id: string; module?: string }>(); // Survey Report ID
@@ -548,7 +552,8 @@ export default function VesselEquipmentRecordPage() {
           <button
             type="submit"
             className="btn-primary"
-            disabled={saving}
+            disabled={saving || !canSave}
+            title={canSave ? undefined : 'You do not have permission to save this record.'}
             style={{ minWidth: '180px', marginBottom: 0 }}
           >
             {saving ? 'Saving...' : 'Save Record'}

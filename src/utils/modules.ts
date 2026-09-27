@@ -1,4 +1,5 @@
 import type { ApiModule } from '@/api';
+import { isNavigable } from './permissions';
 
 export const getParentId = (mod: ApiModule): string | null => {
   if (!mod.parentId) return null;
@@ -9,7 +10,7 @@ export const getParentId = (mod: ApiModule): string | null => {
 export const toSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
 
 /**
- * Resolve URL segments to the chain of modules they name, root first.
+ * Resolve URL segments to the chain of navigable modules they name, root first.
  * `matched` is how many leading segments resolved; the rest (if any) matched no child module.
  */
 export function resolveModuleTrail(modules: ApiModule[], segments: string[]): { trail: ApiModule[]; matched: number } {
@@ -17,7 +18,7 @@ export function resolveModuleTrail(modules: ApiModule[], segments: string[]): { 
   let parentId: string | null = null;
   for (const segment of segments) {
     const slug = segment.toLowerCase();
-    const next = modules.find(m => getParentId(m) === parentId && toSlug(m.name) === slug);
+    const next = modules.find(m => isNavigable(m) && getParentId(m) === parentId && toSlug(m.name) === slug);
     if (!next) break;
     trail.push(next);
     parentId = next._id;

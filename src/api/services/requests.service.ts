@@ -44,6 +44,24 @@ export const requestsService = {
     const query = queryStr ? `?${queryStr}` : '';
     return request<{ success: boolean; count: number; data: ApiRequest[]; pagination?: any }>(`/requests${query}`);
   },
+  getPendingWebRequests: (params?: { page?: number; limit?: number | 'all' }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.append('page', String(params.page));
+    if (params?.limit) searchParams.append('limit', String(params.limit));
+    const queryStr = searchParams.toString();
+    const query = queryStr ? `?${queryStr}` : '';
+    return request<{ success: boolean; count: number; data: ApiRequest[]; pagination?: any }>(`/requests/website-pending${query}`);
+  },
+  acceptWebRequest: (id: string) => {
+    return request<{ success: boolean; message: string; data: ApiRequest }>(`/requests/${id}/accept`, {
+      method: 'POST',
+    });
+  },
+  rejectWebRequest: (id: string) => {
+    return request<{ success: boolean; message: string; data: ApiRequest }>(`/requests/${id}/reject`, {
+      method: 'POST',
+    });
+  },
   createRequest: (payload: RequestPayload) => {
     return request<{ success: boolean; message: string; data: ApiRequest }>('/requests', {
       method: 'POST',

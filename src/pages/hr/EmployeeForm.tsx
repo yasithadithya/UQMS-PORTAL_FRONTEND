@@ -1,14 +1,19 @@
 import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { toast } from 'react-toastify';
-import { hrService } from '../../api';
-import { useAuth } from '../../context/AuthContext';
+import { hrService, usersService, type ApiUserDirectoryEntry } from '../../api';
 import { Modal, Field } from './hrShared';
 import s from './hr.module.css';
 
 const toDateInput = (d?: string | Date | null) => (d ? new Date(d).toISOString().split('T')[0] : '');
 
 export default function EmployeeForm({ employee, onClose, onSaved }: { employee?: any, onClose: () => void, onSaved: () => void }) {
-  const { users } = useAuth();
+  // The directory is readable by every signed-in user, so HR staff without User Management can link accounts.
+  const [users, setUsers] = useState<ApiUserDirectoryEntry[]>([]);
+  useEffect(() => {
+    usersService.getDirectory()
+      .then(res => { if (res.success) setUsers(res.data); })
+      .catch(() => toast.error('Could not load user accounts for linking.'));
+  }, []);
   const [formData, setFormData] = useState({
     firstName: employee?.firstName || '',
     lastName: employee?.lastName || '',
@@ -246,8 +251,8 @@ export default function EmployeeForm({ employee, onClose, onSaved }: { employee?
         <Field label="Linked User Account">
           <select className="form-input" name="userId" value={formData.userId} onChange={handleChange}>
             <option value="">Not linked</option>
-            {users.map((u: any) => (
-              <option key={u._id || u.id} value={u._id || u.id}>{u.fullName || u.username} ({u.email})</option>
+            {users.map(u => (
+              <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>
             ))}
           </select>
           <p className={s.hint}>

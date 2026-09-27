@@ -298,6 +298,51 @@
   vertical-align: middle;
 }
 
+.statusPending {
+  background: rgba(59, 130, 246, .15);
+  color: #2563eb;
+}
+
+/* Accept / Reject buttons for website requests awaiting review. */
+.reviewActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.reviewBtn {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .2s;
+}
+
+.reviewBtn:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.acceptBtn {
+  background: var(--green);
+  color: #fff;
+}
+
+.rejectBtn {
+  background: var(--red-subtle);
+  color: var(--red);
+}
+
+.viewBtn {
+  background: var(--surface);
+  color: var(--label);
+}
+
 .checkboxGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

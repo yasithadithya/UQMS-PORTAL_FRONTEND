@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
@@ -14,7 +16,7 @@ import type {
   ApiVessel,
   ApiVesselType,
   ApiSurveyType,
-  ApiUser,
+  ApiUserDirectoryEntry,
   ApiVisitDetail,
   ApiSurveyorAssignment,
   ApiRequest
@@ -26,12 +28,14 @@ export default function CreateFirstEntrySurveyBooking() {
   const { id, module } = useParams<{ id?: string; module?: string }>(); // Booking ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineBookings, isEdit ? 'update' : 'create');
 
   // Metadata Dropdowns
   const [vessels, setVessels] = useState<ApiVessel[]>([]);
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
-  const [users, setUsers] = useState<ApiUser[]>([]);
+  const [users, setUsers] = useState<ApiUserDirectoryEntry[]>([]);
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [selectedRequestIds, setSelectedRequestIds] = useState<string[]>([]);
 
@@ -81,7 +85,7 @@ export default function CreateFirstEntrySurveyBooking() {
           vesselsService.getVessels(),
           operationsService.getVesselTypes(),
           operationsService.getSurveyTypes(),
-          usersService.getUsers(),
+          usersService.getDirectory(),
           requestsService.getRequests()
         ]);
 
@@ -1029,7 +1033,7 @@ export default function CreateFirstEntrySurveyBooking() {
                               >
                                 <option value="">-- Choose Surveyor --</option>
                                 {users.map(u => (
-                                  <option key={u._id} value={u._id}>{u.username} ({u.email})</option>
+                                  <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>
                                 ))}
                               </select>
                             </div>
@@ -1094,7 +1098,8 @@ export default function CreateFirstEntrySurveyBooking() {
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading}
+            disabled={loading || !canSave}
+            title={canSave ? undefined : 'You do not have permission to save this record.'}
             style={{ minWidth: '180px', marginBottom: 0 }}
           >
             {loading ? 'Saving...' : 'Save Survey Booking'}

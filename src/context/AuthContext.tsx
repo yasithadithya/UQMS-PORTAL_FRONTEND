@@ -11,6 +11,7 @@ import {
   type ApiRole,
   type ApiModule,
 } from '@/api';
+import { MODULE_KEYS, isSuperAdminRole, permissionModuleId, type ModuleKey } from '@/utils/permissions';
 
 interface AuthUser {
   id: string;
@@ -27,7 +28,8 @@ interface AuthContextType {
   modules: ApiModule[];
   modulesLoaded: boolean;
   modulesError: string | null;
-  isAdmin: boolean;
+  /** The name-based super admin role ("admin"): unrestricted access. */
+  isSuperAdmin: boolean;
   loading: boolean;
   login: (login: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -64,8 +66,11 @@ interface AuthContextType {
   refreshRoles: () => Promise<void>;
   refreshModules: () => Promise<void>;
   setModulesOptimistic: (modules: ApiModule[]) => void;
-  hasPermission: (moduleName: string | null, action: string) => boolean;
-  /** Whether the current user's role grants `action` (default 'read') on the module with this id. Admins always can. */
+  /** Whether the user's role grants `action` (default 'read') on the system module with this key. Super admins always can. */
+  can: (key: ModuleKey, action?: string) => boolean;
+  /** Whether any of `actions` (default read) is granted on any of these modules. */
+  canAny: (keys: ModuleKey[], actions?: string[]) => boolean;
+  /** Whether the current user's role grants `action` (default 'read') on the module with this id. Super admins always can. */
   canAccessModule: (moduleId: string, action?: string) => boolean;
 }
 
@@ -156,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [modulesError, setModulesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const isAdmin = hasRoleObject(user?.role) && user!.role.roleName.toLowerCase() === 'admin';
+  const isSuperAdmin = hasRoleObject(user?.role) && isSuperAdminRole(user!.role);
 
   // Fetch users and roles when logged in
   const refreshUsers = useCallback(async () => {
@@ -194,30 +199,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setModules(updatedModules);
   }, []);
 
+  const canAccessModule = useCallback((moduleId: string, action = 'read') => {
+    if (!user || !hasRoleObject(user.role)) return false;
+    if (isSuperAdmin) return true;
+    const perm = user.role.permissions?.find(p => permissionModuleId(p.module) === moduleId);
+    return !!perm?.actions?.includes(action);
+  }, [user, isSuperAdmin]);
+
+  const can = useCallback((key: ModuleKey, action = 'read') => {
+    if (!user || !hasRoleObject(user.role)) return false;
+    if (isSuperAdmin) return true;
+    const mod = modules.find(m => m.key === key);
+    return !!mod && canAccessModule(mod._id, action);
+  }, [user, isSuperAdmin, modules, canAccessModule]);
+
+  const canAny = useCallback(
+    (keys: ModuleKey[], actions: string[] = ['read']) => keys.some(key => actions.some(action => can(key, action))),
+    [can]
+  );
+
+  const canReadUsers = can(MODULE_KEYS.adminUsers);
+  const canManageUsers = can(MODULE_KEYS.adminUsers, 'update');
+  const canReadRoles = canReadUsers || can(MODULE_KEYS.adminRoles);
+
   const userId = user?.id;
 
   useEffect(() => {
     if (userId) refreshModules();
   }, [userId, refreshModules]);
 
-  // Only admins manage users and roles; other pages fetch what they need themselves.
+  // Only user/role managers need the full lists; other pages fetch what they need themselves.
   useEffect(() => {
-    if (userId && isAdmin) {
-      refreshUsers();
-      refreshRoles();
-    }
-  }, [userId, isAdmin, refreshUsers, refreshRoles]);
+    if (userId && canReadUsers) refreshUsers();
+  }, [userId, canReadUsers, refreshUsers]);
 
-  // Pick up role/permission changes made since this session was stored.
+  useEffect(() => {
+    if (userId && canReadRoles) refreshRoles();
+  }, [userId, canReadRoles, refreshRoles]);
+
+  // Pick up profile changes made since this session was stored. The role is deliberately kept:
+  // the backend enforces the permissions captured at login, so the UI reflects the same snapshot.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     usersService.getUserById(userId)
       .then((res) => {
-        if (cancelled || !res?.data || !hasRoleObject(res.data.role)) return;
-        const fresh = toAuthUser(res.data);
-        localStorage.setItem('user', JSON.stringify(fresh));
-        setUser(fresh);
+        if (cancelled || !res?.data) return;
+        setUser((current) => {
+          if (!current) return current;
+          const fresh = toAuthUser({ ...res.data, role: current.role });
+          localStorage.setItem('user', JSON.stringify(fresh));
+          return fresh;
+        });
       })
       .catch(() => { /* a 401 is handled by the auth-expired listener */ });
     return () => { cancelled = true; };
@@ -301,18 +334,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await usersService.updateUser(id, payload);
         if (user && id === user.id && res.data) {
-          // Keep the current role if the response didn't populate it.
-          const authUser = toAuthUser({ ...res.data, role: hasRoleObject(res.data.role) ? res.data.role : user.role });
+          // Keep the session's role: permission changes take effect on the next login.
+          const authUser = toAuthUser({ ...res.data, role: user.role });
           localStorage.setItem('user', JSON.stringify(authUser));
           setUser(authUser);
         }
-        if (isAdmin) await refreshUsers();
+        if (canReadUsers) await refreshUsers();
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message || 'Failed to update user' };
       }
     },
-    [user, isAdmin, refreshUsers]
+    [user, canReadUsers, refreshUsers]
   );
 
   const deleteUser = useCallback(
@@ -367,44 +400,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshRoles]
   );
 
-  const hasPermission = useCallback((moduleName: string | null, action: string) => {
-    if (!user || !hasRoleObject(user.role)) return false;
-    if (isAdmin) return true;
-    
-    if (moduleName) {
-      const targetModule = modules.find(m => m.name.toLowerCase() === moduleName.toLowerCase());
-      if (!targetModule) return false;
-
-      const perm = user.role.permissions?.find(p => {
-        const pModId = typeof p.module === 'object' && p.module ? p.module._id : p.module;
-        return pModId === targetModule._id;
-      });
-
-      if (!perm) return false;
-      return !!perm.actions?.includes(action);
-    }
-
-    return user.role.permissions?.some(p => p.actions?.includes(action)) || false;
-  }, [user, isAdmin, modules]);
-
-  const canAccessModule = useCallback((moduleId: string, action = 'read') => {
-    if (!user || !hasRoleObject(user.role)) return false;
-    if (isAdmin) return true;
-    const perm = user.role.permissions?.find(p => {
-      const pModId = typeof p.module === 'object' && p.module ? p.module._id : p.module;
-      return pModId === moduleId;
-    });
-    return !!perm?.actions?.includes(action);
-  }, [user, isAdmin]);
-
   return (
     <AuthContext.Provider
       value={{
-        user, users, roles, modules, modulesLoaded, modulesError, isAdmin, loading,
+        user, users, roles, modules, modulesLoaded, modulesError, isSuperAdmin, loading,
         login, logout, 
         addUser, updateUser, deleteUser, refreshUsers,
         addRole, updateRole, deleteRole, refreshRoles,
-        refreshModules, setModulesOptimistic, hasPermission, canAccessModule
+        refreshModules, setModulesOptimistic, can, canAny, canAccessModule
       }}
     >
       {children}

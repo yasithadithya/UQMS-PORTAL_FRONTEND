@@ -1,7 +1,8 @@
 import { useMemo, type ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { HR_TAB_GROUPS, findGroupForSubTab } from './hrTabs';
+import { HR_TAB_GROUPS, HR_TAB_MODULE, type HrTabGroup } from './hrTabs';
+import { HR_KEYS } from '../../utils/permissions';
 import s from './hr.module.css';
 
 import HRDashboard from './HRDashboard';
@@ -43,25 +44,28 @@ const CONTENT: Record<string, (basePath: string) => ReactElement> = {
 export default function HRModulePage({ currentModule }: { currentModule: any }) {
   const { module } = useParams<{ module?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hasPermission } = useAuth();
+  const { can, canAny } = useAuth();
 
   const basePath = `/${module || 'hr'}`;
-  const isHrAdmin = hasPermission('hr', 'update');
+  // Anyone who can read at least one HR area sees the admin views; everyone else gets self-service only.
+  const isHrAdmin = canAny(HR_KEYS);
 
-  const groups = useMemo(
-    () => HR_TAB_GROUPS.filter(g => (isHrAdmin ? true : g.id === 'myhr')),
-    [isHrAdmin]
-  );
+  const groups = useMemo(() => {
+    const isTabAllowed = (id: string) =>
+      id === 'myhr' ? true : id === 'dashboard' ? isHrAdmin : !!HR_TAB_MODULE[id] && can(HR_TAB_MODULE[id]);
+    return HR_TAB_GROUPS
+      .map((g): HrTabGroup => (g.subTabs ? { ...g, subTabs: g.subTabs.filter(st => isTabAllowed(st.id)) } : g))
+      .filter(g => (g.subTabs ? g.subTabs.length > 0 : isTabAllowed(g.id)));
+  }, [can, isHrAdmin]);
 
-  const defaultTab = isHrAdmin ? 'dashboard' : 'myhr';
+  const findGroup = (tabId: string) => groups.find(g => g.id === tabId || g.subTabs?.some(st => st.id === tabId));
+
+  const defaultTab = isHrAdmin ? (groups[0].subTabs ? groups[0].subTabs[0].id : groups[0].id) : 'myhr';
   const requestedTab = searchParams.get('tab') || defaultTab;
-  const activeGroup = findGroupForSubTab(requestedTab);
-  const isAllowed = !!activeGroup && groups.some(g => g.id === activeGroup.id);
-  const effectiveGroup = isAllowed ? activeGroup! : findGroupForSubTab(defaultTab)!;
-  const activeTab = isAllowed
-    ? (effectiveGroup.subTabs && effectiveGroup.id === requestedTab
-        ? effectiveGroup.subTabs[0].id
-        : requestedTab)
+  const activeGroup = findGroup(requestedTab);
+  const effectiveGroup = activeGroup ?? findGroup(defaultTab)!;
+  const activeTab = activeGroup
+    ? (activeGroup.subTabs && activeGroup.id === requestedTab ? activeGroup.subTabs[0].id : requestedTab)
     : defaultTab;
 
   const setTab = (tabId: string) => {
@@ -69,7 +73,7 @@ export default function HRModulePage({ currentModule }: { currentModule: any }) 
   };
 
   const onGroupClick = (groupId: string) => {
-    const group = HR_TAB_GROUPS.find(g => g.id === groupId)!;
+    const group = groups.find(g => g.id === groupId)!;
     setTab(group.subTabs ? group.subTabs[0].id : group.id);
   };
 

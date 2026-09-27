@@ -27,8 +27,25 @@ export interface ApiModule {
   description?: string;
   parentId?: string | ApiModule;
   order?: number;
+  /** Stable identifier of a system module (e.g. "marine.bookings"); permissions are checked by key. */
+  key?: string;
+  isSystem?: boolean;
+  /** false = permission-only module, not shown in navigation. */
+  navigable?: boolean;
+  /** Actions that can be granted on this module. */
+  actions?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** Minimal user record returned by /users/directory (for pickers). */
+export interface ApiUserDirectoryEntry {
+  _id: string;
+  id: string;
+  username: string;
+  fullName?: string;
+  nameWithInitials?: string;
+  empNumber?: string;
 }
 
 export interface ApiRolePermission {
@@ -99,6 +116,8 @@ export interface ApiRequest {
   _id: string;
   requestNumber: string;
   rfsDocNo?: string;
+  /** Assigned on creation (staff) or on acceptance (website). */
+  jobNumber?: string;
   vesselCode?: string;
   uqmsNumber?: string;
   imoNumber?: string;
@@ -119,6 +138,9 @@ export interface ApiRequest {
   status: 'active' | 'print' | 'reject' | 'success';
   /** Where the request came from. Absent on records created before this was tracked. */
   source?: 'staff' | 'web';
+  /** Review state of website requests. Absent on records created before this was tracked. */
+  approvalStatus?: 'pending' | 'accepted' | 'rejected';
+  reviewedAt?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -420,6 +442,7 @@ export interface ApiSCCCOS {
   typeOfSurvey?: string;
   nominatedDeparturePoint?: string;
   surveyorName?: string;
+  additionalRemarks?: string;
   dateOfIssue: string;
   issuedBy: ApiUser | string;
   eSignature?: ApiESignature;
@@ -468,6 +491,7 @@ export interface ApiDockingSurveyCert {
 
   overboardValves: string;
   anodes: string;
+  additionalRemarks?: string;
   dateOfIssue: string;
   eSignature?: ApiESignature;
   
@@ -551,6 +575,7 @@ export interface ApiSurveyReport {
   toiletCount: number;
   hasGalley: boolean;
   galleyRemarks?: string;
+  additionalRemarks?: string;
   machinery: {
     mainEngineFuelType: string;
     auxEngineCount: number;

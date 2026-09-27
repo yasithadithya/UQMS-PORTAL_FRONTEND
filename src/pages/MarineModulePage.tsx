@@ -4,6 +4,8 @@ import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSCCCOS } from '@/api';
 import { useAuth } from '@/context/AuthContext';
+import { AccessDenied } from '@/components/StatusPage';
+import { MODULE_KEYS, type ModuleKey } from '@/utils/permissions';
 import { formatDate } from '@/utils/date';
 import ScccosModal from '@/components/ScccosModal';
 import Pagination from '@/components/Pagination';
@@ -18,11 +20,20 @@ const MARINE_TABS: { id: MarineTab; label: string }[] = [
   { id: 'certificates', label: 'Certificates' },
 ];
 
+/** The permission sub-module behind each tab. */
+const TAB_MODULE: Record<MarineTab, ModuleKey> = {
+  'first-entry': MODULE_KEYS.marineEntries,
+  survey: MODULE_KEYS.marineBookings,
+  reports: MODULE_KEYS.marineReports,
+  certificates: MODULE_KEYS.marineCertificates,
+};
+
 type PendingDelete = { kind: MarineTab; id: string; title: string; message: string } | null;
 
 export default function MarineModulePage() {
-  const { hasPermission } = useAuth();
-  const canDelete = hasPermission('Marine', 'delete') || hasPermission('First Entry', 'delete');
+  const { can } = useAuth();
+  const canOnTab = (tab: MarineTab, action: string) => can(TAB_MODULE[tab], action);
+  const visibleTabs = MARINE_TABS.filter(t => canOnTab(t.id, 'read'));
   const { module } = useParams<{ module?: string }>();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -54,7 +65,7 @@ export default function MarineModulePage() {
 
   // The active tab lives in the URL so returning from a create/edit page lands on the right list.
   const tabParam = searchParams.get('tab');
-  const activeTab: MarineTab = MARINE_TABS.some(t => t.id === tabParam) ? (tabParam as MarineTab) : 'first-entry';
+  const activeTab: MarineTab = visibleTabs.some(t => t.id === tabParam) ? (tabParam as MarineTab) : (visibleTabs[0]?.id ?? 'first-entry');
   const setActiveTab = (tab: MarineTab) => setSearchParams({ tab }, { replace: true });
 
   // Pagination states. The page belongs to the tab it was set on; switching to another tab (including via back/forward) shows page 1.
@@ -118,10 +129,16 @@ export default function MarineModulePage() {
 
   const reloadActiveTab = () => loadTab(activeTab, page, limit);
 
+  const hasAnyTab = visibleTabs.length > 0;
+  const canDeleteEntry = canOnTab('first-entry', 'delete');
+  const canDeleteBooking = canOnTab('survey', 'delete');
+  const canDeleteReport = canOnTab('reports', 'delete');
+  const canDeleteCertificate = canOnTab('certificates', 'delete');
+
   useEffect(() => {
-    loadTab(activeTab, page, limit);
+    if (hasAnyTab) loadTab(activeTab, page, limit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, page, limit]);
+  }, [activeTab, page, limit, hasAnyTab]);
 
   const DELETE_ACTIONS: Record<MarineTab, { run: (id: string) => Promise<{ success: boolean; message?: string }>; done: string }> = {
     'first-entry': { run: firstEntryService.deleteFirstEntry, done: 'First Entry deleted.' },
@@ -203,6 +220,8 @@ export default function MarineModulePage() {
     setIsScccosModalOpen(true);
   };
 
+  if (!hasAnyTab) return <AccessDenied />;
+
   return (
     <div className="animate-in" style={{ padding: '4px' }}>
       {/* Header Info */}
@@ -214,7 +233,7 @@ export default function MarineModulePage() {
           </p>
         </div>
         <div>
-          {activeTab === 'first-entry' ? (
+          {!canOnTab(activeTab, 'create') ? null : activeTab === 'first-entry' ? (
             <Link to={`${basePath}/create`} style={{ textDecoration: 'none' }}>
               <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', marginBottom: 0 }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -250,7 +269,7 @@ export default function MarineModulePage() {
 
       {/* Tabs */}
       <div role="tablist" aria-label="First Entry sections" style={{ display: 'flex', borderBottom: '1px solid var(--separator)', marginBottom: '24px', gap: '20px', overflowX: 'auto' }}>
-        {MARINE_TABS.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             type="button"
@@ -295,6 +314,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no First Entry records created yet. Get started by registering a new vessel and request association.
               </p>
+              {canOnTab('first-entry', 'create') && (
               <Link to={`${basePath}/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -304,6 +324,7 @@ export default function MarineModulePage() {
                   Add First Entry
                 </button>
               </Link>
+              )}
             </div>
           ) : (
             <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
@@ -400,7 +421,7 @@ export default function MarineModulePage() {
                             <button
                               onClick={() => handleDelete(entry._id)}
                               className="btn-secondary"
-                              disabled={!canDelete}
+                              disabled={!canDeleteEntry}
                               style={{
                                 padding: '6px 12px',
                                 fontSize: '12px',
@@ -410,9 +431,9 @@ export default function MarineModulePage() {
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
-                                opacity: canDelete ? 1 : 0.4,
-                                cursor: canDelete ? 'pointer' : 'not-allowed',
-                                pointerEvents: canDelete ? 'auto' : 'none'
+                                opacity: canDeleteEntry ? 1 : 0.4,
+                                cursor: canDeleteEntry ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDeleteEntry ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -451,6 +472,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no surveys booked for first entry vessels yet. Click the button below to book a new survey visit.
               </p>
+              {canOnTab('survey', 'create') && (
               <Link to={`${basePath}/survey-booking/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -460,6 +482,7 @@ export default function MarineModulePage() {
                   Book A Survey
                 </button>
               </Link>
+              )}
             </div>
           ) : (
             <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
@@ -540,7 +563,7 @@ export default function MarineModulePage() {
                             <button
                               onClick={() => handleDeleteSurveyBooking(booking._id)}
                               className="btn-secondary"
-                              disabled={!canDelete}
+                              disabled={!canDeleteBooking}
                               style={{
                                 padding: '6px 12px',
                                 fontSize: '12px',
@@ -550,9 +573,9 @@ export default function MarineModulePage() {
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
-                                opacity: canDelete ? 1 : 0.4,
-                                cursor: canDelete ? 'pointer' : 'not-allowed',
-                                pointerEvents: canDelete ? 'auto' : 'none'
+                                opacity: canDeleteBooking ? 1 : 0.4,
+                                cursor: canDeleteBooking ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDeleteBooking ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -591,6 +614,7 @@ export default function MarineModulePage() {
               <p style={{ color: 'var(--muted)', maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '13px', marginBottom: '20px' }}>
                 There are no survey reports generated yet. Click the button below to generate a new report.
               </p>
+              {canOnTab('reports', 'create') && (
               <Link to={`${basePath}/survey-report/create`} style={{ textDecoration: 'none' }}>
                 <button className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '10px', height: 'auto', width: 'auto', minWidth: 0, marginBottom: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -600,6 +624,7 @@ export default function MarineModulePage() {
                   Generate Survey Report
                 </button>
               </Link>
+              )}
             </div>
           ) : (
             <div className="card animate-in" style={{ overflowX: 'auto', padding: 0 }}>
@@ -680,7 +705,7 @@ export default function MarineModulePage() {
                                 booking &&
                                 (booking.lastVisitDate || booking.lastVisit || booking.visitDetails?.some((v: any) => v.isLastVist || v.isLastVisitDate))
                               );
-                              if (report.status === 'COS Generated') {
+                              if (report.status === 'COS Generated' && canOnTab('certificates', 'read')) {
                                 return (
                                   <button
                                     onClick={() => handleViewCos(report._id)}
@@ -691,7 +716,7 @@ export default function MarineModulePage() {
                                   </button>
                                 );
                               }
-                              if (isScccosEligible && booking) {
+                              if (isScccosEligible && booking && canOnTab('certificates', 'create')) {
                                 return (
                                   <button
                                     onClick={() => handleOpenScccosModal(booking, report._id)}
@@ -712,7 +737,7 @@ export default function MarineModulePage() {
                             <button
                               onClick={() => handleDeleteReport(report._id)}
                               className="btn-secondary"
-                              disabled={!canDelete}
+                              disabled={!canDeleteReport}
                               style={{
                                 padding: '6px 12px',
                                 fontSize: '12px',
@@ -722,9 +747,9 @@ export default function MarineModulePage() {
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
-                                opacity: canDelete ? 1 : 0.4,
-                                cursor: canDelete ? 'pointer' : 'not-allowed',
-                                pointerEvents: canDelete ? 'auto' : 'none'
+                                opacity: canDeleteReport ? 1 : 0.4,
+                                cursor: canDeleteReport ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDeleteReport ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -818,7 +843,7 @@ export default function MarineModulePage() {
                             <button
                               onClick={() => handleDeleteCertificate(cert._id)}
                               className="btn-secondary"
-                              disabled={!canDelete}
+                              disabled={!canDeleteCertificate}
                               style={{
                                 padding: '6px 12px',
                                 fontSize: '12px',
@@ -828,9 +853,9 @@ export default function MarineModulePage() {
                                 borderColor: 'rgba(239, 68, 68, .2)',
                                 background: 'transparent',
                                 marginBottom: 0,
-                                opacity: canDelete ? 1 : 0.4,
-                                cursor: canDelete ? 'pointer' : 'not-allowed',
-                                pointerEvents: canDelete ? 'auto' : 'none'
+                                opacity: canDeleteCertificate ? 1 : 0.4,
+                                cursor: canDeleteCertificate ? 'pointer' : 'not-allowed',
+                                pointerEvents: canDeleteCertificate ? 'auto' : 'none'
                               }}
                               onMouseOver={(e) => { e.currentTarget.style.background = 'var(--red-subtle)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}

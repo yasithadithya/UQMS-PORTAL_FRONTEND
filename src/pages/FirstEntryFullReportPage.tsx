@@ -12,6 +12,7 @@ import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal
 import type { SignableDocType } from '@/api';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime, formatSigningDate } from '@/utils/date';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 /** A stored document opened in the signing viewer. */
 type OpenSignableDocument = {
@@ -26,7 +27,10 @@ export default function FirstEntryFullReportPage() {
   const { id, module } = useParams<{ id: string; module?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, can } = useAuth();
+  const canEditReport = can(MODULE_KEYS.marineReports, 'update');
+  const canIssueCertificates = can(MODULE_KEYS.marineCertificates, 'create');
+  const canViewCertificates = can(MODULE_KEYS.marineCertificates, 'read');
 
   // Derive the base path for this First Entry module
   const basePath = (() => {
@@ -779,6 +783,7 @@ export default function FirstEntryFullReportPage() {
                 <button
                   className="btn-primary"
                   onClick={handleViewCos}
+                  disabled={!canViewCertificates}
                   style={{
                     marginBottom: 0,
                     padding: '8px 16px',
@@ -795,6 +800,7 @@ export default function FirstEntryFullReportPage() {
                 <button
                   className="btn-primary"
                   onClick={() => setIsScccosModalOpen(true)}
+                  disabled={!canIssueCertificates}
                   style={{
                     marginBottom: 0,
                     padding: '8px 16px',
@@ -815,6 +821,7 @@ export default function FirstEntryFullReportPage() {
                 <button
                   className="btn-primary"
                   onClick={handleViewDockingSurvey}
+                  disabled={!canViewCertificates}
                   style={{
                     marginBottom: 0,
                     padding: '8px 16px',
@@ -831,6 +838,7 @@ export default function FirstEntryFullReportPage() {
                 <button
                   className="btn-primary"
                   onClick={() => setIsDockingSurveyModalOpen(true)}
+                  disabled={!canIssueCertificates}
                   style={{
                     marginBottom: 0,
                     padding: '8px 16px',
@@ -1323,7 +1331,7 @@ export default function FirstEntryFullReportPage() {
           <button
             type="submit"
             className="btn-primary"
-            disabled={postingRemark || !newRemarkText.trim()}
+            disabled={postingRemark || !newRemarkText.trim() || !canEditReport}
             style={{ width: 'auto', alignSelf: 'flex-end', padding: '10px 24px', marginBottom: 0 }}
           >
             {postingRemark ? 'Posting...' : 'Post General Remark'}
@@ -1346,6 +1354,7 @@ export default function FirstEntryFullReportPage() {
             <button
               className="btn-primary"
               onClick={handleViewCos}
+              disabled={!canViewCertificates}
               style={{
                 marginBottom: 0,
                 padding: '10px 20px',
@@ -1364,6 +1373,7 @@ export default function FirstEntryFullReportPage() {
             <button
               className="btn-primary"
               onClick={() => setIsScccosModalOpen(true)}
+              disabled={!canIssueCertificates}
               style={{
                 marginBottom: 0,
                 padding: '10px 20px',
@@ -1400,7 +1410,7 @@ export default function FirstEntryFullReportPage() {
               type="button"
               className="btn-primary"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || !canEditReport}
               style={{ marginBottom: 0 }}
             >
               {saving ? 'Saving...' : 'Save Changes'}
@@ -1460,7 +1470,7 @@ export default function FirstEntryFullReportPage() {
               <button className="btn-secondary" type="button" onClick={handleClosePreview} disabled={generatingPdf}>
                 Cancel
               </button>
-              <button className="btn-primary" type="button" onClick={handleGenerateDailyReport} disabled={generatingPdf}>
+              <button className="btn-primary" type="button" onClick={handleGenerateDailyReport} disabled={generatingPdf || !canEditReport}>
                 {generatingPdf ? 'Generating...' : 'Generate Daily Report'}
               </button>
             </div>
@@ -1503,6 +1513,7 @@ export default function FirstEntryFullReportPage() {
           onClose={() => setIsDockingSurveyModalOpen(false)}
           booking={booking as any}
           surveyReportId={surveyReport?._id || ''}
+          defaultClient={vessel?.managerName || booking?.managedBy || surveyReport?.managedBy || ''}
           onSuccess={() => {
             toast.success('Docking Survey Certificate generated successfully.');
             setDockingSurveyCertExists(true);

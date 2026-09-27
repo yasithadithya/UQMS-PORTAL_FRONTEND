@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getParentId, toSlug } from '@/utils/modules';
+import { isNavigable } from '@/utils/permissions';
 import s from './AppShell.module.css';
 
 const defaultIcon = (
@@ -126,7 +127,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
 
     // Dynamically build tabs from modules DB
-    const topModules = modules.filter(m => !getParentId(m)).sort((a, b) => (a.order || 0) - (b.order || 0));
+    const topModules = modules.filter(m => !getParentId(m) && isNavigable(m)).sort((a, b) => (a.order || 0) - (b.order || 0));
     const visibleTabs: NavTab[] = [
         { label: 'Dashboard', href: '/', icon: iconMap['dashboard'] },
         ...topModules

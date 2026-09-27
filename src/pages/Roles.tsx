@@ -1,63 +1,128 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import type { ApiModule } from '@/api';
+import { getParentId } from '@/utils/modules';
+import { ACTION_LABELS, MODULE_KEYS, isSuperAdminRole, moduleActions, permissionModuleId } from '@/utils/permissions';
 import s from './UserManagement.module.css';
 
+type PermissionMap = Record<string, string[]>;
+
+/** Modules in tree order (parents before children, siblings by order) with their depth. */
+function flattenTree(modules: ApiModule[]): { mod: ApiModule; depth: number }[] {
+    const byParent = new Map<string | null, ApiModule[]>();
+    for (const m of modules) {
+        const parent = getParentId(m);
+        if (!byParent.has(parent)) byParent.set(parent, []);
+        byParent.get(parent)!.push(m);
+    }
+    for (const list of byParent.values()) list.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const result: { mod: ApiModule; depth: number }[] = [];
+    const visit = (parent: string | null, depth: number) => {
+        for (const m of byParent.get(parent) || []) {
+            result.push({ mod: m, depth });
+            visit(m._id, depth + 1);
+        }
+    };
+    visit(null, 0);
+    return result;
+}
+
 export default function RolesPage() {
-    const { roles, modules, addRole, updateRole, deleteRole, hasPermission } = useAuth();
-    const canDeleteRole = hasPermission('Admin', 'delete') || hasPermission('Role Management', 'delete');
+    const { roles, modules, addRole, updateRole, deleteRole, can, canAccessModule, user, isSuperAdmin } = useAuth();
+    const canCreateRole = can(MODULE_KEYS.adminRoles, 'create');
+    const canUpdateRole = can(MODULE_KEYS.adminRoles, 'update');
+    const canDeleteRole = can(MODULE_KEYS.adminRoles, 'delete');
     const [showModal, setShowModal] = useState(false);
     const [editingRole, setEditingRole] = useState<any>(null);
-    const [formData, setFormData] = useState({
-        roleName: '',
-        permissions: [] as { module: string; actions: string[] }[],
-    });
+    const [roleName, setRoleName] = useState('');
+    const [permissions, setPermissions] = useState<PermissionMap>({});
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
 
+    const tree = useMemo(() => flattenTree(modules), [modules]);
+    const moduleById = useMemo(() => new Map(modules.map(m => [m._id, m])), [modules]);
+
+    const ancestorsOf = (moduleId: string): string[] => {
+        const result: string[] = [];
+        let parent = moduleById.get(moduleId) ? getParentId(moduleById.get(moduleId)!) : null;
+        while (parent && !result.includes(parent)) {
+            result.push(parent);
+            parent = moduleById.get(parent) ? getParentId(moduleById.get(parent)!) : null;
+        }
+        return result;
+    };
+
+    const descendantsOf = (moduleId: string): string[] => {
+        const result: string[] = [];
+        const queue = [moduleId];
+        while (queue.length) {
+            const current = queue.shift()!;
+            for (const m of modules) {
+                if (getParentId(m) === current && !result.includes(m._id)) {
+                    result.push(m._id);
+                    queue.push(m._id);
+                }
+            }
+        }
+        return result;
+    };
+
+    /** Actions the signed-in user may grant: a non-super-admin can only grant what they hold. */
+    const canGrant = (moduleId: string, action: string) => isSuperAdmin || canAccessModule(moduleId, action);
+
     const openAdd = () => {
         setEditingRole(null);
-        setFormData({ roleName: '', permissions: [] });
+        setRoleName('');
+        setPermissions({});
         setFormError('');
         setShowModal(true);
     };
 
     const openEdit = (role: any) => {
         setEditingRole(role);
-        setFormData({
-            roleName: role.roleName,
-            permissions: role.permissions.map((p: any) => ({
-                module: typeof p.module === 'object' ? p.module._id : p.module,
-                actions: p.actions || [],
-            })),
-        });
+        setRoleName(role.roleName);
+        const map: PermissionMap = {};
+        for (const p of role.permissions || []) {
+            map[permissionModuleId(p.module)] = [...(p.actions || [])];
+        }
+        setPermissions(map);
         setFormError('');
         setShowModal(true);
     };
 
     const togglePermission = (moduleId: string, action: string) => {
-        setFormData((prev) => {
-            let found = false;
-            const newPerms = prev.permissions.map(p => {
-                if (p.module === moduleId) {
-                    found = true;
-                    const newActions = p.actions.includes(action)
-                        ? p.actions.filter(a => a !== action)
-                        : [...p.actions, action];
-                    return { ...p, actions: newActions };
-                }
-                return p;
-            });
+        setPermissions(prev => {
+            const next: PermissionMap = { ...prev };
+            const current = new Set(next[moduleId] || []);
+            const grant = (id: string, a: string) => {
+                const mod = moduleById.get(id);
+                if (!mod || !moduleActions(mod).includes(a)) return;
+                next[id] = Array.from(new Set([...(next[id] || []), a]));
+            };
 
-            if (!found) {
-                newPerms.push({ module: moduleId, actions: [action] });
+            if (current.has(action)) {
+                if (action === 'read') {
+                    // Without read nothing else on this module (or below it) is reachable.
+                    delete next[moduleId];
+                    for (const id of descendantsOf(moduleId)) delete next[id];
+                } else {
+                    current.delete(action);
+                    next[moduleId] = Array.from(current);
+                }
+            } else {
+                // Any action implies read on the module and on every ancestor, so the UI can reach it.
+                grant(moduleId, action);
+                grant(moduleId, 'read');
+                for (const id of ancestorsOf(moduleId)) grant(id, 'read');
             }
-            return { ...prev, permissions: newPerms };
+            return next;
         });
     };
 
     const handleSave = async () => {
-        if (!formData.roleName) {
+        if (!roleName.trim()) {
             setFormError('Role name is required.');
             return;
         }
@@ -65,26 +130,18 @@ export default function RolesPage() {
         setSaving(true);
         setFormError('');
 
-        try {
-            const payload = {
-                roleName: formData.roleName,
-                permissions: formData.permissions,
-            };
+        const payload = {
+            roleName: roleName.trim(),
+            permissions: Object.entries(permissions)
+                .filter(([, actions]) => actions.length > 0)
+                .map(([module, actions]) => ({ module, actions })),
+        };
 
-            if (editingRole) {
-                const res = await updateRole(editingRole._id, payload);
-                if (!res.success) {
-                    setFormError(res.error || 'Failed to update role');
-                    setSaving(false);
-                    return;
-                }
-            } else {
-                const res = await addRole(payload);
-                if (!res.success) {
-                    setFormError(res.error || 'Failed to create role');
-                    setSaving(false);
-                    return;
-                }
+        try {
+            const res = editingRole ? await updateRole(editingRole._id, payload) : await addRole(payload);
+            if (!res.success) {
+                setFormError(res.error || (editingRole ? 'Failed to update role' : 'Failed to create role'));
+                return;
             }
             setShowModal(false);
         } catch (err: any) {
@@ -102,7 +159,9 @@ export default function RolesPage() {
         setDeleteConfirm(null);
     };
 
-    const actions = ['create', 'read', 'update', 'delete'];
+    const editingSuperAdmin = !!editingRole && isSuperAdminRole(editingRole);
+    const editingOwnRole = !!editingRole && editingRole._id === user?.role?._id;
+    const readOnly = (editingRole && !canUpdateRole) || editingSuperAdmin || (editingOwnRole && !isSuperAdmin);
 
     return (
         <>
@@ -111,12 +170,14 @@ export default function RolesPage() {
                     <h2 className="section-header" style={{ marginBottom: '4px' }}>Role Management</h2>
                     <p style={{ fontSize: '13px', color: 'var(--muted)' }}>Manage roles and granular module permissions</p>
                 </div>
-                <button className={s.addBtn} onClick={openAdd}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                        <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Add Role
-                </button>
+                {canCreateRole && (
+                    <button className={s.addBtn} onClick={openAdd}>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        Add Role
+                    </button>
+                )}
             </div>
 
             <div className={s.tableWrap}>
@@ -135,16 +196,16 @@ export default function RolesPage() {
                                     {role.roleName}
                                 </td>
                                 <td>
-                                    {role.permissions?.length || 0} module(s) mapped
+                                    {isSuperAdminRole(role) ? 'Full access' : `${role.permissions?.length || 0} module(s) mapped`}
                                 </td>
                                 <td>
                                     <div className={s.actions}>
-                                        <button className={s.actionBtn} onClick={() => openEdit(role)} title="Edit">
+                                        <button className={s.actionBtn} onClick={() => openEdit(role)} title={canUpdateRole ? 'Edit' : 'View'}>
                                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                 <path d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                                             </svg>
                                         </button>
-                                        {role.roleName.toLowerCase() !== 'admin' && (
+                                        {!isSuperAdminRole(role) && role._id !== user?.role?._id && (
                                             <button className={`${s.actionBtn} ${s.deleteBtn}`} onClick={() => setDeleteConfirm(role._id)} title="Delete" disabled={!canDeleteRole}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1M5 4v8a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -162,9 +223,9 @@ export default function RolesPage() {
             {/* Add/Edit Modal */}
             {showModal && (
                 <div className={s.overlay} onClick={() => setShowModal(false)}>
-                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+                    <div className={s.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
                         <div className={s.modalHeader}>
-                            <h3 className={s.modalTitle}>{editingRole ? 'Edit Role' : 'Add New Role'}</h3>
+                            <h3 className={s.modalTitle}>{!editingRole ? 'Add New Role' : readOnly ? 'View Role' : 'Edit Role'}</h3>
                             <button className={s.closeBtn} onClick={() => setShowModal(false)}>✕</button>
                         </div>
 
@@ -180,50 +241,82 @@ export default function RolesPage() {
                                 className="form-input"
                                 type="text"
                                 placeholder="e.g. Inspector"
-                                value={formData.roleName}
-                                onChange={(e) => setFormData((p) => ({ ...p, roleName: e.target.value }))}
-                                disabled={editingRole?.roleName.toLowerCase() === 'admin'}
+                                value={roleName}
+                                onChange={(e) => setRoleName(e.target.value)}
+                                disabled={editingSuperAdmin || readOnly}
                             />
 
                             <h4 style={{ marginTop: '24px', marginBottom: '12px', fontSize: '15px' }}>Module Permissions</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {modules.map(mod => {
-                                    const perm = formData.permissions.find(p => p.module === mod._id);
-                                    const selectedActions = perm ? perm.actions : [];
-
-                                    return (
-                                        <div key={mod._id} style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--card-bg)' }}>
-                                            <div style={{ fontWeight: 500, marginBottom: '8px', color: 'var(--text)' }}>
-                                                {mod.parentId ? <span style={{ color: 'var(--separator)', marginRight: '8px' }}>↳</span> : null}
-                                                {mod.name}
-                                                <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400, marginLeft: '8px' }}>
-                                                    {mod.description}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                                {actions.map(action => (
-                                                    <label key={action} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={selectedActions.includes(action)}
-                                                            onChange={() => togglePermission(mod._id, action)}
-                                                            style={{ accentColor: 'var(--primary)' }}
-                                                        />
-                                                        <span style={{ textTransform: 'capitalize' }}>{action}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            {editingSuperAdmin ? (
+                                <div className="card" style={{ padding: '16px', fontSize: '13px', color: 'var(--muted)', marginBottom: 0 }}>
+                                    The <strong>admin</strong> role has full access to every module. Its permissions can't be restricted.
+                                </div>
+                            ) : (
+                                <>
+                                    {editingOwnRole && !isSuperAdmin && (
+                                        <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>You can't change the permissions of your own role.</p>
+                                    )}
+                                    <p style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '12px' }}>
+                                        Granting any action also grants Read on the module and its parents. Removing Read removes all access to the module and its sub-modules.
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {tree.map(({ mod, depth }) => {
+                                            const selected = permissions[mod._id] || [];
+                                            return (
+                                                <div
+                                                    key={mod._id}
+                                                    style={{
+                                                        padding: '12px 16px',
+                                                        marginLeft: `${depth * 20}px`,
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: '10px',
+                                                        background: 'var(--card-bg)',
+                                                    }}
+                                                >
+                                                    <div style={{ fontWeight: 500, marginBottom: '8px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                        {depth > 0 && <span style={{ color: 'var(--separator)' }}>↳</span>}
+                                                        {mod.name}
+                                                        {mod.isSystem && (
+                                                            <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '6px', background: 'var(--primary-subtle)', color: 'var(--primary)' }}>SYSTEM</span>
+                                                        )}
+                                                        <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 400 }}>{mod.description}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                                        {moduleActions(mod).map(action => {
+                                                            const checked = selected.includes(action);
+                                                            // Existing grants can always be removed; new ones need the granter to hold them.
+                                                            const disabled = readOnly || (!checked && !canGrant(mod._id, action));
+                                                            return (
+                                                                <label key={action} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled && !checked ? 0.5 : 1 }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        disabled={disabled}
+                                                                        onChange={() => togglePermission(mod._id, action)}
+                                                                        style={{ accentColor: 'var(--primary)' }}
+                                                                    />
+                                                                    <span>{ACTION_LABELS[action] || action}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className={s.modalFooter}>
-                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setShowModal(false)}>Cancel</button>
-                            <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0 }} onClick={handleSave} disabled={saving}>
-                                {saving ? 'Saving…' : 'Save'}
+                            <button className="btn-secondary" style={{ width: '100%', minWidth: 0 }} onClick={() => setShowModal(false)}>
+                                {readOnly ? 'Close' : 'Cancel'}
                             </button>
+                            {!readOnly && (
+                                <button className="btn-primary" style={{ width: '100%', minWidth: 0, marginBottom: 0 }} onClick={handleSave} disabled={saving}>
+                                    {saving ? 'Saving…' : 'Save'}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

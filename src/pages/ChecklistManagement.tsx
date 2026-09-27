@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 import {
   checklistQuestionsService,
   operationsService,
@@ -140,6 +142,10 @@ function MultiSelectDropdown<T>({
 }
 
 export default function ChecklistManagement() {
+  const { can } = useAuth();
+  const canCreate = can(MODULE_KEYS.adminMasterData, 'create');
+  const canUpdate = can(MODULE_KEYS.adminMasterData, 'update');
+  const canDelete = can(MODULE_KEYS.adminMasterData, 'delete');
   const [questions, setQuestions] = useState<ApiChecklistQuestion[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
@@ -389,7 +395,7 @@ export default function ChecklistManagement() {
             Manage checklist items and filter criteria mapping for survey check sheets.
           </p>
         </div>
-        <button className={s.addBtn} onClick={openAddModal}>
+        <button className={s.addBtn} onClick={openAddModal} disabled={!canCreate}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
@@ -540,7 +546,7 @@ export default function ChecklistManagement() {
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
-                      <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Item">
+                      <button className={s.actionBtn} onClick={() => openEditModal(q)} title="Edit Item" disabled={!canUpdate}>
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                           <path
                             d="M11.5 2.5l2 2M2 14l1-4L11.5 1.5l2 2L5 12l-4 1z"
@@ -555,6 +561,7 @@ export default function ChecklistManagement() {
                         className={`${s.actionBtn} ${s.deleteBtn}`}
                         onClick={() => setDeleteConfirmId(q._id || null)}
                         title="Delete Item"
+                        disabled={!canDelete}
                       >
                         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                           <path

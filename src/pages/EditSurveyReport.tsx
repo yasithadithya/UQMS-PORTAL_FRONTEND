@@ -4,7 +4,10 @@ import { toast } from 'react-toastify';
 import { surveyReportService, vesselEquipmentRecordService } from '@/api';
 import type { ApiESignature } from '@/api';
 import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
+import AdditionalRemarksModal from '@/components/AdditionalRemarksModal';
 import { formatSigningDate } from '@/utils/date';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 interface IFireRow {
   location: string;
@@ -195,6 +198,7 @@ const defaultInspections = [
 ];
 
 export default function EditSurveyReport() {
+  const { can } = useAuth();
   const navigate = useNavigate();
   const { id, module } = useParams<{ id: string; module?: string }>(); // FirstEntrySurveyReport ID
   const activeModule = module || 'reporting';
@@ -262,6 +266,9 @@ export default function EditSurveyReport() {
   });
   const [hasGalley, setHasGalley] = useState(false);
   const [galleyRemarks, setGalleyRemarks] = useState('');
+  const [additionalRemarks, setAdditionalRemarks] = useState('');
+  // Which action is waiting on the additional remarks popup before it saves and renders the PDF
+  const [remarksAction, setRemarksAction] = useState<'preview' | 'finalize' | null>(null);
 
   const [lifeJacketsCondition, setLifeJacketsCondition] = useState('satisfactory');
 
@@ -382,6 +389,7 @@ export default function EditSurveyReport() {
 
           setHasGalley(report.hasGalley ?? false);
           setGalleyRemarks(report.galleyRemarks || '');
+          setAdditionalRemarks(report.additionalRemarks || '');
 
           setLifeJacketsCondition(report.lifeJacketsCondition || 'satisfactory');
           setPipingCondition(report.pipingCondition || 'satisfactory');
@@ -509,7 +517,7 @@ export default function EditSurveyReport() {
   }, [id]);
 
   // Handle saving of both collections
-  const handleSave = async (customStatus?: 'Draft' | 'Approved') => {
+  const handleSave = async (customStatus?: 'Draft' | 'Approved', remarks: string = additionalRemarks) => {
     if (!id || !vesselId) {
       toast.error('Missing references to save.');
       return null;
@@ -559,6 +567,7 @@ export default function EditSurveyReport() {
       },
       hasGalley,
       galleyRemarks,
+      additionalRemarks: remarks,
       lifeJacketsCondition,
       pipingCondition,
       electricalExamCondition,
@@ -661,13 +670,22 @@ export default function EditSurveyReport() {
     }
   };
 
-  const handlePreviewPdf = async () => {
+  const handlePreviewPdf = () => {
     // A signed report is locked, so download the signed copy as it is.
-    let savedId = existingReportId;
-    if (!isSigned) {
-      toast.info('Saving changes before exporting PDF...');
-      savedId = await handleSave();
+    if (isSigned) {
+      downloadPdf(existingReportId);
+    } else {
+      setRemarksAction('preview');
     }
+  };
+
+  const saveAndDownloadPdf = async (remarks: string) => {
+    toast.info('Saving changes before exporting PDF...');
+    const savedId = await handleSave(undefined, remarks);
+    if (savedId) await downloadPdf(savedId);
+  };
+
+  const downloadPdf = async (savedId: string | null) => {
     if (!savedId) return;
 
     try {
@@ -691,8 +709,8 @@ export default function EditSurveyReport() {
     }
   };
 
-  const handleFinalize = async () => {
-    const approved = await handleSave('Approved');
+  const handleFinalize = async (remarks: string) => {
+    const approved = await handleSave('Approved', remarks);
     if (approved) {
       toast.success('Report finalized and approved!');
     }
@@ -1702,7 +1720,7 @@ export default function EditSurveyReport() {
           type="button"
           className="btn-primary"
           onClick={() => handleSave('Draft')}
-          disabled={saving || status === 'Approved'}
+          disabled={saving || status === 'Approved' || !can(MODULE_KEYS.marineCertificates, existingReportId ? 'update' : 'create')}
           style={{ minWidth: '160px', marginBottom: 0 }}
         >
           {saving ? 'Saving...' : 'Save Draft'}
@@ -1711,8 +1729,8 @@ export default function EditSurveyReport() {
         <button
           type="button"
           className="btn-primary"
-          onClick={handleFinalize}
-          disabled={saving || status === 'Approved'}
+          onClick={() => setRemarksAction('finalize')}
+          disabled={saving || status === 'Approved' || !can(MODULE_KEYS.marineCertificates, 'approve')}
           style={{ minWidth: '160px', marginBottom: 0, background: 'var(--green)', borderColor: 'var(--green)' }}
         >
           Finalize & Approve
@@ -1745,6 +1763,23 @@ export default function EditSurveyReport() {
           </button>
         </Link>
       </div>
+
+      <AdditionalRemarksModal
+        isOpen={remarksAction !== null}
+        initialValue={additionalRemarks}
+        confirmText={remarksAction === 'finalize' ? 'Finalize & Approve' : 'Save & Generate PDF'}
+        onCancel={() => setRemarksAction(null)}
+        onConfirm={(remarks) => {
+          const action = remarksAction;
+          setAdditionalRemarks(remarks);
+          setRemarksAction(null);
+          if (action === 'finalize') {
+            handleFinalize(remarks);
+          } else {
+            saveAndDownloadPdf(remarks);
+          }
+        }}
+      />
 
       {showSignModal && existingReportId && (
         <SignableDocumentModal

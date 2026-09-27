@@ -1,3 +1,5 @@
+import { MODULE_KEYS, type ModuleKey } from '../../utils/permissions';
+
 export interface HrSubTab {
   id: string;
   label: string;
@@ -58,6 +60,27 @@ export const HR_TAB_GROUPS: HrTabGroup[] = [
   },
   { id: 'myhr', label: 'My HR' },
 ];
+
+/**
+ * The permission sub-module behind each HR view. "dashboard" needs read on any HR sub-module;
+ * "myhr" (self-service) is open to everyone.
+ */
+export const HR_TAB_MODULE: Record<string, ModuleKey> = {
+  employees: MODULE_KEYS.hrEmployees,
+  documents: MODULE_KEYS.hrEmployees,
+  onboarding: MODULE_KEYS.hrEmployees,
+  org: MODULE_KEYS.hrEmployees,
+  attendance: MODULE_KEYS.hrAttendance,
+  leaves: MODULE_KEYS.hrLeave,
+  balances: MODULE_KEYS.hrLeave,
+  holidays: MODULE_KEYS.hrLeave,
+  leavetypes: MODULE_KEYS.hrLeave,
+  payroll: MODULE_KEYS.hrPayroll,
+  structures: MODULE_KEYS.hrPayroll,
+  performance: MODULE_KEYS.hrPerformance,
+  training: MODULE_KEYS.hrTraining,
+  announcements: MODULE_KEYS.hrAnnouncements,
+};
 
 export const findGroupForSubTab = (subTabId: string): HrTabGroup | undefined =>
   HR_TAB_GROUPS.find(g => g.id === subTabId || g.subTabs?.some(s => s.id === subTabId));

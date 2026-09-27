@@ -7,6 +7,8 @@ import { toast } from 'react-toastify';
 import { firstEntryService, operationsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyReportCategory, ApiSurveyType } from '@/api';
 import { formatDate } from '@/utils/date';
+import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
@@ -14,6 +16,11 @@ export default function CreateFirstEntrySurveyReport() {
   const { id, module } = useParams<{ id?: string; module?: string }>(); // Report ID if editing
   const activeModule = module || 'reporting';
   const isEdit = !!id;
+  const { can } = useAuth();
+  const canSave = can(MODULE_KEYS.marineReports, isEdit ? 'update' : 'create');
+  const canApprove = can(MODULE_KEYS.marineReports, 'approve');
+  const canIssueCos = can(MODULE_KEYS.marineCertificates, 'create');
+  const canViewCos = can(MODULE_KEYS.marineCertificates, 'read');
 
   // Bookings List (only needed for creating a new report)
   const [bookings, setBookings] = useState<ApiFirstEntrySurveyBooking[]>([]);
@@ -434,8 +441,8 @@ export default function CreateFirstEntrySurveyReport() {
                   onChange={e => setStatus(e.target.value)}
                   style={{ width: '100%', cursor: 'pointer' }}
                 >
-                  <option value="Draft">Draft</option>
-                  <option value="Approved">Approved</option>
+                  <option value="Draft" disabled={!canApprove && status !== 'Draft'}>Draft</option>
+                  <option value="Approved" disabled={!canApprove && status !== 'Approved'}>Approved</option>
                 </select>
               </div>
             </div>
@@ -593,7 +600,8 @@ export default function CreateFirstEntrySurveyReport() {
             <button
               type="submit"
               className="btn-primary"
-              disabled={loading}
+              disabled={loading || !canSave}
+              title={canSave ? undefined : 'You do not have permission to save this record.'}
               style={{ minWidth: '180px', marginBottom: 0 }}
             >
               {loading ? 'Saving...' : 'Save Survey Report'}
@@ -653,6 +661,7 @@ export default function CreateFirstEntrySurveyReport() {
                   type="button"
                   className="btn-primary"
                   onClick={() => handleViewCos(id || '')}
+                  disabled={!canViewCos}
                   style={{
                     minWidth: '180px',
                     marginBottom: 0,
@@ -667,6 +676,7 @@ export default function CreateFirstEntrySurveyReport() {
                   type="button"
                   className="btn-primary"
                   onClick={() => setIsScccosModalOpen(true)}
+                  disabled={!canIssueCos}
                   style={{
                     minWidth: '180px',
                     marginBottom: 0,

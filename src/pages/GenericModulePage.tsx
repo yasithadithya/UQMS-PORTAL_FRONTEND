@@ -2,6 +2,7 @@ import { useParams, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { AccessDenied, NotFound } from '@/components/StatusPage';
 import { getParentId, resolveModuleTrail, toSlug } from '@/utils/modules';
+import { MODULE_KEYS, isNavigable, type ModuleKey } from '@/utils/permissions';
 import NewRequestPage from './NewRequest';
 import CreateRequestPage from './CreateRequest';
 import RequestDetailsPage from './RequestDetails';
@@ -20,10 +21,17 @@ export function ModulesLoading() {
     );
 }
 
+const ADMIN_PAGES: { name: string; href: string; desc: string; module: ModuleKey }[] = [
+    { name: 'User Management', href: '/users', desc: 'Manage system users and assignments', module: MODULE_KEYS.adminUsers },
+    { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions', module: MODULE_KEYS.adminRoles },
+    { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules', module: MODULE_KEYS.adminModules },
+    { name: 'Checklist Management', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria', module: MODULE_KEYS.adminMasterData },
+];
+
 export default function GenericModulePage() {
     const { module } = useParams();
     const location = useLocation();
-    const { modules, modulesLoaded, modulesError, refreshModules, isAdmin, canAccessModule } = useAuth();
+    const { modules, modulesLoaded, modulesError, refreshModules, can, canAccessModule } = useAuth();
 
     // Parse all path segments after the first /
     const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -47,12 +55,11 @@ export default function GenericModulePage() {
 
     // --- Special case: New Request routes ---
     if (normalizedModule === 'new-request') {
-        const newRequestModule = modules.find(m => !getParentId(m) && toSlug(m.name) === 'new-request');
-        if (newRequestModule && !canAccessModule(newRequestModule._id)) {
+        if (!can(MODULE_KEYS.newRequest)) {
             return <AccessDenied />;
         }
         if (pathSegments.length >= 2 && pathSegments[1] === 'create') {
-            return <CreateRequestPage />;
+            return can(MODULE_KEYS.newRequest, 'create') ? <CreateRequestPage /> : <AccessDenied />;
         }
         if (pathSegments.length >= 2 && pathSegments[1] !== 'create') {
             return <RequestDetailsPage />;
@@ -77,19 +84,19 @@ export default function GenericModulePage() {
     }
 
     // --- Special case: First Entry sub-sub-module (under Marine) renders the tab-based page ---
-    if (currentModule.name.toLowerCase() === 'first entry') {
+    if (currentModule.key === MODULE_KEYS.firstEntry) {
         return <MarineModulePage />;
     }
 
     // --- Special case: HR Module renders the custom HR page ---
-    if (currentModule.name.toLowerCase() === 'hr') {
+    if (currentModule.key === MODULE_KEYS.hr) {
         return <HRModulePage currentModule={currentModule} />;
     }
 
     // --- Find children of the current module ---
     const subModulesToDisplay: { name: string, href: string, desc?: string }[] = [];
 
-    const children = modules.filter(m => getParentId(m) === currentModule._id);
+    const children = modules.filter(m => isNavigable(m) && getParentId(m) === currentModule._id);
     children.sort((a, b) => (a.order || 0) - (b.order || 0));
 
     children.forEach(child => {
@@ -104,13 +111,8 @@ export default function GenericModulePage() {
     });
 
     // Handle Admin static sub-pages
-    if (normalizedModule === 'admin' && isAdmin && pathSegments.length === 1) {
-        subModulesToDisplay.push(
-            { name: 'User Management', href: '/users', desc: 'Manage system users and assignments' },
-            { name: 'Role Management', href: '/roles', desc: 'Configure granular module permissions' },
-            { name: 'Module Management', href: '/modules', desc: 'Create and edit system modules' },
-            { name: 'Checklist Management', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria' }
-        );
+    if (currentModule.key === MODULE_KEYS.admin && pathSegments.length === 1) {
+        subModulesToDisplay.push(...ADMIN_PAGES.filter(page => can(page.module)));
     }
 
     const displayTitle = breadcrumbs.map(b => b.name).join(' / ');

@@ -6,8 +6,13 @@ import Pagination from '../../components/Pagination';
 import ConfirmModal from '../../components/ConfirmModal';
 import { PageHeader, Badge, EmptyRow, FilterBar, Field, formatMoney } from './hrShared';
 import s from './hr.module.css';
+import { useAuth } from '../../context/AuthContext';
+import { MODULE_KEYS } from '../../utils/permissions';
 
 export default function PayrollDashboard({ basePath }: { basePath: string }) {
+  const { can } = useAuth();
+  const canGenerate = can(MODULE_KEYS.hrPayroll, 'create');
+  const canApprove = can(MODULE_KEYS.hrPayroll, 'approve');
   const [runs, setRuns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [generateLoading, setGenerateLoading] = useState(false);
@@ -119,7 +124,7 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
         <Field label="Year" className={s.filterField}>
           <input className="form-input" type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
         </Field>
-        <button className="btn-primary" onClick={handleGenerate} disabled={generateLoading} style={{ marginBottom: 0 }}>
+        <button className="btn-primary" onClick={handleGenerate} disabled={generateLoading || !canGenerate} style={{ marginBottom: 0 }}>
           {generateLoading ? 'Generating...' : 'Generate Bulk Payroll'}
         </button>
 
@@ -170,8 +175,8 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
                   <td className={s.alignRight}>
                     <div className={s.actionRow}>
                       <button className={s.actionBtn} onClick={() => setSelectedRunId(run._id)}>View Payslip</button>
-                      {run.status === 'Draft' && <button className={`${s.actionBtn} ${s.actionPrimary}`} onClick={() => handleApprove(run._id)}>Approve</button>}
-                      {run.status === 'Approved' && <button className={`${s.actionBtn} ${s.actionSuccess}`} onClick={() => handleMarkPaid(run._id)}>Mark Paid</button>}
+                      {run.status === 'Draft' && canApprove && <button className={`${s.actionBtn} ${s.actionPrimary}`} onClick={() => handleApprove(run._id)}>Approve</button>}
+                      {run.status === 'Approved' && canApprove && <button className={`${s.actionBtn} ${s.actionSuccess}`} onClick={() => handleMarkPaid(run._id)}>Mark Paid</button>}
                     </div>
                   </td>
                 </tr>

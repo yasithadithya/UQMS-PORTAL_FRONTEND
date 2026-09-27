@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
+import AdditionalRemarksModal from './AdditionalRemarksModal';
 
 // Selectable surveyors. Held in the frontend for now — there is no surveyor
 // master record to load from yet.
@@ -41,6 +42,9 @@ export default function ScccosModal({
   const [navigation, setNavigation] = useState<'Satisfactory' | 'Not Satisfactory' | 'N/A'>('Satisfactory');
   const [radio, setRadio] = useState<'Satisfactory' | 'Not Satisfactory' | 'N/A'>('Satisfactory');
 
+  const [additionalRemarks, setAdditionalRemarks] = useState('');
+  const [remarksOpen, setRemarksOpen] = useState(false);
+
   // Preview & Action states
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -79,6 +83,7 @@ export default function ScccosModal({
       typeOfSurvey,
       nominatedDeparturePoint,
       surveyorName,
+      additionalRemarks,
       dateOfIssue: new Date().toISOString()
     };
   };
@@ -103,14 +108,18 @@ export default function ScccosModal({
     }
   };
 
-  const handleGenerate = async () => {
+  const handleRequestGenerate = () => {
     if (!allStatusFixed) {
       toast.error('Cannot generate PDF: All statuses must be fixed (Satisfactory or N/A).');
       return;
     }
+    setRemarksOpen(true);
+  };
+
+  const handleGenerate = async (remarks: string) => {
     try {
       setGenerating(true);
-      const payload = getPayload();
+      const payload = { ...getPayload(), additionalRemarks: remarks };
 
       // 1. Create certificate in DB
       const res = await firstEntryService.createScccosCertificate(payload);
@@ -427,7 +436,7 @@ export default function ScccosModal({
           <button
             type="button"
             className="btn-primary"
-            onClick={handleGenerate}
+            onClick={handleRequestGenerate}
             disabled={generating || !allStatusFixed}
             style={{
               marginBottom: 0,
@@ -442,6 +451,17 @@ export default function ScccosModal({
           </button>
         </div>
       </div>
+      <AdditionalRemarksModal
+        isOpen={remarksOpen}
+        initialValue={additionalRemarks}
+        confirmText="Save & Generate PDF"
+        onCancel={() => setRemarksOpen(false)}
+        onConfirm={(remarks) => {
+          setAdditionalRemarks(remarks);
+          setRemarksOpen(false);
+          handleGenerate(remarks);
+        }}
+      />
     </div>
   );
 }

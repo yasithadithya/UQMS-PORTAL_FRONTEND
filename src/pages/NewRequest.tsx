@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { MODULE_KEYS } from '@/utils/permissions';
 import {
   operationsService,
   requestsService,
@@ -84,7 +85,7 @@ const toDateInputValue = (value?: string | Date | null) => {
 const defaultCreatedDate = toDateInputValue(new Date());
 
 export default function NewRequestPage() {
-  const { hasPermission } = useAuth();
+  const { can } = useAuth();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<ApiRequest[]>([]);
   const [vesselTypes, setVesselTypes] = useState<ApiVesselType[]>([]);
@@ -394,7 +395,7 @@ export default function NewRequestPage() {
                 className={s.actionBtn}
                 type="button"
                 onClick={() => openDocModal(request._id, doc)}
-                disabled={request.status !== 'active'}
+                disabled={request.status !== 'active' || !can(MODULE_KEYS.newRequest, 'update')}
               >
                 Edit
               </button>
@@ -402,7 +403,7 @@ export default function NewRequestPage() {
                 className={`${s.actionBtn} ${s.deleteBtn}`}
                 type="button"
                 onClick={() => handleDeleteDocument(request._id, doc._id)}
-                disabled={request.status !== 'active' || (!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete'))}
+                disabled={request.status !== 'active' || !can(MODULE_KEYS.newRequest, 'delete')}
               >
                 Delete
               </button>
@@ -424,19 +425,21 @@ export default function NewRequestPage() {
             {requests.length} request(s) submitted
           </p>
         </div>
-        <button className={s.addBtn} onClick={openAdd}>
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          Create Request
-        </button>
+        {can(MODULE_KEYS.newRequest, 'create') && (
+          <button className={s.addBtn} onClick={openAdd}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M9 3v12M3 9h12" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Create Request
+          </button>
+        )}
       </div>
 
       <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center' }}>
         <input
           type="text"
           className="form-input"
-          placeholder="Search by request no or vessel name..."
+          placeholder="Search by request no, job no or vessel name..."
           style={{ maxWidth: '400px', width: '100%' }}
           value={searchTerm}
           onChange={(e) => {
@@ -465,6 +468,7 @@ export default function NewRequestPage() {
               <thead>
                 <tr>
                   <th>Request No</th>
+                  <th>Job No</th>
                   <th>Vessel Name</th>
                   <th>Sector</th>
                   <th>Status</th>
@@ -479,6 +483,7 @@ export default function NewRequestPage() {
                         <span className={s.sourceBadge} title="Submitted through the website">Web</span>
                       )}
                     </td>
+                    <td>{req.jobNumber || '-'}</td>
                     <td>{req.vesselName || '-'}</td>
                     <td style={{ textTransform: 'capitalize' }}>{req.sector}</td>
                     <td>
@@ -501,6 +506,7 @@ export default function NewRequestPage() {
                         <span className={s.sourceBadge} title="Submitted through the website">Web</span>
                       )}
                     </div>
+                    <div className={s.mobileSub}>Job No: {req.jobNumber || '-'}</div>
                     <div className={s.mobileSub}>Vessel Name: {req.vesselName || '-'}</div>
                   </div>
                   <span className={requestStatusClass(req.status)}>{requestStatusLabel(req.status)}</span>
@@ -804,7 +810,7 @@ export default function NewRequestPage() {
               <button className="btn-secondary" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
-              <button className="btn-primary" onClick={handleSave} disabled={saving || !editingIsActive}>
+              <button className="btn-primary" onClick={handleSave} disabled={saving || !editingIsActive || !can(MODULE_KEYS.newRequest, 'update')}>
                 {saving ? 'Saving...' : 'Save Request'}
               </button>
             </div>
@@ -876,7 +882,7 @@ export default function NewRequestPage() {
                 className="btn-primary"
                 style={{ background: 'var(--red)' }}
                 onClick={() => handleDelete(deleteConfirm)}
-                disabled={!hasPermission('Admin', 'delete') && !hasPermission('New Request', 'delete')}
+                disabled={!can(MODULE_KEYS.newRequest, 'delete')}
               >
                 Delete
               </button>

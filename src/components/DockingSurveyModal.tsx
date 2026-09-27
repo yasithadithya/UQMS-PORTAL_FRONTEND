@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
+import AdditionalRemarksModal from './AdditionalRemarksModal';
 
 interface DockingSurveyModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: ApiFirstEntrySurveyBooking | null;
   surveyReportId: string;
+  /** Pre-fills Client: the vessel's manager, as shown under Manager Details in the survey report. */
+  defaultClient?: string;
   onSuccess?: () => void;
 }
 
@@ -16,6 +19,7 @@ export default function DockingSurveyModal({
   onClose,
   booking,
   surveyReportId,
+  defaultClient = '',
   onSuccess
 }: DockingSurveyModalProps) {
   if (!isOpen || !booking) return null;
@@ -24,7 +28,7 @@ export default function DockingSurveyModal({
   const vesselName = typeof booking.vesselId === 'object' && booking.vesselId ? (booking.vesselId as any).vesselName : booking.shipName;
   const vesselMaterial = typeof booking.vesselId === 'object' && booking.vesselId ? (booking.vesselId as any).material || 'Light Alloy' : 'Light Alloy';
 
-  const [client, setClient] = useState('DOLPHINE MARINE COLOMBO (PVT) LTD (MANAGERS)');
+  const [client, setClient] = useState(defaultClient);
   const [surveyLocation, setSurveyLocation] = useState(booking.portOfSurvey || 'DIKKOWITA FISHERIES HARBOUR');
   const [dockingPeriodStart, setDockingPeriodStart] = useState('');
   const [dockingPeriodEnd, setDockingPeriodEnd] = useState('');
@@ -68,6 +72,9 @@ export default function DockingSurveyModal({
   const [overboardValves, setOverboardValves] = useState('Overboard valves have been cleaned, overhauled and examined.');
   const [anodes, setAnodes] = useState('Fourteen (14) nos. of 1.8 kg block-type zinc alloy anodes were renewed at various hull positions and on the rudder.');
 
+  const [additionalRemarks, setAdditionalRemarks] = useState('');
+  const [remarksOpen, setRemarksOpen] = useState(false);
+
   // Preview & Action states
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -109,6 +116,7 @@ export default function DockingSurveyModal({
       rudderBearingPortPS, rudderBearingPortFA, rudderBearingStbdPS, rudderBearingStbdFA,
       overboardValves,
       anodes,
+      additionalRemarks,
       dateOfIssue: new Date().toISOString()
     };
   };
@@ -133,10 +141,10 @@ export default function DockingSurveyModal({
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (remarks: string) => {
     try {
       setGenerating(true);
-      const payload = getPayload();
+      const payload = { ...getPayload(), additionalRemarks: remarks };
 
       // 1. Create certificate in DB
       const res = await firstEntryService.createDockingSurveyCert(payload);
@@ -489,7 +497,7 @@ export default function DockingSurveyModal({
           <button
             type="button"
             className="btn-primary"
-            onClick={handleGenerate}
+            onClick={() => setRemarksOpen(true)}
             disabled={generating}
             style={{
               marginBottom: 0,
@@ -501,6 +509,17 @@ export default function DockingSurveyModal({
           </button>
         </div>
       </div>
+      <AdditionalRemarksModal
+        isOpen={remarksOpen}
+        initialValue={additionalRemarks}
+        confirmText="Save & Generate PDF"
+        onCancel={() => setRemarksOpen(false)}
+        onConfirm={(remarks) => {
+          setAdditionalRemarks(remarks);
+          setRemarksOpen(false);
+          handleGenerate(remarks);
+        }}
+      />
     </div>
   );
 }

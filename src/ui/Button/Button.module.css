@@ -153,6 +153,19 @@
   animation: spin .7s linear infinite;
 }
 
+/* Declared here because CSS Modules scopes animation names; the global `spin` in base.css doesn't match. */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* The global reduced-motion rule freezes animations; a spinner must keep turning to signal progress. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 .primary.loading .spinner { color: var(--color-on-accent); }
 .secondary.loading .spinner,
 .ghost.loading .spinner { color: var(--color-text-primary); }

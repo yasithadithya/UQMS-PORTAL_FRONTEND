@@ -72,6 +72,24 @@
   animation: spin .7s linear infinite;
 }
 
+/* Declared here because CSS Modules scopes animation names; the globals in base.css don't match. */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  from { background-position: -400px 0; }
+  to { background-position: 400px 0; }
+}
+
+/* The global reduced-motion rule freezes animations; a spinner must keep turning to signal progress. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.4s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
 .loadingBlock {
   display: flex;
   flex-direction: column;

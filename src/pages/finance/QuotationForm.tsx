@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ChevronDown, ListPlus, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Columns3, ListPlus, Lock, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
-  feeItemsService, quotationsService,
-  type ApiFeeItem, type ApiQuotation, type FeeCategory, type FeeCurrency, type QuotableRequest, type QuotationPayload,
+  feeItemsService, quotationsService, vesselCodesService,
+  type ApiFeeItem, type ApiQuotation, type ApiVesselCode, type DiscountType, type FeeCategory, type FeeCurrency, type QuotableRequest,
+  type QuotationPayload,
 } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -27,17 +28,22 @@ type Line = {
   currency: FeeCurrency;
   rate: string;
   quantity: string;
+  /** Values for the extra columns, by position. */
+  extra: string[];
 };
+
+/** Most user-added columns (matches the backend; keeps the PDF table readable). */
+const MAX_EXTRA_COLUMNS = 3;
 
 type RequestInfo = { id: string; requestNumber: string; jobNumber?: string };
 
-type FieldKey = 'request' | 'title' | 'companyName' | 'exchangeRate' | 'lines' | 'quotationDate';
+type FieldKey = 'request' | 'vesselCode' | 'title' | 'companyName' | 'exchangeRate' | 'lines' | 'quotationDate' | 'columns' | 'discount';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const toDateInput = (value?: string) => (value ? new Date(value).toISOString().slice(0, 10) : today());
 
 let lineKey = 0;
-const newLine = (patch: Partial<Line> = {}): Line => ({ key: ++lineKey, description: '', currency: 'USD', rate: '', quantity: '1', ...patch });
+const newLine = (patch: Partial<Line> = {}): Line => ({ key: ++lineKey, description: '', currency: 'USD', rate: '', quantity: '1', extra: [], ...patch });
 
 const titleFor = (vesselName: string) => `QUOTATION FOR – ${vesselName.toUpperCase()}`;
 
@@ -57,6 +63,8 @@ export default function QuotationForm() {
   const isEdit = !!id;
   const listPath = quotationsPath(`/${module || 'finance'}`);
   const canSave = can(MODULE_KEYS.financeQuotations, isEdit ? 'update' : 'create');
+  // Discounts are interlocked: only Technical Committee users (discount action) may change them.
+  const canDiscount = can(MODULE_KEYS.financeQuotations, 'discount');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'draft' | 'sent' | null>(null);
@@ -64,6 +72,12 @@ export default function QuotationForm() {
 
   const [feeItems, setFeeItems] = useState<ApiFeeItem[]>([]);
   const [quotableRequests, setQuotableRequests] = useState<QuotableRequest[]>([]);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
+  const [vesselCode, setVesselCode] = useState('');
+  const [extraColumns, setExtraColumns] = useState<string[]>([]);
+  const [discountType, setDiscountType] = useState<DiscountType>('percent');
+  const [discountValue, setDiscountValue] = useState('');
+  const [discountDescription, setDiscountDescription] = useState('');
   const [source, setSource] = useState<ApiQuotation | null>(null);
 
   const [requestInfo, setRequestInfo] = useState<RequestInfo | null>(null);
@@ -95,9 +109,16 @@ export default function QuotationForm() {
     setContactPerson(q.client?.contactPerson || '');
     setEmail(q.client?.email || '');
     setExchangeRate(String(q.exchangeRate));
+    setVesselCode(q.vesselCode || '');
+    const columns = q.extraColumns || [];
+    setExtraColumns(columns);
     setLines(q.lineItems.map(li => newLine({
       feeItem: li.feeItem, description: li.description, currency: li.currency, rate: String(li.rate), quantity: String(li.quantity),
+      extra: columns.map((_, i) => li.extra?.[i] ?? ''),
     })));
+    setDiscountType(q.discount?.type || 'percent');
+    setDiscountValue(q.discount ? String(q.discount.value) : '');
+    setDiscountDescription(q.discount?.description || '');
     setNotes(q.notes);
     setPaymentTerms(q.paymentTerms);
     setPreparedByName(q.preparedByName || user?.username || '');
@@ -110,6 +131,9 @@ export default function QuotationForm() {
       setLoading(true);
       try {
         const feesPromise = feeItemsService.getFeeItems({ active: true });
+        vesselCodesService.getVesselCodes()
+          .then(res => { if (!cancelled) setVesselCodes(res.data); })
+          .catch(() => { if (!cancelled) toast.error('Failed to load vessel codes.'); });
         if (id || revisingId) {
           const [fees, res] = await Promise.all([feesPromise, quotationsService.getQuotation((id || revisingId)!)]);
           if (cancelled) return;
@@ -155,14 +179,20 @@ export default function QuotationForm() {
     setAddress(r.invoicingAddress || r.registerdAddress || '');
     setContactPerson(r.contactPersonName || '');
     setEmail(r.companyEmail || '');
-    ['request', 'title', 'companyName'].forEach(k => clearError(k as FieldKey));
+    if (r.vesselCode) setVesselCode(r.vesselCode);
+    ['request', 'title', 'companyName', 'vesselCode'].forEach(k => clearError(k as FieldKey));
     unsaved.markDirty();
   };
 
   // ── Line items ──
   const rateNumber = Number(exchangeRate);
   const lineAmounts = lines.map(l => lineAmountLkr(Number(l.rate), Number(l.quantity), l.currency, rateNumber));
-  const totalLkr = lineAmounts.reduce((sum, a) => sum + a, 0);
+  const subtotalLkr = lineAmounts.reduce((sum, a) => sum + a, 0);
+  const discountNumber = Number(discountValue) || 0;
+  const discountLkr = discountNumber > 0
+    ? Math.round((discountType === 'percent' ? (subtotalLkr * discountNumber) / 100 : discountNumber) * 100) / 100
+    : 0;
+  const totalLkr = subtotalLkr - discountLkr;
   const usdSubtotal = lines.reduce((sum, l) => sum + (l.currency === 'USD' ? (Number(l.rate) || 0) * (Number(l.quantity) || 0) : 0), 0);
   const hasUsdLines = lines.some(l => l.currency === 'USD');
 
@@ -185,17 +215,41 @@ export default function QuotationForm() {
     unsaved.markDirty();
   };
 
+  // ── Extra columns ──
+  const addColumn = () => {
+    if (extraColumns.length >= MAX_EXTRA_COLUMNS) return;
+    setExtraColumns(prev => [...prev, '']);
+    setLines(prev => prev.map(l => ({ ...l, extra: [...l.extra, ''] })));
+    unsaved.markDirty();
+  };
+  const renameColumn = (index: number, label: string) => {
+    setExtraColumns(prev => prev.map((c, i) => (i === index ? label : c)));
+    clearError('columns');
+  };
+  const removeColumn = (index: number) => {
+    setExtraColumns(prev => prev.filter((_, i) => i !== index));
+    setLines(prev => prev.map(l => ({ ...l, extra: l.extra.filter((_, i) => i !== index) })));
+    clearError('columns');
+    unsaved.markDirty();
+  };
+  const blankExtra = () => extraColumns.map(() => '');
+
   const feeById = useMemo(() => new Map(feeItems.map(f => [f._id, f])), [feeItems]);
+  // Fees for the chosen vessel code, plus fees that apply to every code.
+  const applicableFees = useMemo(
+    () => feeItems.filter(f => !f.vesselCodes?.length || (!!vesselCode && f.vesselCodes.includes(vesselCode))),
+    [feeItems, vesselCode]
+  );
 
   const feeMenuItems: (MenuItem | false)[] = (['survey', 'additional', 'transport'] as FeeCategory[]).flatMap((category, i) => {
-    const inCategory = feeItems.filter(f => f.category === category);
+    const inCategory = applicableFees.filter(f => f.category === category);
     if (inCategory.length === 0) return [];
     return [
       i > 0 ? ('separator' as const) : false,
       ...inCategory.map((f): MenuItem => ({
         label: `${f.name} · ${f.currency} ${formatRate(f.rate)}`,
         hint: FEE_CATEGORY_LABELS[category],
-        onSelect: () => addLine(newLine({ feeItem: f._id, description: f.name, currency: f.currency, rate: String(f.rate) })),
+        onSelect: () => addLine(newLine({ feeItem: f._id, description: f.name, currency: f.currency, rate: String(f.rate), extra: blankExtra() })),
       })),
     ];
   });
@@ -204,6 +258,13 @@ export default function QuotationForm() {
   const validate = (): Partial<Record<FieldKey, string>> => {
     const next: Partial<Record<FieldKey, string>> = {};
     if (!requestInfo) next.request = 'Choose the request to quote.';
+    if (!vesselCode) next.vesselCode = 'Choose the vessel code.';
+    if (extraColumns.some(c => !c.trim())) next.columns = 'Name every extra column, or remove it.';
+    if (discountValue.trim() !== '') {
+      if (!(discountNumber >= 0)) next.discount = 'Enter a discount of 0 or more.';
+      else if (discountType === 'percent' && discountNumber > 100) next.discount = 'A percentage discount cannot exceed 100%.';
+      else if (discountLkr > subtotalLkr) next.discount = 'The discount cannot be more than the subtotal.';
+    }
     if (!quotationDate) next.quotationDate = 'Enter the quotation date.';
     if (!title.trim()) next.title = 'Enter a title.';
     if (!companyName.trim()) next.companyName = 'Enter the client company name.';
@@ -244,9 +305,15 @@ export default function QuotationForm() {
         email: email.trim() || undefined,
       },
       exchangeRate: rateNumber,
+      vesselCode,
+      extraColumns: extraColumns.map(c => c.trim()),
       lineItems: lines.map(l => ({
         feeItem: l.feeItem, description: l.description.trim(), currency: l.currency, rate: Number(l.rate), quantity: Number(l.quantity),
+        extra: l.extra.map(v => v.trim()),
       })),
+      discount: discountNumber > 0
+        ? { type: discountType, value: discountNumber, description: discountDescription.trim() || undefined }
+        : null,
       notes: notes.map(n => n.trim()).filter(Boolean),
       paymentTerms: paymentTerms.map(t => t.trim()).filter(Boolean),
       preparedByName: preparedByName.trim() || undefined,
@@ -283,9 +350,9 @@ export default function QuotationForm() {
   const backHref = source ? `${listPath}/${source._id}` : `/${module || 'finance'}?tab=quotations`;
 
   const SECTIONS = [
-    { id: 'qt-request', label: 'Request', invalid: !!errors.request },
+    { id: 'qt-request', label: 'Job & vessel code', invalid: !!(errors.request || errors.vesselCode) },
     { id: 'qt-details', label: 'Client & details', invalid: !!(errors.title || errors.companyName || errors.exchangeRate || errors.quotationDate) },
-    { id: 'qt-lines', label: 'Line items', invalid: !!errors.lines },
+    { id: 'qt-lines', label: 'Line items', invalid: !!(errors.lines || errors.columns || errors.discount) },
     { id: 'qt-notes', label: 'Notes & terms' },
   ];
 
@@ -312,8 +379,10 @@ export default function QuotationForm() {
         <form onSubmit={e => { e.preventDefault(); save(isEdit ? (source?.status === 'sent' ? 'sent' : 'draft') : 'draft'); }} onChangeCapture={unsaved.markDirty} noValidate>
           <FormSection
             id="qt-request"
-            title="Request"
-            description={isEdit || revisingId ? 'The request is fixed for this quotation.' : 'Only requests without a quotation are listed. To re-quote a request, create a revision from its quotation.'}
+            title="Job & vessel code"
+            description={isEdit || revisingId
+              ? 'The job is fixed for this quotation. The vessel code decides which fees are offered.'
+              : 'First choose the job, then the vessel code. Only jobs without a quotation are listed; to re-quote one, create a revision from its quotation.'}
           >
             <div className={s.narrow}>
               {isEdit || revisingId ? (
@@ -336,6 +405,16 @@ export default function QuotationForm() {
                   {errors.request && <p className={s.fieldError} role="alert" data-field-error>{errors.request}</p>}
                 </>
               )}
+              <Field label="Vessel code" required error={errors.vesselCode} hint="Small Craft, Internal Waters Craft, Large Non-Convention Craft or Large Yacht">
+                <Select
+                  value={vesselCode}
+                  disabled={!isEdit && !revisingId && !requestInfo}
+                  onChange={e => { setVesselCode(e.target.value); clearError('vesselCode'); unsaved.markDirty(); }}
+                >
+                  <option value="">{!isEdit && !revisingId && !requestInfo ? 'Choose the job first' : 'Choose a vessel code'}</option>
+                  {vesselCodes.map(vc => <option key={vc._id} value={vc.code}>{vc.code} - {vc.description}</option>)}
+                </Select>
+              </Field>
             </div>
           </FormSection>
 
@@ -378,10 +457,19 @@ export default function QuotationForm() {
                 <Menu
                   label="Add from fee structure"
                   align="end"
-                  trigger={<Button size="sm" icon={<ListPlus />} iconRight={<ChevronDown />} disabled={feeItems.length === 0}>From fee structure</Button>}
+                  trigger={
+                    <Button size="sm" icon={<ListPlus />} iconRight={<ChevronDown />} disabled={applicableFees.length === 0 || !vesselCode}
+                      title={vesselCode ? undefined : 'Choose the vessel code first'}>
+                      From fee structure
+                    </Button>
+                  }
                   items={feeMenuItems}
                 />
-                <Button size="sm" icon={<Plus />} onClick={() => addLine(newLine())}>Custom line</Button>
+                <Button size="sm" icon={<Plus />} onClick={() => addLine(newLine({ extra: blankExtra() }))}>Custom line</Button>
+                <Button size="sm" icon={<Columns3 />} onClick={addColumn} disabled={extraColumns.length >= MAX_EXTRA_COLUMNS}
+                  title={extraColumns.length >= MAX_EXTRA_COLUMNS ? `At most ${MAX_EXTRA_COLUMNS} extra columns` : undefined}>
+                  Add column
+                </Button>
               </div>
             }
           >
@@ -390,10 +478,19 @@ export default function QuotationForm() {
                 No lines yet. Add fees from the fee structure, or a custom line.
               </p>
             ) : (
-              <div className={s.lines} role="table" aria-label="Quotation lines">
+              <div className={s.lines} role="table" aria-label="Quotation lines"
+                style={extraColumns.length ? ({ '--extra-cols': `repeat(${extraColumns.length}, 120px)` } as React.CSSProperties) : undefined}>
                 <div className={s.lineHead} role="row">
                   <span role="columnheader">#</span>
                   <span role="columnheader">Description</span>
+                  {extraColumns.map((label, ci) => (
+                    <span role="columnheader" key={ci} className={s.inline}>
+                      <Input aria-label={`Column ${ci + 1} name`} placeholder="Column name" value={label}
+                        aria-invalid={errors.columns && !label.trim() ? true : undefined}
+                        onChange={e => renameColumn(ci, e.target.value)} />
+                      <IconButton label={`Remove column ${label || ci + 1}`} icon={<X />} size="sm" variant="dangerGhost" onClick={() => removeColumn(ci)} />
+                    </span>
+                  ))}
                   <span role="columnheader">Currency</span>
                   <span role="columnheader">Rate</span>
                   <span role="columnheader">Qty</span>
@@ -417,6 +514,13 @@ export default function QuotationForm() {
                           </span>
                         )}
                       </div>
+                      {extraColumns.map((label, ci) => (
+                        <div role="cell" key={ci}>
+                          <span className={s.mobileLabel}>{label || `Column ${ci + 1}`}</span>
+                          <Input aria-label={`Line ${index + 1} ${label || `column ${ci + 1}`}`} value={line.extra[ci] ?? ''}
+                            onChange={e => updateLine(line.key, { extra: extraColumns.map((_, i) => (i === ci ? e.target.value : line.extra[i] ?? '')) })} />
+                        </div>
+                      ))}
                       <div role="cell">
                         <Select aria-label={`Line ${index + 1} currency`} value={line.currency}
                           onChange={e => updateLine(line.key, { currency: e.target.value as FeeCurrency })}>
@@ -448,11 +552,40 @@ export default function QuotationForm() {
               </div>
             )}
             {errors.lines && <p className={s.fieldError} role="alert" data-field-error>{errors.lines}</p>}
+            {errors.columns && <p className={s.fieldError} role="alert" data-field-error>{errors.columns}</p>}
+
+            <h3 className={s.subheading}>
+              <span className={s.inline}>
+                Discount {!canDiscount && <Badge tone="neutral"><Lock aria-hidden="true" /> Technical Committee only</Badge>}
+              </span>
+            </h3>
+            <FormGrid columns={3}>
+              <Field label="Discount type">
+                <Select value={discountType} disabled={!canDiscount}
+                  onChange={e => { setDiscountType(e.target.value as DiscountType); clearError('discount'); }}>
+                  <option value="percent">Percentage (%)</option>
+                  <option value="amount">Amount (LKR)</option>
+                </Select>
+              </Field>
+              <Field label={discountType === 'percent' ? 'Discount (%)' : 'Discount (LKR)'} error={errors.discount}>
+                <Input type="number" inputMode="decimal" min={0} step="0.01" value={discountValue} disabled={!canDiscount}
+                  placeholder="0" onChange={e => { setDiscountValue(e.target.value); clearError('discount'); }} />
+              </Field>
+              <Field label="Reason / label" hint="Printed next to the discount">
+                <Input value={discountDescription} disabled={!canDiscount} placeholder="e.g. Repeat client"
+                  onChange={e => setDiscountDescription(e.target.value)} />
+              </Field>
+            </FormGrid>
 
             <div className={s.totals}>
               {hasUsdLines && (
                 <span className={s.muted}>
                   USD lines: USD {formatMoney(usdSubtotal)} × {Number.isFinite(rateNumber) && rateNumber > 0 ? formatRate(rateNumber) : '—'}
+                </span>
+              )}
+              {discountLkr > 0 && (
+                <span className={s.muted}>
+                  Subtotal LKR {formatMoney(subtotalLkr)} − discount LKR {formatMoney(discountLkr)}
                 </span>
               )}
               <span className={s.totalLabel}>Total</span>
@@ -464,7 +597,10 @@ export default function QuotationForm() {
             <TextListEditor label="Note" items={notes} onChange={v => { setNotes(v); unsaved.markDirty(); }} numbered />
             <h3 className={s.subheading}>Payment terms</h3>
             <TextListEditor label="Payment term" items={paymentTerms} onChange={v => { setPaymentTerms(v); unsaved.markDirty(); }} />
-            <h3 className={s.subheading}>Signed for UQMS by</h3>
+            <h3 className={s.subheading}>Prepared by</h3>
+            <p className={s.muted}>
+              After saving, the preparer e-signs the quotation from its page. Editing a signed quotation removes the signature.
+            </p>
             <FormGrid columns={2}>
               <Field label="Name">
                 <Input value={preparedByName} onChange={e => setPreparedByName(e.target.value)} />

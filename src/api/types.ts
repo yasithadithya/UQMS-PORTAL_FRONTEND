@@ -102,9 +102,21 @@ export interface ApiAreaOfOperation {
   updatedAt?: string;
 }
 
+/** Supporting document types a survey request can carry (mirrors the backend). */
+export const REQUEST_DOCUMENT_TYPES = {
+  'bill-of-sale': 'Bill of Sale / Proof of Ownership',
+  'certificate-of-registry': 'Certificate of Registry',
+  'ga-plan': 'General Arrangement Plan (GA)',
+  'non-convention-request': 'Survey Request for Non-Convention Vessels',
+  other: 'Other',
+} as const;
+
+export type RequestDocumentType = keyof typeof REQUEST_DOCUMENT_TYPES;
+
 export interface ApiRequestDocument {
   _id: string;
   name: string;
+  documentType?: RequestDocumentType;
   key: string;
   url?: string;
   contentType?: string;
@@ -669,6 +681,8 @@ export interface ApiFeeItem {
   rate: number;
   unit: FeeUnit;
   notes?: string;
+  /** Vessel codes the fee applies to; empty = every vessel code. */
+  vesselCodes?: string[];
   isActive: boolean;
   order: number;
   createdAt?: string;
@@ -686,6 +700,23 @@ export interface QuotationLineItem {
   rate: number;
   quantity: number;
   amountLkr: number;
+  /** Values for the quotation's extra columns, by position. */
+  extra?: string[];
+}
+
+export type DiscountType = 'percent' | 'amount';
+
+export interface QuotationDiscount {
+  type: DiscountType;
+  /** Percentage (0–100) or an LKR amount. */
+  value: number;
+  description?: string;
+}
+
+export interface QuotationSignature {
+  signedBy: string;
+  signedByName: string;
+  signedAt: string;
 }
 
 export interface QuotationClient {
@@ -708,15 +739,23 @@ export interface ApiQuotation {
   quotationDate: string;
   title: string;
   vesselName?: string;
+  vesselCode?: string;
   client: QuotationClient;
   /** LKR per 1 USD. */
   exchangeRate: number;
+  extraColumns?: string[];
   lineItems: QuotationLineItem[];
+  subtotalLkr?: number;
+  discount?: QuotationDiscount;
+  discountLkr?: number;
   totalLkr: number;
   notes: string[];
   paymentTerms: string[];
   preparedByName?: string;
   preparedByDesignation?: string;
+  preparedBySignature?: QuotationSignature;
+  emailedAt?: string;
+  emailedTo?: string;
   status: QuotationStatus;
   statusReason?: string;
   statusChangedAt?: string;
@@ -735,9 +774,12 @@ export type QuotationPayload = {
   quotationDate: string;
   title: string;
   vesselName?: string;
+  vesselCode?: string;
   client: QuotationClient;
   exchangeRate: number;
+  extraColumns: string[];
   lineItems: Omit<QuotationLineItem, 'amountLkr'>[];
+  discount?: QuotationDiscount | null;
   notes: string[];
   paymentTerms: string[];
   preparedByName?: string;
@@ -747,5 +789,5 @@ export type QuotationPayload = {
 /** A request with no quotation yet, as listed when creating one. */
 export type QuotableRequest = Pick<
   ApiRequest,
-  '_id' | 'requestNumber' | 'jobNumber' | 'rfsDocNo' | 'vesselName' | 'companyName' | 'contactPersonName' | 'companyEmail' | 'registerdAddress' | 'invoicingAddress' | 'status' | 'createdAt'
+  '_id' | 'requestNumber' | 'jobNumber' | 'rfsDocNo' | 'vesselName' | 'vesselCode' | 'companyName' | 'contactPersonName' | 'companyEmail' | 'registerdAddress' | 'invoicingAddress' | 'status' | 'createdAt'
 >;

@@ -12,6 +12,8 @@ import {
   type ApiVesselType,
   type RequestPayload,
   type ApiVesselCode,
+  type RequestDocumentType,
+  REQUEST_DOCUMENT_TYPES,
 } from '@/api';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import SearchableSelect from '@/components/SearchableSelect';
@@ -104,6 +106,7 @@ type PendingDocument = {
   id: string;
   file: File;
   name: string;
+  documentType: RequestDocumentType;
 };
 
 const makeId = () => {
@@ -224,6 +227,8 @@ export default function RequestDetailsPage() {
   const { can } = useAuth();
   const canDelete = can(MODULE_KEYS.newRequest, 'delete');
   const canReview = can(MODULE_KEYS.newRequest, 'update');
+  // Technical Committee: may change requests after the RFS is printed (audited on the server).
+  const canOverride = can(MODULE_KEYS.newRequest, 'override');
   const params = useParams();
   const id = params.submodule || (params['*'] ? params['*'].split('/')[0] : undefined);
   const navigate = useNavigate();
@@ -252,6 +257,7 @@ export default function RequestDetailsPage() {
     action: () => Promise<void>;
   } | null>(null);
   const [reviewing, setReviewing] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
 
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -259,6 +265,7 @@ export default function RequestDetailsPage() {
       id: makeId(),
       file,
       name: getFileBaseName(file.name),
+      documentType: 'other',
     }));
     setPendingDocuments((prev) => [...prev, ...nextDocs]);
   };
@@ -314,8 +321,9 @@ export default function RequestDetailsPage() {
   );
 
   const handleEdit = () => {
-    if (!request || request.status === 'print') return;
+    if (!request || (request.status === 'print' && !canOverride)) return;
     setForm(requestToForm(request));
+    setOverrideReason('');
     setEditing(true);
   };
 
@@ -329,14 +337,21 @@ export default function RequestDetailsPage() {
   const handleSave = async () => {
     if (!request || !form) return;
 
+    const overriding = request.status !== 'active';
+    if (overriding && canOverride && !overrideReason.trim()) {
+      toast.error('Give a reason for the override; it is kept in the audit log.');
+      return;
+    }
+
     setSaving(true);
     try {
-      if (request.status === 'active') {
+      if (!overriding || canOverride) {
         await requestsService.updateRequest(request._id, {
           ...form,
           imoNumber: form.imoNumber?.trim() || undefined,
           mmsiNumber: form.mmsiNumber?.trim() || undefined,
           uqmsNumber: form.uqmsNumber?.trim() || undefined,
+          overrideReason: overriding ? overrideReason.trim() : undefined,
         });
       }
 
@@ -352,7 +367,8 @@ export default function RequestDetailsPage() {
         try {
           await requestsService.addRequestDocuments(
             request._id,
-            pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
+            pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name, documentType: doc.documentType })),
+            overriding ? overrideReason.trim() : undefined
           );
         } catch (err: any) {
           toast.error(err.message || 'Request fields saved, but document upload failed.');
@@ -555,7 +571,8 @@ export default function RequestDetailsPage() {
   const documents = request?.documents || [];
   const awaitingReview = request?.approvalStatus === 'pending';
   const isRejectedWebRequest = request?.approvalStatus === 'rejected';
-  const locked = request ? request.status !== 'active' : true;
+  const overriding = !!request && request.status !== 'active' && canOverride;
+  const locked = request ? request.status !== 'active' && !canOverride : true;
   const setField = <K extends keyof RequestPayload>(key: K, value: RequestPayload[K]) =>
     setForm(prev => (prev ? { ...prev, [key]: value } : prev));
 
@@ -594,10 +611,13 @@ export default function RequestDetailsPage() {
   const docItems: DocItem[] = documents.map(doc => ({
     key: doc._id,
     name: doc.name,
-    meta: [fileKind(doc.contentType), formatBytes(doc.size), doc.uploadedAt && `Uploaded ${formatDate(doc.uploadedAt)}`].filter(Boolean).join(' · '),
+    meta: [
+      doc.documentType && doc.documentType !== 'other' && doc.name !== REQUEST_DOCUMENT_TYPES[doc.documentType] && REQUEST_DOCUMENT_TYPES[doc.documentType],
+      fileKind(doc.contentType), formatBytes(doc.size), doc.uploadedAt && `Uploaded ${formatDate(doc.uploadedAt)}`,
+    ].filter(Boolean).join(' · '),
     url: doc.url,
     onDelete: () => handleDeleteDocument(doc),
-    deleteDisabled: !canDelete || request?.status === 'print',
+    deleteDisabled: !canDelete || (request?.status !== 'active' && !canOverride),
   }));
 
   const signedItem: DocItem[] = request?.signedPdf ? [{
@@ -692,7 +712,14 @@ export default function RequestDetailsPage() {
       ) : (
         <div className={s.editForm}>
           {locked && (
-            <p className={s.notice}>Only active requests can have their details changed. You can still manage documents and the signed PDF.</p>
+            <p className={s.notice}>Only active requests can have their details changed. You can still manage the signed PDF.</p>
+          )}
+          {overriding && (
+            <FormSection title="Technical Committee override" description="This request is no longer active. Your changes are recorded in the audit log.">
+              <Field label="Reason for the change" required>
+                <Input value={overrideReason} onChange={e => setOverrideReason(e.target.value)} placeholder="e.g. Client corrected the vessel name after the RFS was issued" />
+              </Field>
+            </FormSection>
           )}
 
           <FormSection title="Vessel" description="Identification of the vessel to be surveyed.">
@@ -783,7 +810,7 @@ export default function RequestDetailsPage() {
 
           <FormSection title="Documents" description="Existing files, plus new ones to upload when you save.">
             {docItems.length > 0 ? <DocList items={docItems} /> : <p className={s.none}>No documents attached.</p>}
-            <DragDropFileUpload onFilesSelected={handleAddFiles} multiple accept=".pdf,image/*" subText="PDF or images" />
+            {!locked && <DragDropFileUpload onFilesSelected={handleAddFiles} multiple accept=".pdf,image/*" subText="PDF or images" />}
             {pendingDocuments.length > 0 && (
               <ul className={s.pendingList}>
                 {pendingDocuments.map(doc => (
@@ -792,6 +819,21 @@ export default function RequestDetailsPage() {
                       <span className={s.docName}>{doc.file.name}</span>
                       <span className={s.docMeta}>{formatBytes(doc.file.size)} · uploads on save</span>
                     </span>
+                    <Field label="Document type" hideLabel className={s.pendingName}>
+                      <Select
+                        value={doc.documentType}
+                        onChange={e => {
+                          const documentType = e.target.value as RequestDocumentType;
+                          setPendingDocuments(prev => prev.map(item => (item.id === doc.id
+                            ? { ...item, documentType, name: documentType !== 'other' ? REQUEST_DOCUMENT_TYPES[documentType] : item.name }
+                            : item)));
+                        }}
+                      >
+                        {(Object.keys(REQUEST_DOCUMENT_TYPES) as RequestDocumentType[]).map(type => (
+                          <option key={type} value={type}>{REQUEST_DOCUMENT_TYPES[type]}</option>
+                        ))}
+                      </Select>
+                    </Field>
                     <Field label="Document name" hideLabel className={s.pendingName}>
                       <Input
                         placeholder="Document name"

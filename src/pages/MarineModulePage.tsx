@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { PREVIEW_ONLY_HINT, previewPdfInNewTab, saveBlob } from '@/utils/pdfDelivery';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Award, CalendarCheck, Download, FileCheck2, FileText, PenLine, Pencil, Plus, Ship, Trash2 } from 'lucide-react';
+import { Award, CalendarCheck, Download, Eye, FileCheck2, FileText, PenLine, Pencil, Plus, Ship, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntry, ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSCCCOS } from '@/api';
@@ -175,18 +176,15 @@ export default function MarineModulePage() {
 
   const handleDownloadCertificate = async (id: string, certificateNumber: string) => {
     try {
-      const blob = await firstEntryService.getScccosFinalBlob(id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `scc_certificate_${certificateNumber.replace(/\s+/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      saveBlob(await firstEntryService.getScccosFinalBlob(id), `scc_certificate_${certificateNumber.replace(/\s+/g, '_')}.pdf`);
     } catch (err: any) {
       toast.error('Failed to download certificate: ' + err.message);
     }
+  };
+
+  const handlePreviewCertificate = (id: string) => {
+    previewPdfInNewTab(() => firstEntryService.getScccosFinalBlob(id))
+      .catch((err: any) => toast.error('Failed to open certificate: ' + err.message));
   };
 
   const handleViewCos = async (reportId: string) => {
@@ -525,7 +523,9 @@ export default function MarineModulePage() {
               <Menu
                 label={`More actions for ${c.certificateNumber}`}
                 items={[
-                  { label: 'Download PDF', icon: <Download />, onSelect: () => handleDownloadCertificate(c._id, c.certificateNumber) },
+                  c.eSignature
+                    ? { label: 'Download PDF', icon: <Download />, onSelect: () => handleDownloadCertificate(c._id, c.certificateNumber) }
+                    : { label: 'Preview PDF', icon: <Eye />, hint: PREVIEW_ONLY_HINT, onSelect: () => handlePreviewCertificate(c._id) },
                   'separator',
                   deleteItem(canDeleteCertificate, () => handleDeleteCertificate(c._id)),
                 ]}

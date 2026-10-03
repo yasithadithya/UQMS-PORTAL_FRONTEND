@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import type { ApiModule } from '@/api';
@@ -176,7 +176,7 @@ export default function RolesPage() {
     const readOnly = (editingRole && !canUpdateRole) || editingSuperAdmin || (editingOwnRole && !isSuperAdmin);
 
     // Every action any module offers, in a stable order, as matrix columns.
-    const ACTION_ORDER = ['read', 'create', 'update', 'delete', 'approve', 'sign-on-behalf', 'revoke-signature'];
+    const ACTION_ORDER = ['read', 'create', 'update', 'delete', 'approve', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'];
     const matrixActions = ACTION_ORDER.filter(a => modules.some(m => moduleActions(m).includes(a)));
 
     const usersIn = (roleId: string) => users.filter((u: any) => (typeof u.role === 'object' ? u.role?._id : u.role) === roleId).length;
@@ -275,7 +275,7 @@ export default function RolesPage() {
                                         return (
                                             <tr key={mod._id} className={selected.length ? s.rowOn : undefined}>
                                                 <th scope="row" className={s.moduleCol}>
-                                                    <span className={s.moduleName} style={{ paddingLeft: depth * 18 }}>
+                                                    <span className={s.moduleName} style={{ '--depth': depth } as CSSProperties}>
                                                         {depth > 0 && <CornerDownRight className={s.branch} aria-hidden="true" />}
                                                         <span>
                                                             <span className={s.moduleTitle}>{mod.name}</span>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Download, Eye, FilePlus2, Pencil, Send, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Download, Eye, FilePlus2, Mail, PenLine, Pencil, Send, Trash2, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { quotationsService, type ApiQuotation } from '@/api';
 import { useAuth } from '@/context/AuthContext';
@@ -8,7 +8,7 @@ import { NotFound } from '@/components/StatusPage';
 import { formatDate, formatDateTime } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
 import {
-  Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
+  Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, Input, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
 } from '@/ui';
 import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, formatRate, revisionLabel } from './financeFormat';
 import { quotationsPath } from './financeTabs';
@@ -36,6 +36,12 @@ export default function QuotationDetails() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectError, setRejectError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const [signing, setSigning] = useState(false);
+  const [designation, setDesignation] = useState('');
+  const [sending, setSending] = useState(false);
+  const [emailMessage, setEmailMessage] = useState('');
+  const { user } = useAuth();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState<'preview' | 'download' | null>(null);
@@ -134,6 +140,62 @@ export default function QuotationDetails() {
   };
 
   const request = typeof q.request === 'object' ? q.request : null;
+  const signature = q.preparedBySignature;
+  const extraColumns = q.extraColumns || [];
+  // Shown as the table footer, and as a list under the table on phones where the footer scrolls out of view.
+  const totals: { label: string; value: string; total?: boolean }[] = [
+    ...(q.discountLkr && q.discount
+      ? [
+          { label: 'Subtotal', value: formatMoney(q.subtotalLkr ?? q.totalLkr + q.discountLkr) },
+          {
+            label: `Discount${q.discount.type === 'percent' ? ` (${formatRate(q.discount.value)}%)` : ''}${q.discount.description ? ` · ${q.discount.description}` : ''}`,
+            value: `(${formatMoney(q.discountLkr)})`,
+          },
+        ]
+      : []),
+    { label: 'Total amount', value: `LKR ${formatMoney(q.totalLkr)}`, total: true },
+  ];
+
+  const sign = async () => {
+    setBusy(true);
+    try {
+      const res = await quotationsService.sign(q._id, designation.trim() || undefined);
+      setQuotation({ ...q, ...res.data });
+      toast.success(`Quotation ${q.quotationNumber} e-signed.`);
+      setSigning(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to sign the quotation.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unsign = async () => {
+    setBusy(true);
+    try {
+      const res = await quotationsService.unsign(q._id);
+      setQuotation({ ...q, ...res.data, preparedBySignature: undefined });
+      toast.success('Signature removed.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to remove the signature.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendToClient = async () => {
+    setBusy(true);
+    try {
+      const res = await quotationsService.sendToClient(q._id, emailMessage.trim() || undefined);
+      toast.success(res.message || 'Quotation and RFS sent to the client.');
+      setSending(false);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send the quotation.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="animate-in">
@@ -150,6 +212,9 @@ export default function QuotationDetails() {
         actions={
           <>
             <Button icon={<Eye />} onClick={() => openPdf('preview')} loading={pdfLoading === 'preview'}>Preview PDF</Button>
+            {isOpen && canUpdate && (
+              <Button icon={<Mail />} onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
+            )}
             {isOpen && canApprove && (
               <Button variant="primary" icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
             )}
@@ -158,6 +223,10 @@ export default function QuotationDetails() {
               items={[
                 { label: 'Download PDF', icon: <Download />, onSelect: () => openPdf('download') },
                 isOpen && canUpdate && { label: 'Edit', icon: <Pencil />, onSelect: () => navigate(`${listPath}/${q._id}/edit`) },
+                isOpen && canUpdate && !signature && {
+                  label: 'E-sign as preparer', icon: <PenLine />, onSelect: () => { setDesignation(q.preparedByDesignation || ''); setSigning(true); },
+                },
+                isOpen && canUpdate && !!signature && { label: 'Remove signature', icon: <XCircle />, onSelect: unsign },
                 q.status === 'draft' && canUpdate && { label: 'Mark as sent', icon: <Send />, onSelect: () => setPending('sent') },
                 isOpen && canApprove && {
                   label: 'Client rejected…', icon: <XCircle />, onSelect: () => { setRejectReason(''); setRejectError(''); setRejecting(true); },
@@ -195,6 +264,8 @@ export default function QuotationDetails() {
               <div><dt>Job no.</dt><dd>{q.jobNumber || '—'}</dd></div>
               <div><dt>Date</dt><dd>{formatDate(q.quotationDate)}</dd></div>
               <div><dt>Conversion rate</dt><dd>LKR {formatRate(q.exchangeRate)} / USD</dd></div>
+              <div><dt>Vessel code</dt><dd>{q.vesselCode || '—'}</dd></div>
+              <div><dt>Emailed to client</dt><dd>{q.emailedAt ? `${formatDateTime(q.emailedAt)} · ${q.emailedTo}` : 'Not yet'}</dd></div>
               <div className={s.full}><dt>Title</dt><dd>{q.title}</dd></div>
               <div><dt>Client</dt><dd>{q.client.companyName}</dd></div>
               <div><dt>Contact</dt><dd>{[q.client.contactPerson, q.client.email].filter(Boolean).join(' · ') || '—'}</dd></div>
@@ -209,6 +280,7 @@ export default function QuotationDetails() {
                   <tr>
                     <th scope="col">SN</th>
                     <th scope="col">Description</th>
+                    {extraColumns.map((c, ci) => <th scope="col" key={ci}>{c}</th>)}
                     <th scope="col" className={s.right}>Rate</th>
                     <th scope="col" className={s.right}>Qty</th>
                     <th scope="col" className={s.right}>Amount (LKR)</th>
@@ -219,6 +291,7 @@ export default function QuotationDetails() {
                     <tr key={i}>
                       <td>{String(i + 1).padStart(2, '0')}</td>
                       <td>{li.description}</td>
+                      {extraColumns.map((_, ci) => <td key={ci}>{li.extra?.[ci] || '—'}</td>)}
                       <td className={s.right}>{li.currency} {formatRate(li.rate)}</td>
                       <td className={s.right}>{formatRate(li.quantity)}</td>
                       <td className={s.right}>{formatMoney(li.amountLkr)}</td>
@@ -226,13 +299,23 @@ export default function QuotationDetails() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr>
-                    <th scope="row" colSpan={4}>Total amount</th>
-                    <td className={s.right}><strong>LKR {formatMoney(q.totalLkr)}</strong></td>
-                  </tr>
+                  {totals.map(t => (
+                    <tr key={t.label}>
+                      <th scope="row" colSpan={4 + extraColumns.length}>{t.label}</th>
+                      <td className={s.right}>{t.total ? <strong>{t.value}</strong> : t.value}</td>
+                    </tr>
+                  ))}
                 </tfoot>
               </table>
             </div>
+            <dl className={s.linesTotals}>
+              {totals.map(t => (
+                <div key={t.label} className={t.total ? s.linesTotalsGrand : undefined}>
+                  <dt>{t.label}</dt>
+                  <dd>{t.value}</dd>
+                </div>
+              ))}
+            </dl>
           </Section>
 
           {(q.notes.length > 0 || q.paymentTerms.length > 0) && (
@@ -245,7 +328,7 @@ export default function QuotationDetails() {
                 </>
               )}
               {q.preparedByName && (
-                <p className={s.muted}>Signed for UQMS by {q.preparedByName}{q.preparedByDesignation ? `, ${q.preparedByDesignation}` : ''}.</p>
+                <p className={s.muted}>Prepared by {q.preparedByName}{q.preparedByDesignation ? `, ${q.preparedByDesignation}` : ''}.</p>
               )}
             </Section>
           )}
@@ -269,6 +352,22 @@ export default function QuotationDetails() {
             </ol>
             {canRevise && (
               <ButtonLink to={`${listPath}/new?from=${q._id}`} size="sm" icon={<FilePlus2 />}>Create revision</ButtonLink>
+            )}
+          </Section>
+
+          <Section title="Prepared by" description="The preparer's name and e-signature print on the quotation.">
+            {signature ? (
+              <p>
+                <Badge tone="success">E-signed</Badge>{' '}
+                {signature.signedByName} on {formatDateTime(signature.signedAt)}
+              </p>
+            ) : (
+              <p className={s.muted}>Not signed yet{q.preparedByName ? ` (${q.preparedByName})` : ''}.</p>
+            )}
+            {isOpen && canUpdate && !signature && (
+              <Button size="sm" icon={<PenLine />} onClick={() => { setDesignation(q.preparedByDesignation || ''); setSigning(true); }}>
+                E-sign as preparer
+              </Button>
             )}
           </Section>
 
@@ -297,6 +396,44 @@ export default function QuotationDetails() {
         }
       >
         {previewUrl && <iframe className={s.preview} src={previewUrl} title={`Quotation ${q.quotationNumber}`} />}
+      </Modal>
+
+      <Modal
+        open={signing}
+        onClose={() => !busy && setSigning(false)}
+        title="E-sign this quotation"
+        description={`You are signing ${q.quotationNumber} as the person who prepared it. Editing the quotation later removes the signature.`}
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setSigning(false)} disabled={busy}>Cancel</Button>
+            <Button variant="primary" icon={<PenLine />} loading={busy} onClick={sign}>Sign</Button>
+          </>
+        }
+      >
+        <p className={s.muted}>Signing as {user?.username}. Your full name from your profile is printed.</p>
+        <Field label="Designation" hint="Printed under your name">
+          <Input value={designation} placeholder="e.g. Junior Marine Engineer" onChange={e => setDesignation(e.target.value)} />
+        </Field>
+      </Modal>
+
+      <Modal
+        open={sending}
+        onClose={() => !busy && setSending(false)}
+        title="Send quotation and RFS to the client"
+        description={`The Request for Survey and ${q.quotationNumber} are emailed as PDFs to the client email on the survey request.${q.status === 'draft' ? ' The quotation is then marked as sent.' : ''}`}
+        size="md"
+        footer={
+          <>
+            <Button onClick={() => setSending(false)} disabled={busy}>Cancel</Button>
+            <Button variant="primary" icon={<Send />} loading={busy} onClick={sendToClient}>Send email</Button>
+          </>
+        }
+      >
+        {!signature && <p className={s.notice} role="status">This quotation has not been e-signed by its preparer yet.</p>}
+        <Field label="Message" hint="Optional · added to the email body">
+          <Textarea rows={3} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} />
+        </Field>
       </Modal>
 
       <ConfirmDialog

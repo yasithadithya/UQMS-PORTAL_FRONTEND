@@ -157,20 +157,8 @@ function DockingSurveyDialog({
       const res = await firstEntryService.createDockingSurveyCert(payload);
 
       if (res.success && res.data) {
-        toast.success('Docking Survey Certificate created successfully! Downloading PDF...');
-
-        // 2. Fetch the final PDF blob
-        const pdfBlob = await firstEntryService.getDockingSurveyFinalBlob(res.data._id);
-        const url = URL.createObjectURL(pdfBlob);
-
-        // 3. Trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `docking_survey_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Unsigned certificates are preview only, so nothing is downloaded here.
+        toast.success(`Docking Survey Certificate ${res.data.certificateNumber} created. Open it to preview and sign; download is enabled after signing.`);
 
         if (onSuccess) onSuccess();
         onClose();

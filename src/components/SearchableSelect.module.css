@@ -150,6 +150,8 @@
   gap: var(--space-2);
   width: 100%;
   min-height: 34px;
+  /* Without this the flex column squeezes wrapped long labels to min-height and their lines overlap. */
+  flex-shrink: 0;
   padding: 6px var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
@@ -157,7 +159,9 @@
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-md);
+  line-height: 1.4;
   text-align: left;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 

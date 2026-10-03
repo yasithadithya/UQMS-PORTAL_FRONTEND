@@ -18,6 +18,7 @@ import UsersPage from '@/pages/Users';
 import ProfilePage from '@/pages/Profile';
 import ModulesPage from '@/pages/Modules';
 import RolesPage from '@/pages/Roles';
+import AuditLogPage from '@/pages/AuditLog';
 import GenericModulePage, { ModulesLoading } from '@/pages/GenericModulePage';
 import CreateFirstEntry from '@/pages/CreateFirstEntry';
 import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking';
@@ -112,6 +113,7 @@ function Root() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/modules" element={<PermissionGate module={MODULE_KEYS.adminModules}><ModulesPage /></PermissionGate>} />
             <Route path="/roles" element={<PermissionGate module={MODULE_KEYS.adminRoles}><RolesPage /></PermissionGate>} />
+            <Route path="/audit-log" element={<PermissionGate module={MODULE_KEYS.adminAuditLog}><AuditLogPage /></PermissionGate>} />
             <Route path="/checklist-management" element={<PermissionGate module={MODULE_KEYS.adminMasterData}><ChecklistManagement /></PermissionGate>} />
             <Route path="/dev/ui" element={<SuperAdminGate><UiKitPage /></SuperAdminGate>} />
 

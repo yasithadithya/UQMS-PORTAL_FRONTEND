@@ -29,6 +29,7 @@ export const MODULE_KEYS = {
   adminRoles: 'admin.roles',
   adminModules: 'admin.modules',
   adminMasterData: 'admin.master-data',
+  adminAuditLog: 'admin.audit-log',
 } as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[keyof typeof MODULE_KEYS];
@@ -52,6 +53,8 @@ export const ACTION_LABELS: Record<string, string> = {
   approve: 'Approve',
   'sign-on-behalf': 'Sign on behalf',
   'revoke-signature': 'Revoke signature',
+  override: 'Override',
+  discount: 'Discount',
 };
 
 /** The role name that has unrestricted access (matches the backend). */

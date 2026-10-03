@@ -13,6 +13,8 @@ import {
   type RequestPayload,
   type ApiVessel,
   type ApiVesselCode,
+  type RequestDocumentType,
+  REQUEST_DOCUMENT_TYPES,
 } from '@/api';
 import SearchableSelect from '@/components/SearchableSelect';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
@@ -47,6 +49,7 @@ type PendingDocument = {
   id: string;
   file: File;
   name: string;
+  documentType: RequestDocumentType;
 };
 
 const formatBytes = (value?: number) => {
@@ -93,6 +96,7 @@ export default function CreateRequestPage() {
   const [saving, setSaving] = useState(false);
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [pendingSignedPdf, setPendingSignedPdf] = useState<File | null>(null);
+  const [overrideReason, setOverrideReason] = useState('');
 
   const [vesselSearchQuery, setVesselSearchQuery] = useState('');
   const [vesselSearchResults, setVesselSearchResults] = useState<ApiVessel[]>([]);
@@ -172,6 +176,7 @@ export default function CreateRequestPage() {
       id: makeId(),
       file,
       name: getFileBaseName(file.name),
+      documentType: 'other' as RequestDocumentType,
     }));
     setPendingDocuments((prev) => [...prev, ...nextDocs]);
   };
@@ -229,6 +234,7 @@ export default function CreateRequestPage() {
       uqmsNumber: formData.uqmsNumber?.trim() || undefined,
       createdAt: formData.createdAt ? new Date(formData.createdAt).toISOString() : undefined,
       status: formData.status || 'active',
+      overrideReason: overrideReason.trim() || undefined,
     };
 
     try {
@@ -248,7 +254,7 @@ export default function CreateRequestPage() {
           try {
             await requestsService.addRequestDocuments(
               requestId,
-              pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name }))
+              pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name, documentType: doc.documentType }))
             );
           } catch (err: any) {
             toast.warning(err.message || 'Request saved, but document upload failed.');
@@ -275,7 +281,7 @@ export default function CreateRequestPage() {
       <PageHeader
         back={{ href: '/new-request', label: 'All requests' }}
         title="Create request"
-        description="Record a new survey request. Fields marked * are required."
+        description="Survey requests normally come from the website. Creating one here is a Technical Committee override and is recorded in the audit log. Fields marked * are required."
       />
 
       {loading ? (
@@ -285,6 +291,12 @@ export default function CreateRequestPage() {
       ) : (
         <div className={s.form}>
           {formError && <p className={s.formError} role="alert">{formError}</p>}
+
+          <FormSection title="Technical Committee override">
+            <Field label="Reason for creating this request in the ERP" hint="Optional · kept in the audit log">
+              <Input value={overrideReason} onChange={(e) => setOverrideReason(e.target.value)} placeholder="e.g. Client sent the request by email" />
+            </Field>
+          </FormSection>
 
           <FormSection title="Vessel" description="Pick an existing vessel by UQMS number to fill in its details, or enter a new one.">
             <FormGrid columns={3}>
@@ -406,6 +418,21 @@ export default function CreateRequestPage() {
                       <span className={rd.docName}>{doc.file.name}</span>
                       <span className={rd.docMeta}>{formatBytes(doc.file.size)}</span>
                     </span>
+                    <Field label="Document type" hideLabel className={rd.pendingName}>
+                      <Select
+                        value={doc.documentType}
+                        onChange={(e) => {
+                          const documentType = e.target.value as RequestDocumentType;
+                          setPendingDocuments((prev) => prev.map((item) => (item.id === doc.id
+                            ? { ...item, documentType, name: documentType !== 'other' ? REQUEST_DOCUMENT_TYPES[documentType] : item.name }
+                            : item)));
+                        }}
+                      >
+                        {(Object.keys(REQUEST_DOCUMENT_TYPES) as RequestDocumentType[]).map((type) => (
+                          <option key={type} value={type}>{REQUEST_DOCUMENT_TYPES[type]}</option>
+                        ))}
+                      </Select>
+                    </Field>
                     <Field label="Document name" hideLabel className={rd.pendingName}>
                       <Input
                         placeholder="Document name"

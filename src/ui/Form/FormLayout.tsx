@@ -21,7 +21,7 @@ export function FormSection({ id, title, description, actions, children }: FormS
   return (
     <section id={id} className={s.section} aria-labelledby={id ? `${id}-title` : undefined}>
       <header className={s.sectionHeader}>
-        <div>
+        <div className={s.sectionHeading}>
           <h2 id={id ? `${id}-title` : undefined} className={s.sectionTitle}>{title}</h2>
           {description && <p className={s.sectionDescription}>{description}</p>}
         </div>

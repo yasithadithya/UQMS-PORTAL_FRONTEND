@@ -207,3 +207,116 @@
     padding: var(--space-2) var(--space-4);
   }
 }
+
+/* ── Annotations: certified stamp, strike-off, cross, text (paper colours) ── */
+.annotationLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.annotationEditing {
+  pointer-events: auto;
+  outline: 1px dashed rgba(30, 64, 175, .35);
+}
+
+.annotationEditing[data-tool='strike'],
+.annotationEditing[data-tool='cross'] {
+  cursor: crosshair;
+  /* On touch screens a drag draws the line/box instead of scrolling the page. */
+  touch-action: none;
+}
+
+.annotationEditing[data-tool='text'],
+.annotationEditing[data-tool='cos-stamp'] {
+  cursor: copy;
+}
+
+.annotation {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.annotationEditing .annotation {
+  pointer-events: auto;
+  cursor: move;
+  touch-action: none;
+}
+
+.annotationSelected {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.annStrike::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 2px solid #c71414;
+  transform: translateY(-1px);
+}
+
+.annCross {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.annCross line {
+  stroke: #c71414;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.annText {
+  color: #0d2673;
+  font-family: Helvetica, Arial, sans-serif;
+  line-height: 1.2;
+  white-space: pre;
+}
+
+.annStamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 3px double #143899;
+  color: #143899;
+  font-family: Helvetica, Arial, sans-serif;
+  text-align: center;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.annStamp strong {
+  font-size: 2.6em;
+  letter-spacing: .04em;
+}
+
+.annDraft {
+  border: 1px dashed #c71414;
+  background: rgba(199, 20, 20, .06);
+}
+
+.annotationTools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-2);
+}
+
+.annotationTools input[type='number'] {
+  width: 72px;
+}
+
+@media (max-width: 480px) {
+  .annotationTools {
+    padding: var(--space-2) var(--space-4);
+  }
+}

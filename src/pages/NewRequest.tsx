@@ -85,7 +85,8 @@ export default function NewRequestPage() {
     },
   ];
 
-  const canCreate = can(MODULE_KEYS.newRequest, 'create');
+  // Requests normally come from the website; creating one here is a Technical Committee override.
+  const canCreate = can(MODULE_KEYS.newRequest, 'override');
   const createButton = canCreate && (
     <ButtonLink to="/new-request/create" variant="primary" icon={<FilePlus2 />}>Create request</ButtonLink>
   );

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { PREVIEW_ONLY_HINT, saveBlob } from '@/utils/pdfDelivery';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Award, ClipboardList, Download, FileText, StickyNote } from 'lucide-react';
 import {
@@ -275,22 +276,26 @@ export default function CreateFirstEntrySurveyReport() {
   };
 
   const handleViewCos = async (reportId: string) => {
+    // Opened now, inside the click, in case the certificate is unsigned and can only be previewed.
+    const previewWindow = window.open('', '_blank');
     try {
       const res = await firstEntryService.getScccosCertificateBySurveyReportId(reportId);
       if (res.success && res.data) {
         const blob = await firstEntryService.getScccosFinalBlob(res.data._id);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        if (res.data.eSignature) {
+          previewWindow?.close();
+          saveBlob(blob, `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`);
+        } else {
+          const url = URL.createObjectURL(blob);
+          if (previewWindow) previewWindow.location.href = url;
+          toast.info(`The certificate is preview only. ${PREVIEW_ONLY_HINT}`);
+        }
       } else {
+        previewWindow?.close();
         toast.error('Could not find the certificate record for this Survey Report.');
       }
     } catch (err: any) {
+      previewWindow?.close();
       toast.error('Failed to retrieve certificate: ' + err.message);
     }
   };
@@ -309,7 +314,7 @@ export default function CreateFirstEntrySurveyReport() {
       <ButtonLink to={`${reportBase}/final/${id}`} icon={<FileText />}>Final report</ButtonLink>
       {isScccosEligible && booking && (
         status === 'COS Generated'
-          ? <Button icon={<Download />} onClick={() => handleViewCos(id)} disabled={!canViewCos}>Download COS</Button>
+          ? <Button icon={<Download />} onClick={() => handleViewCos(id)} disabled={!canViewCos}>Open COS</Button>
           : <Button variant="primary" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCos}>Generate SSC COS</Button>
       )}
     </>

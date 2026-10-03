@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Blocks, Briefcase, ClipboardList, Factory, FileBarChart, FilePlus2, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
+  Blocks, Briefcase, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
   UserCog, Users, Wallet,
 } from 'lucide-react';
 import type { ApiModule } from '@/api';
@@ -50,6 +50,7 @@ export const ADMIN_PAGES: { name: string; navLabel: string; href: string; desc: 
   { name: 'Role Management', navLabel: 'Roles & permissions', href: '/roles', desc: 'Configure granular module permissions', module: MODULE_KEYS.adminRoles, icon: <ShieldCheck /> },
   { name: 'Module Management', navLabel: 'Modules', href: '/modules', desc: 'Create and edit system modules', module: MODULE_KEYS.adminModules, icon: <Blocks /> },
   { name: 'Checklist Management', navLabel: 'Checklists', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria', module: MODULE_KEYS.adminMasterData, icon: <ListChecks /> },
+  { name: 'Audit Log', navLabel: 'Audit log', href: '/audit-log', desc: 'History of overrides and controlled changes', module: MODULE_KEYS.adminAuditLog, icon: <History /> },
 ];
 
 /* ------------------------------------------------------------------ icons */

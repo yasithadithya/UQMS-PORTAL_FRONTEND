@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Eye, FileDown, FileText, RefreshCw } from 'lucide-react';
-import { Button, EmptyState, Field, Input, Modal, Select, Textarea } from '@/ui';
+import { Button, EmptyState, Field, Input, Modal, Textarea } from '@/ui';
 import d from './DocumentFormModal.module.css';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
+import { usersService } from '@/api/services/users.service';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
+import { useAuth } from '@/context/AuthContext';
 import AdditionalRemarksModal from './AdditionalRemarksModal';
-
-// Selectable surveyors. Held in the frontend for now — there is no surveyor
-// master record to load from yet.
-const SURVEYORS = [
-  'S.A.P.M. Samarasinghe',
-  'R.M.D.G.A.D.B. Gunarathne'
-];
 
 interface ScccosModalProps {
   isOpen: boolean;
@@ -39,7 +34,20 @@ function ScccosDialog({
   const [nominatedDeparturePoint, setNominatedDeparturePoint] = useState(
     'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee'
   );
-  const [surveyorName, setSurveyorName] = useState(SURVEYORS[0]);
+
+  // The surveyor is always the logged-in user; the server sets it on the certificate, this is only for display.
+  const { user } = useAuth();
+  const [surveyorName, setSurveyorName] = useState(user?.username ?? '');
+  useEffect(() => {
+    if (!user?.id) return;
+    usersService.getUserById(user.id)
+      .then(res => {
+        if (res.success && res.data) {
+          setSurveyorName(res.data.nameWithInitials || res.data.fullName || res.data.username || '');
+        }
+      })
+      .catch(() => { /* keep the username fallback */ });
+  }, [user?.id]);
 
   // Findings statuses initialized to Satisfactory
   const [hull, setHull] = useState<'Satisfactory' | 'Not Satisfactory' | 'N/A'>('Satisfactory');
@@ -89,7 +97,6 @@ function ScccosDialog({
       surveyFindings,
       typeOfSurvey,
       nominatedDeparturePoint,
-      surveyorName,
       additionalRemarks,
       dateOfIssue: new Date().toISOString()
     };
@@ -132,20 +139,8 @@ function ScccosDialog({
       const res = await firstEntryService.createScccosCertificate(payload);
 
       if (res.success && res.data) {
-        toast.success('Certificate created successfully! Downloading PDF...');
-
-        // 2. Fetch the final PDF blob
-        const pdfBlob = await firstEntryService.getScccosFinalBlob(res.data._id);
-        const url = URL.createObjectURL(pdfBlob);
-
-        // 3. Trigger download
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `scc_certificate_${res.data.certificateNumber.replace(/\s+/g, '_')}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Unsigned certificates are preview only, so nothing is downloaded here.
+        toast.success(`Certificate ${res.data.certificateNumber} created. Open it from the Certificates tab to preview and sign; download is enabled after signing.`);
 
         if (onSuccess) onSuccess();
         onClose();
@@ -212,10 +207,8 @@ function ScccosDialog({
               <h3 className={d.groupTitle}>Certificate details</h3>
               <div className={d.stack}>
                 <Field label="Type of survey"><Input placeholder="e.g. SSC Initial Survey" value={typeOfSurvey} onChange={e => setTypeOfSurvey(e.target.value)} /></Field>
-                <Field label="Surveyor">
-                  <Select value={surveyorName} onChange={e => setSurveyorName(e.target.value)}>
-                    {SURVEYORS.map(name => <option key={name} value={name}>{name}</option>)}
-                  </Select>
+                <Field label="Surveyor" hint="The logged-in user is recorded as the surveyor.">
+                  <Input value={surveyorName} readOnly />
                 </Field>
                 <Field label="Nominated departure point">
                   <Textarea rows={3} value={nominatedDeparturePoint} onChange={e => setNominatedDeparturePoint(e.target.value)} />

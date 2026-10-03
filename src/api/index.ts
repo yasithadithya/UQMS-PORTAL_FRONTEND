@@ -18,3 +18,4 @@ export * from './services/surveyReport.service';
 export * from './services/hr.service';
 export * from './services/eSignature.service';
 export * from './services/finance.service';
+export * from './services/auditLog.service';

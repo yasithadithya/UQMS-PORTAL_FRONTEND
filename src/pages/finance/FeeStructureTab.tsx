@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Pencil, Plus, Receipt, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { feeItemsService, type ApiFeeItem, type FeeCategory, type FeeCurrency, type FeeItemPayload, type FeeUnit } from '@/api';
+import {
+  feeItemsService, vesselCodesService, type ApiFeeItem, type ApiVesselCode, type FeeCategory, type FeeCurrency, type FeeItemPayload, type FeeUnit,
+} from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import {
@@ -22,10 +24,12 @@ type FormState = {
   notes: string;
   order: string;
   isActive: boolean;
+  /** Empty = applies to every vessel code. */
+  vesselCodes: string[];
 };
 
 const EMPTY_FORM: FormState = {
-  name: '', category: 'survey', currency: 'USD', standardRate: '', rate: '', unit: 'visit', notes: '', order: '0', isActive: true,
+  name: '', category: 'survey', currency: 'USD', standardRate: '', rate: '', unit: 'visit', notes: '', order: '0', isActive: true, vesselCodes: [],
 };
 
 const toForm = (item: ApiFeeItem): FormState => ({
@@ -38,6 +42,7 @@ const toForm = (item: ApiFeeItem): FormState => ({
   notes: item.notes || '',
   order: String(item.order ?? 0),
   isActive: item.isActive,
+  vesselCodes: item.vesselCodes || [],
 });
 
 /** The master fee list. Editing a fee only affects quotations created afterwards. */
@@ -58,6 +63,11 @@ export default function FeeStructureTab() {
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ApiFeeItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [vesselCodes, setVesselCodes] = useState<ApiVesselCode[]>([]);
+
+  useEffect(() => {
+    vesselCodesService.getVesselCodes().then(res => setVesselCodes(res.data)).catch(() => setVesselCodes([]));
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -103,6 +113,7 @@ export default function FeeStructureTab() {
       notes: form.notes.trim(),
       order: Number(form.order) || 0,
       isActive: form.isActive,
+      vesselCodes: form.vesselCodes,
     };
 
     setSaving(true);
@@ -150,6 +161,7 @@ export default function FeeStructureTab() {
             {!i.isActive && <Badge tone="neutral">Inactive</Badge>}
           </span>
           {i.notes && <span className={s.muted}>{i.notes}</span>}
+          <span className={s.muted}>{i.vesselCodes?.length ? `Vessel codes: ${i.vesselCodes.join(', ')}` : 'All vessel codes'}</span>
         </span>
       ),
     },
@@ -252,6 +264,20 @@ export default function FeeStructureTab() {
               <Textarea rows={2} value={form.notes} placeholder="e.g. Two hours free" onChange={e => set({ notes: e.target.value })} />
             </Field>
           </FormGrid>
+          <fieldset className={s.spaced}>
+            <legend className={s.subheading}>Applies to vessel codes</legend>
+            <p className={s.muted}>Leave all unticked to offer this fee for every vessel code.</p>
+            {vesselCodes.map(vc => (
+              <Checkbox
+                key={vc._id}
+                label={`${vc.code} - ${vc.description}`}
+                checked={form.vesselCodes.includes(vc.code)}
+                onChange={e => set({
+                  vesselCodes: e.target.checked ? [...form.vesselCodes, vc.code] : form.vesselCodes.filter(c => c !== vc.code),
+                })}
+              />
+            ))}
+          </fieldset>
           <div className={s.spaced}>
             <Checkbox label="Active" description="Inactive items are hidden when adding lines to a quotation." checked={form.isActive}
               onChange={e => set({ isActive: e.target.checked })} />

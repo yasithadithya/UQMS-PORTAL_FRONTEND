@@ -691,6 +691,11 @@ export default function EditSurveyReport() {
 
   const downloadPdf = async (savedId: string | null) => {
     if (!savedId) return;
+    // Unsigned reports are preview only: show them in the viewer rather than downloading.
+    if (!isSigned) {
+      setShowSignModal(true);
+      return;
+    }
 
     try {
       setDownloading(true);

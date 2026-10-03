@@ -1,5 +1,5 @@
 import { request, requestFormData, requestBlob } from '../client';
-import type { ApiRequest, ApiSurveyType } from '../types';
+import type { ApiRequest, ApiSurveyType, RequestDocumentType } from '../types';
 
 export type RequestPayload = {
   uqmsNumber?: string;
@@ -19,18 +19,21 @@ export type RequestPayload = {
   areaOfOperation: string;
   surveyTypes: string[];
   status?: 'active' | 'print' | 'reject' | 'success';
+  /** Why a Technical Committee user is creating or changing a locked request (kept in the audit log). */
+  overrideReason?: string;
 };
 
-const buildDocumentsFormData = (
-  documents: Array<{ file: File; name?: string }>
-): FormData => {
+type NewRequestDocument = { file: File; name?: string; documentType?: RequestDocumentType };
+
+const buildDocumentsFormData = (documents: NewRequestDocument[], overrideReason?: string): FormData => {
   const formData = new FormData();
+  // Names and types are sent for every file (empty when unset) so they stay aligned by index.
   documents.forEach((doc) => {
     formData.append('files', doc.file);
-    if (doc.name) {
-      formData.append('documentNames', doc.name);
-    }
+    formData.append('documentNames', doc.name || '');
+    formData.append('documentTypes', doc.documentType || '');
   });
+  if (overrideReason) formData.append('overrideReason', overrideReason);
   return formData;
 };
 
@@ -82,8 +85,8 @@ export const requestsService = {
   getRequestById: (id: string) => {
     return request<{ success: boolean; data: ApiRequest }>(`/requests/${id}`);
   },
-  addRequestDocuments: (id: string, documents: Array<{ file: File; name?: string }>) => {
-    const formData = buildDocumentsFormData(documents);
+  addRequestDocuments: (id: string, documents: NewRequestDocument[], overrideReason?: string) => {
+    const formData = buildDocumentsFormData(documents, overrideReason);
     return requestFormData<{ success: boolean; message: string; data: ApiRequest }>(
       `/requests/${id}/documents`,
       formData,

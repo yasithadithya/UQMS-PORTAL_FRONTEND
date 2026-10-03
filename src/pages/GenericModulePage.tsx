@@ -57,7 +57,7 @@ export default function GenericModulePage() {
             return <AccessDenied />;
         }
         if (pathSegments.length >= 2 && pathSegments[1] === 'create') {
-            return can(MODULE_KEYS.newRequest, 'create') ? <CreateRequestPage /> : <AccessDenied />;
+            return can(MODULE_KEYS.newRequest, 'override') ? <CreateRequestPage /> : <AccessDenied />;
         }
         if (pathSegments.length >= 2 && pathSegments[1] !== 'create') {
             return <RequestDetailsPage />;

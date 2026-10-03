@@ -122,7 +122,7 @@ export default function DashboardPage() {
 
   const quickActions = (
     <>
-      {can(MODULE_KEYS.newRequest, 'create') && (
+      {can(MODULE_KEYS.newRequest, 'override') && (
         <ButtonLink to="/new-request/create" icon={<FilePlus2 />}>New request</ButtonLink>
       )}
       {fe && can(MODULE_KEYS.marineEntries, 'create') && (

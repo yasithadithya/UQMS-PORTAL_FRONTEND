@@ -223,6 +223,8 @@
 .annotationEditing[data-tool='strike'],
 .annotationEditing[data-tool='cross'] {
   cursor: crosshair;
+  /* On touch screens a drag draws the line/box instead of scrolling the page. */
+  touch-action: none;
 }
 
 .annotationEditing[data-tool='text'],
@@ -238,6 +240,7 @@
 .annotationEditing .annotation {
   pointer-events: auto;
   cursor: move;
+  touch-action: none;
 }
 
 .annotationSelected {
@@ -310,4 +313,10 @@
 
 .annotationTools input[type='number'] {
   width: 72px;
+}
+
+@media (max-width: 480px) {
+  .annotationTools {
+    padding: var(--space-2) var(--space-4);
+  }
 }

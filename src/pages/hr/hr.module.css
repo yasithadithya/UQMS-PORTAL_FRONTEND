@@ -145,6 +145,25 @@
     color: var(--color-text-tertiary);
 }
 
+/* Phones: tables scroll sideways rather than crushing text columns to a word per line,
+   and the empty message stays in view instead of centring across the scrolled width. */
+@media (max-width: 639px) {
+    .table {
+        min-width: 560px;
+    }
+
+    .emptyRow {
+        text-align: left;
+    }
+
+    .emptyRowText {
+        position: sticky;
+        left: var(--space-4);
+        display: inline-block;
+        max-width: calc(100vw - 6rem);
+    }
+}
+
 /* ---------- Row action buttons (match ui Button size="sm") ---------- */
 .actionRow {
     display: inline-flex;
@@ -337,7 +356,7 @@
 /* ---------- Summary tiles ---------- */
 .summaryCards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
     gap: var(--space-3);
     margin-bottom: var(--space-5);
 }
@@ -376,7 +395,7 @@
 
 .infoGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: var(--space-4);
 }
 
@@ -456,7 +475,7 @@
 /* ---------- Entity cards ---------- */
 .gridAuto {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
     gap: var(--space-4);
     margin-bottom: var(--space-6);
 }

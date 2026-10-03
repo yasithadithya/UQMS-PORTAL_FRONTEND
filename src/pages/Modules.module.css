@@ -47,6 +47,7 @@
   gap: var(--space-2);
   flex: 1;
   min-width: 0;
+  padding-left: calc(var(--depth, 0) * 24px);
 }
 
 .branch {
@@ -118,5 +119,17 @@
   .grip,
   .order {
     display: none;
+  }
+
+  .main {
+    padding-left: calc(var(--depth, 0) * 12px);
+  }
+
+  /* Long badges ("System · permission only") wrap instead of running under the row actions. */
+  .name > * {
+    height: auto;
+    min-height: 22px;
+    padding-block: 3px;
+    white-space: normal;
   }
 }

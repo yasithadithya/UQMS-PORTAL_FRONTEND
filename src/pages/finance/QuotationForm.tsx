@@ -479,12 +479,12 @@ export default function QuotationForm() {
               </p>
             ) : (
               <div className={s.lines} role="table" aria-label="Quotation lines"
-                style={extraColumns.length ? ({ '--extra-cols': `repeat(${extraColumns.length}, 120px)` } as React.CSSProperties) : undefined}>
+                style={extraColumns.length ? ({ '--extra-cols': `repeat(${extraColumns.length}, minmax(72px, 96px))` } as React.CSSProperties) : undefined}>
                 <div className={s.lineHead} role="row">
                   <span role="columnheader">#</span>
                   <span role="columnheader">Description</span>
                   {extraColumns.map((label, ci) => (
-                    <span role="columnheader" key={ci} className={s.inline}>
+                    <span role="columnheader" key={ci} className={`${s.inline} ${s.columnEditor}`}>
                       <Input aria-label={`Column ${ci + 1} name`} placeholder="Column name" value={label}
                         aria-invalid={errors.columns && !label.trim() ? true : undefined}
                         onChange={e => renameColumn(ci, e.target.value)} />
@@ -522,6 +522,7 @@ export default function QuotationForm() {
                         </div>
                       ))}
                       <div role="cell">
+                        <span className={s.mobileLabel}>Currency</span>
                         <Select aria-label={`Line ${index + 1} currency`} value={line.currency}
                           onChange={e => updateLine(line.key, { currency: e.target.value as FeeCurrency })}>
                           <option value="USD">USD</option>
@@ -529,10 +530,12 @@ export default function QuotationForm() {
                         </Select>
                       </div>
                       <div role="cell">
+                        <span className={s.mobileLabel}>Rate</span>
                         <Input aria-label={`Line ${index + 1} rate`} type="number" inputMode="decimal" min={0} step="0.01" value={line.rate}
                           onChange={e => updateLine(line.key, { rate: e.target.value })} />
                       </div>
                       <div role="cell">
+                        <span className={s.mobileLabel}>Qty</span>
                         <Input aria-label={`Line ${index + 1} quantity`} type="number" inputMode="decimal" min={0} step="1" value={line.quantity}
                           onChange={e => updateLine(line.key, { quantity: e.target.value })} />
                       </div>

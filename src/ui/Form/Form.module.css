@@ -237,7 +237,7 @@
 /* ---------- Layout ---------- */
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4) var(--space-5);
 }
 
@@ -260,6 +260,7 @@
 
 .sectionHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
@@ -278,10 +279,17 @@
   color: var(--color-text-tertiary);
 }
 
+.sectionHeading {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
 .sectionActions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .sectionBody {
@@ -338,11 +346,12 @@
   }
 
   .actionBarButtons {
+    flex-wrap: wrap;
     width: 100%;
   }
 
   .actionBarButtons > * {
-    flex: 1;
+    flex: 1 1 auto;
   }
 }
 

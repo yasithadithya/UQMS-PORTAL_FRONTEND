@@ -106,6 +106,7 @@
   display: flex;
   align-items: flex-start;
   gap: 6px;
+  padding-left: calc(var(--depth, 0) * 18px);
 }
 
 .branch {
@@ -140,4 +141,25 @@
 
 .na {
   color: var(--color-text-disabled);
+}
+
+/* Phones: a narrower module column so several action columns fit beside it. */
+@media (max-width: 639px) {
+  .moduleCol {
+    min-width: 150px;
+    max-width: 170px;
+  }
+
+  .moduleName {
+    padding-left: calc(var(--depth, 0) * 8px);
+  }
+
+  .moduleDesc {
+    display: none;
+  }
+
+  .matrix thead th,
+  .matrix td {
+    padding-inline: var(--space-2);
+  }
 }

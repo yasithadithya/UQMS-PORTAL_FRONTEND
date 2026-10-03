@@ -86,6 +86,12 @@ export default function AnnotationLayer({
     }
   };
 
+  /** The browser took over the gesture (e.g. a scroll): drop the half-drawn item. */
+  const handleLayerCancel = () => {
+    setDraft(null);
+    drag.current = null;
+  };
+
   const handleLayerUp = () => {
     if (draft && (tool === 'strike' || tool === 'cross')) {
       const x = Math.min(draft.x0, draft.x1);
@@ -123,6 +129,7 @@ export default function AnnotationLayer({
       onPointerDown={handleLayerDown}
       onPointerMove={handleLayerMove}
       onPointerUp={handleLayerUp}
+      onPointerCancel={handleLayerCancel}
     >
       {items.map((item, index) => {
         if (item.page !== pageIndex) return null;

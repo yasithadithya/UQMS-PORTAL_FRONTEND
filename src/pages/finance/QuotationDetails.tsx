@@ -142,6 +142,19 @@ export default function QuotationDetails() {
   const request = typeof q.request === 'object' ? q.request : null;
   const signature = q.preparedBySignature;
   const extraColumns = q.extraColumns || [];
+  // Shown as the table footer, and as a list under the table on phones where the footer scrolls out of view.
+  const totals: { label: string; value: string; total?: boolean }[] = [
+    ...(q.discountLkr && q.discount
+      ? [
+          { label: 'Subtotal', value: formatMoney(q.subtotalLkr ?? q.totalLkr + q.discountLkr) },
+          {
+            label: `Discount${q.discount.type === 'percent' ? ` (${formatRate(q.discount.value)}%)` : ''}${q.discount.description ? ` · ${q.discount.description}` : ''}`,
+            value: `(${formatMoney(q.discountLkr)})`,
+          },
+        ]
+      : []),
+    { label: 'Total amount', value: `LKR ${formatMoney(q.totalLkr)}`, total: true },
+  ];
 
   const sign = async () => {
     setBusy(true);
@@ -286,28 +299,23 @@ export default function QuotationDetails() {
                   ))}
                 </tbody>
                 <tfoot>
-                  {!!q.discountLkr && q.discount && (
-                    <>
-                      <tr>
-                        <th scope="row" colSpan={4 + extraColumns.length}>Subtotal</th>
-                        <td className={s.right}>{formatMoney(q.subtotalLkr ?? q.totalLkr + q.discountLkr)}</td>
-                      </tr>
-                      <tr>
-                        <th scope="row" colSpan={4 + extraColumns.length}>
-                          Discount{q.discount.type === 'percent' ? ` (${formatRate(q.discount.value)}%)` : ''}
-                          {q.discount.description ? ` · ${q.discount.description}` : ''}
-                        </th>
-                        <td className={s.right}>({formatMoney(q.discountLkr)})</td>
-                      </tr>
-                    </>
-                  )}
-                  <tr>
-                    <th scope="row" colSpan={4 + extraColumns.length}>Total amount</th>
-                    <td className={s.right}><strong>LKR {formatMoney(q.totalLkr)}</strong></td>
-                  </tr>
+                  {totals.map(t => (
+                    <tr key={t.label}>
+                      <th scope="row" colSpan={4 + extraColumns.length}>{t.label}</th>
+                      <td className={s.right}>{t.total ? <strong>{t.value}</strong> : t.value}</td>
+                    </tr>
+                  ))}
                 </tfoot>
               </table>
             </div>
+            <dl className={s.linesTotals}>
+              {totals.map(t => (
+                <div key={t.label} className={t.total ? s.linesTotalsGrand : undefined}>
+                  <dt>{t.label}</dt>
+                  <dd>{t.value}</dd>
+                </div>
+              ))}
+            </dl>
           </Section>
 
           {(q.notes.length > 0 || q.paymentTerms.length > 0) && (

@@ -79,7 +79,7 @@ export function Modal({ title, children, onClose, footer, size }: {
 export function EmptyRow({ colSpan, text }: { colSpan: number; text: string }) {
   return (
     <tr>
-      <td colSpan={colSpan} className={s.emptyRow}>{text}</td>
+      <td colSpan={colSpan} className={s.emptyRow}><span className={s.emptyRowText}>{text}</span></td>
     </tr>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS, isNavigable } from '@/utils/permissions';
 import { modulesService } from '@/api/services/modules.service';
@@ -289,7 +289,7 @@ export default function ModulesPage() {
                                     onDrop={(e) => { e.preventDefault(); handleDrop(mod); }}
                                 >
                                     {canUpdateModule && <GripVertical className={s.grip} aria-hidden="true" />}
-                                    <div className={s.main} style={{ paddingLeft: depth * 24 }}>
+                                    <div className={s.main} style={{ '--depth': depth } as CSSProperties}>
                                         {depth > 0 && <CornerDownRight className={s.branch} aria-hidden="true" />}
                                         <div className={s.text}>
                                             <span className={`${s.name} ${isNavigable(mod) ? '' : s.hidden}`}>

@@ -713,10 +713,10 @@ export interface QuotationDiscount {
   description?: string;
 }
 
-export interface QuotationSignature {
-  signedBy: string;
-  signedByName: string;
-  signedAt: string;
+export interface QuotationApproval {
+  approvedBy: string;
+  approvedByName: string;
+  approvedAt: string;
 }
 
 export interface QuotationClient {
@@ -753,7 +753,8 @@ export interface ApiQuotation {
   paymentTerms: string[];
   preparedByName?: string;
   preparedByDesignation?: string;
-  preparedBySignature?: QuotationSignature;
+  /** Internal approval; an approved quotation prints as system generated with no signature. */
+  approval?: QuotationApproval;
   emailedAt?: string;
   emailedTo?: string;
   status: QuotationStatus;

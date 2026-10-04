@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Download, Eye, FilePlus2, Mail, PenLine, Pencil, Send, Trash2, XCircle } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, Download, Eye, FilePlus2, Mail, Pencil, Send, Trash2, Undo2, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { quotationsService, type ApiQuotation } from '@/api';
 import { useAuth } from '@/context/AuthContext';
@@ -8,13 +8,13 @@ import { NotFound } from '@/components/StatusPage';
 import { formatDate, formatDateTime } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
 import {
-  Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, Input, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
+  Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
 } from '@/ui';
 import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, formatRate, revisionLabel } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
-type PendingAction = 'sent' | 'accepted' | 'delete' | null;
+type PendingAction = 'sent' | 'accepted' | 'delete' | 'approve' | 'revoke' | null;
 
 const userName = (ref: ApiQuotation['createdBy']) => (ref && typeof ref === 'object' ? ref.username || ref.email : undefined);
 
@@ -37,11 +37,8 @@ export default function QuotationDetails() {
   const [rejectError, setRejectError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const [signing, setSigning] = useState(false);
-  const [designation, setDesignation] = useState('');
   const [sending, setSending] = useState(false);
   const [emailMessage, setEmailMessage] = useState('');
-  const { user } = useAuth();
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState<'preview' | 'download' | null>(null);
@@ -140,7 +137,7 @@ export default function QuotationDetails() {
   };
 
   const request = typeof q.request === 'object' ? q.request : null;
-  const signature = q.preparedBySignature;
+  const approval = q.approval;
   const extraColumns = q.extraColumns || [];
   // Shown as the table footer, and as a list under the table on phones where the footer scrolls out of view.
   const totals: { label: string; value: string; total?: boolean }[] = [
@@ -156,28 +153,29 @@ export default function QuotationDetails() {
     { label: 'Total amount', value: `LKR ${formatMoney(q.totalLkr)}`, total: true },
   ];
 
-  const sign = async () => {
+  const approve = async () => {
     setBusy(true);
     try {
-      const res = await quotationsService.sign(q._id, designation.trim() || undefined);
+      const res = await quotationsService.approve(q._id);
       setQuotation({ ...q, ...res.data });
-      toast.success(`Quotation ${q.quotationNumber} e-signed.`);
-      setSigning(false);
+      toast.success(`Quotation ${q.quotationNumber} approved.`);
+      setPending(null);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to sign the quotation.');
+      toast.error(err.message || 'Failed to approve the quotation.');
     } finally {
       setBusy(false);
     }
   };
 
-  const unsign = async () => {
+  const revokeApproval = async () => {
     setBusy(true);
     try {
-      const res = await quotationsService.unsign(q._id);
-      setQuotation({ ...q, ...res.data, preparedBySignature: undefined });
-      toast.success('Signature removed.');
+      const res = await quotationsService.revokeApproval(q._id);
+      setQuotation({ ...q, ...res.data, approval: undefined });
+      toast.success('Approval revoked.');
+      setPending(null);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to remove the signature.');
+      toast.error(err.message || 'Failed to revoke the approval.');
     } finally {
       setBusy(false);
     }
@@ -215,18 +213,18 @@ export default function QuotationDetails() {
             {isOpen && canUpdate && (
               <Button icon={<Mail />} onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
             )}
+            {isOpen && canApprove && !approval && (
+              <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
+            )}
             {isOpen && canApprove && (
-              <Button variant="primary" icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
+              <Button variant={approval ? 'primary' : undefined} icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
             )}
             <Menu
               label="More quotation actions"
               items={[
                 { label: 'Download PDF', icon: <Download />, onSelect: () => openPdf('download') },
                 isOpen && canUpdate && { label: 'Edit', icon: <Pencil />, onSelect: () => navigate(`${listPath}/${q._id}/edit`) },
-                isOpen && canUpdate && !signature && {
-                  label: 'E-sign as preparer', icon: <PenLine />, onSelect: () => { setDesignation(q.preparedByDesignation || ''); setSigning(true); },
-                },
-                isOpen && canUpdate && !!signature && { label: 'Remove signature', icon: <XCircle />, onSelect: unsign },
+                isOpen && canApprove && !!approval && { label: 'Revoke approval', icon: <Undo2 />, onSelect: () => setPending('revoke') },
                 q.status === 'draft' && canUpdate && { label: 'Mark as sent', icon: <Send />, onSelect: () => setPending('sent') },
                 isOpen && canApprove && {
                   label: 'Client rejected…', icon: <XCircle />, onSelect: () => { setRejectReason(''); setRejectError(''); setRejecting(true); },
@@ -327,9 +325,6 @@ export default function QuotationDetails() {
                   <ul className={s.readList}>{q.paymentTerms.map((t, i) => <li key={i}>{t}</li>)}</ul>
                 </>
               )}
-              {q.preparedByName && (
-                <p className={s.muted}>Prepared by {q.preparedByName}{q.preparedByDesignation ? `, ${q.preparedByDesignation}` : ''}.</p>
-              )}
             </Section>
           )}
         </div>
@@ -355,19 +350,20 @@ export default function QuotationDetails() {
             )}
           </Section>
 
-          <Section title="Prepared by" description="The preparer's name and e-signature print on the quotation.">
-            {signature ? (
+          <Section title="Approval" description="An approved quotation prints as system generated, so no signature is needed.">
+            {approval ? (
               <p>
-                <Badge tone="success">E-signed</Badge>{' '}
-                {signature.signedByName} on {formatDateTime(signature.signedAt)}
+                <Badge tone="success">Approved</Badge>{' '}
+                {approval.approvedByName} on {formatDateTime(approval.approvedAt)}
               </p>
             ) : (
-              <p className={s.muted}>Not signed yet{q.preparedByName ? ` (${q.preparedByName})` : ''}.</p>
+              <p className={s.muted}>Not approved yet.</p>
             )}
-            {isOpen && canUpdate && !signature && (
-              <Button size="sm" icon={<PenLine />} onClick={() => { setDesignation(q.preparedByDesignation || ''); setSigning(true); }}>
-                E-sign as preparer
-              </Button>
+            {q.preparedByName && (
+              <p className={s.muted}>Prepared by {q.preparedByName}{q.preparedByDesignation ? `, ${q.preparedByDesignation}` : ''}.</p>
+            )}
+            {isOpen && canApprove && !approval && (
+              <Button size="sm" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
             )}
           </Section>
 
@@ -398,24 +394,26 @@ export default function QuotationDetails() {
         {previewUrl && <iframe className={s.preview} src={previewUrl} title={`Quotation ${q.quotationNumber}`} />}
       </Modal>
 
-      <Modal
-        open={signing}
-        onClose={() => !busy && setSigning(false)}
-        title="E-sign this quotation"
-        description={`You are signing ${q.quotationNumber} as the person who prepared it. Editing the quotation later removes the signature.`}
-        size="sm"
-        footer={
-          <>
-            <Button onClick={() => setSigning(false)} disabled={busy}>Cancel</Button>
-            <Button variant="primary" icon={<PenLine />} loading={busy} onClick={sign}>Sign</Button>
-          </>
-        }
-      >
-        <p className={s.muted}>Signing as {user?.username}. Your full name from your profile is printed.</p>
-        <Field label="Designation" hint="Printed under your name">
-          <Input value={designation} placeholder="e.g. Junior Marine Engineer" onChange={e => setDesignation(e.target.value)} />
-        </Field>
-      </Modal>
+      <ConfirmDialog
+        open={pending === 'approve'}
+        title={`Approve ${q.quotationNumber}?`}
+        message="The PDF will show it as approved and system generated, so it needs no signature. Editing the quotation later clears the approval."
+        confirmText="Approve"
+        loading={busy}
+        onConfirm={approve}
+        onCancel={() => setPending(null)}
+      />
+
+      <ConfirmDialog
+        open={pending === 'revoke'}
+        title="Revoke the approval?"
+        message={`${q.quotationNumber} goes back to not approved, and the PDF no longer shows it as approved.`}
+        confirmText="Revoke approval"
+        destructive
+        loading={busy}
+        onConfirm={revokeApproval}
+        onCancel={() => setPending(null)}
+      />
 
       <Modal
         open={sending}
@@ -430,7 +428,7 @@ export default function QuotationDetails() {
           </>
         }
       >
-        {!signature && <p className={s.notice} role="status">This quotation has not been e-signed by its preparer yet.</p>}
+        {!approval && <p className={s.notice} role="status">This quotation has not been approved yet.</p>}
         <Field label="Message" hint="Optional · added to the email body">
           <Textarea rows={3} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} />
         </Field>

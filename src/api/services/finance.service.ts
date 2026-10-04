@@ -55,10 +55,9 @@ export const quotationsService = {
     request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
   deleteQuotation: (id: string) => request<ApiResponse<null>>(`/finance/quotations/${id}`, { method: 'DELETE' }),
   getPdfBlob: (id: string) => requestBlob(`/finance/quotations/${id}/pdf`),
-  /** The signed-in user e-signs as the person who prepared the quotation. */
-  sign: (id: string, designation?: string) =>
-    request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/sign`, { method: 'POST', body: JSON.stringify({ designation }) }),
-  unsign: (id: string) => request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/sign`, { method: 'DELETE' }),
+  /** Approves the quotation; it then prints as system generated, with no signature needed. */
+  approve: (id: string) => request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/approve`, { method: 'POST' }),
+  revokeApproval: (id: string) => request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/approve`, { method: 'DELETE' }),
   /** Emails the RFS and quotation PDFs to the client email on the survey request; a draft becomes sent. */
   sendToClient: (id: string, message?: string) =>
     request<ApiResponse<ApiQuotation>>(`/finance/quotations/${id}/send`, { method: 'POST', body: JSON.stringify({ message }) }),

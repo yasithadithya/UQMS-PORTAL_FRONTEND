@@ -12,6 +12,13 @@
   animation: fadeIn var(--duration-fast) var(--ease-standard);
 }
 
+/* Must be local: CSS Modules rename `fadeIn` above, and a missing keyframe
+   leaves Radix waiting forever for animationend, so the tooltip never closes. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Tooltips need hover; on touch they'd only get in the way. */
 @media (hover: none) {
   .content {

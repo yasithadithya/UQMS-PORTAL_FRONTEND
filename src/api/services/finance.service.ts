@@ -39,7 +39,7 @@ export const feeItemsService = {
 };
 
 export const quotationsService = {
-  getQuotations: (params?: { search?: string; status?: QuotationStatus | ''; request?: string; page?: number; limit?: number | 'all' }) =>
+  getQuotations: (params?: { search?: string; status?: QuotationStatus | 'approved' | ''; request?: string; page?: number; limit?: number | 'all' }) =>
     request<{ success: boolean; count: number; pagination?: PaginationMeta; data: ApiQuotation[] }>(`/finance/quotations${buildQuery(params)}`),
   getQuotableRequests: (params?: { search?: string }) =>
     request<ApiResponse<QuotableRequest[]>>(`/finance/quotations/quotable-requests${buildQuery(params)}`),

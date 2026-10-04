@@ -10,7 +10,7 @@ import { MODULE_KEYS } from '@/utils/permissions';
 import {
   Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
 } from '@/ui';
-import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, formatRate, revisionLabel } from './financeFormat';
+import { QUOTATION_STATUS_LABELS, downloadPdf, quotationDisplayStatus, formatMoney, formatRate, revisionLabel } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
@@ -203,7 +203,7 @@ export default function QuotationDetails() {
         description={[q.vesselName, q.client.companyName].filter(Boolean).join(' · ')}
         meta={
           <span className={s.inline}>
-            <StatusBadge status={q.status} label={QUOTATION_STATUS_LABELS[q.status]} />
+            <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} />
             <Badge tone="neutral">{revisionLabel(q.revision)}</Badge>
           </span>
         }
@@ -339,7 +339,7 @@ export default function QuotationDetails() {
                     {r._id === q._id
                       ? <span className={s.mono}>{r.quotationNumber}</span>
                       : <Link to={`${listPath}/${r._id}`} className={s.mono}>{r.quotationNumber}</Link>}
-                    <StatusBadge status={r.status} label={QUOTATION_STATUS_LABELS[r.status]} />
+                    <StatusBadge status={quotationDisplayStatus(r)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(r)]} />
                   </div>
                   <span className={s.muted}>{formatDate(r.quotationDate)} · LKR {formatMoney(r.totalLkr)}</span>
                   {r.status === 'rejected' && r.statusReason && <span className={s.muted}>Reason: {r.statusReason}</span>}

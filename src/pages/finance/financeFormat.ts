@@ -27,13 +27,20 @@ export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
   transport: 'Transport',
 };
 
-export const QUOTATION_STATUS_LABELS: Record<QuotationStatus, string> = {
+/** Stored status, plus 'approved' for a draft that has been approved but not sent yet. */
+export type QuotationDisplayStatus = QuotationStatus | 'approved';
+
+export const QUOTATION_STATUS_LABELS: Record<QuotationDisplayStatus, string> = {
   draft: 'Draft',
+  approved: 'Approved',
   sent: 'Sent',
   accepted: 'Accepted',
   rejected: 'Rejected',
   superseded: 'Superseded',
 };
+
+export const quotationDisplayStatus = (q: { status: QuotationStatus; approval?: unknown }): QuotationDisplayStatus =>
+  q.status === 'draft' && q.approval ? 'approved' : q.status;
 
 export const revisionLabel = (revision: number) => (revision === 0 ? 'Original' : `Revision ${revision}`);
 

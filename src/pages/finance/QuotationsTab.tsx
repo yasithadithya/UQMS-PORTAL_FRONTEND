@@ -8,7 +8,7 @@ import Pagination from '@/components/Pagination';
 import { formatDate } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { Badge, ButtonLink, ConfirmDialog, DataTable, Menu, SearchInput, Select, StatusBadge, Toolbar, type Column } from '@/ui';
-import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney } from './financeFormat';
+import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, quotationDisplayStatus, type QuotationDisplayStatus } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
@@ -23,7 +23,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<QuotationStatus | ''>('');
+  const [status, setStatus] = useState<QuotationDisplayStatus | ''>('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -102,7 +102,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
     { key: 'company', header: 'Client', hideOnMobile: true, cell: q => q.client?.companyName || '—' },
     { key: 'date', header: 'Date', nowrap: true, hideOnMobile: true, cell: q => formatDate(q.quotationDate) },
     { key: 'total', header: 'Total (LKR)', align: 'right', nowrap: true, cell: q => formatMoney(q.totalLkr) },
-    { key: 'status', header: 'Status', nowrap: true, cell: q => <StatusBadge status={q.status} label={QUOTATION_STATUS_LABELS[q.status]} /> },
+    { key: 'status', header: 'Status', nowrap: true, cell: q => <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} /> },
   ];
 
   return (
@@ -111,9 +111,9 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
         attached
         search={<SearchInput value={search} onChange={setSearch} placeholder="Search quotation, request or job no., vessel or client…" />}
         filters={
-          <Select aria-label="Filter by status" value={status} onChange={e => { setStatus(e.target.value as QuotationStatus | ''); setPage(1); }}>
+          <Select aria-label="Filter by status" value={status} onChange={e => { setStatus(e.target.value as QuotationDisplayStatus | ''); setPage(1); }}>
             <option value="">All statuses</option>
-            {(Object.keys(QUOTATION_STATUS_LABELS) as QuotationStatus[]).map(st => (
+            {(Object.keys(QUOTATION_STATUS_LABELS) as QuotationDisplayStatus[]).map(st => (
               <option key={st} value={st}>{QUOTATION_STATUS_LABELS[st]}</option>
             ))}
           </Select>

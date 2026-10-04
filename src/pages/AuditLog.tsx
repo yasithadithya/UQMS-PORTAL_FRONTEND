@@ -9,6 +9,8 @@ const ACTION_LABELS: Record<string, string> = {
   'request.create.override': 'Request created (override)',
   'request.update.override': 'Request edited (override)',
   'quotation.discount': 'Quotation discount',
+  'quotation.approve': 'Quotation approved',
+  'quotation.approval.revoke': 'Quotation approval revoked',
   'document.annotate': 'Document edited (stamp / strike-off / cross / text)',
 };
 

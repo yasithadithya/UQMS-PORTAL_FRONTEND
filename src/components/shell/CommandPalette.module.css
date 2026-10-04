@@ -1,3 +1,9 @@
+/* Local copy: CSS Modules rename `fadeIn`, and Radix waits on its animationend to unmount. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .overlay {
   position: fixed;
   inset: 0;

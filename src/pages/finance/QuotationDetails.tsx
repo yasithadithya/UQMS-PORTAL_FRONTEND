@@ -211,7 +211,8 @@ export default function QuotationDetails() {
           <>
             <Button icon={<Eye />} onClick={() => openPdf('preview')} loading={pdfLoading === 'preview'}>Preview PDF</Button>
             {isOpen && canUpdate && (
-              <Button icon={<Mail />} onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
+              <Button icon={<Mail />} disabled={!approval} title={approval ? undefined : 'Approve the quotation before sending it'}
+                onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
             )}
             {isOpen && canApprove && !approval && (
               <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
@@ -428,7 +429,6 @@ export default function QuotationDetails() {
           </>
         }
       >
-        {!approval && <p className={s.notice} role="status">This quotation has not been approved yet.</p>}
         <Field label="Message" hint="Optional · added to the email body">
           <Textarea rows={3} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} />
         </Field>

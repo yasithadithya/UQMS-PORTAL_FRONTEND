@@ -56,6 +56,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'revoke-signature': 'Revoke signature',
   override: 'Override',
   discount: 'Discount',
+  export: 'Export',
 };
 
 /** The role name that has unrestricted access (matches the backend). */

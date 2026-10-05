@@ -176,7 +176,7 @@ export default function RolesPage() {
     const readOnly = (editingRole && !canUpdateRole) || editingSuperAdmin || (editingOwnRole && !isSuperAdmin);
 
     // Every action any module offers, in a stable order, as matrix columns.
-    const ACTION_ORDER = ['read', 'create', 'update', 'delete', 'approve', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'];
+    const ACTION_ORDER = ['read', 'create', 'update', 'delete', 'approve', 'accept', 'sign-on-behalf', 'revoke-signature', 'override', 'discount'];
     const matrixActions = ACTION_ORDER.filter(a => modules.some(m => moduleActions(m).includes(a)));
 
     const usersIn = (roleId: string) => users.filter((u: any) => (typeof u.role === 'object' ? u.role?._id : u.role) === roleId).length;

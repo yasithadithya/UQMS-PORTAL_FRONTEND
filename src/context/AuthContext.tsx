@@ -274,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const clearSession = useCallback(() => {
     clearStoredSession();
     setUser(null);
     setUsers([]);
@@ -284,15 +284,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     invalidateAll();
   }, []);
 
+  const logout = useCallback(() => {
+    // Best effort: lets the audit log record the sign-out. The request carries the token before it is cleared.
+    if (localStorage.getItem('token')) authService.logout().catch(() => undefined);
+    clearSession();
+  }, [clearSession]);
+
   useEffect(() => {
     const onExpired = () => {
       if (!localStorage.getItem('token')) return;
-      logout();
+      clearSession();
       toast.warn('Your session has expired. Please sign in again.', { toastId: 'session-expired' });
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
-  }, [logout]);
+  }, [clearSession]);
 
   const addUser = useCallback(
     async (payload: {

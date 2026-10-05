@@ -51,6 +51,7 @@ export const ACTION_LABELS: Record<string, string> = {
   update: 'Update',
   delete: 'Delete',
   approve: 'Approve',
+  accept: 'Accept',
   'sign-on-behalf': 'Sign on behalf',
   'revoke-signature': 'Revoke signature',
   override: 'Override',

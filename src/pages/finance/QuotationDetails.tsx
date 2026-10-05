@@ -79,6 +79,7 @@ export default function QuotationDetails() {
 
   const canUpdate = can(MODULE_KEYS.financeQuotations, 'update');
   const canApprove = can(MODULE_KEYS.financeQuotations, 'approve');
+  const canAccept = can(MODULE_KEYS.financeQuotations, 'accept');
   const canCreate = can(MODULE_KEYS.financeQuotations, 'create');
   const canDelete = can(MODULE_KEYS.financeQuotations, 'delete');
   const canRevise = canCreate && isLatest && !hasAccepted && (q.status === 'sent' || q.status === 'rejected');
@@ -217,7 +218,7 @@ export default function QuotationDetails() {
             {isOpen && canApprove && !approval && (
               <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
             )}
-            {isOpen && canApprove && (
+            {isOpen && canAccept && (
               <Button variant={approval ? 'primary' : undefined} icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
             )}
             <Menu
@@ -227,7 +228,7 @@ export default function QuotationDetails() {
                 isOpen && canUpdate && { label: 'Edit', icon: <Pencil />, onSelect: () => navigate(`${listPath}/${q._id}/edit`) },
                 isOpen && canApprove && !!approval && { label: 'Revoke approval', icon: <Undo2 />, onSelect: () => setPending('revoke') },
                 q.status === 'draft' && canUpdate && { label: 'Mark as sent', icon: <Send />, onSelect: () => setPending('sent') },
-                isOpen && canApprove && {
+                isOpen && canAccept && {
                   label: 'Client rejected…', icon: <XCircle />, onSelect: () => { setRejectReason(''); setRejectError(''); setRejecting(true); },
                 },
                 canRevise && { label: 'Create revision', icon: <FilePlus2 />, onSelect: () => navigate(`${listPath}/new?from=${q._id}`) },

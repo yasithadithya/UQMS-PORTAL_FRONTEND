@@ -10,7 +10,7 @@ import { MODULE_KEYS } from '@/utils/permissions';
 import {
   Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
 } from '@/ui';
-import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, formatRate, revisionLabel } from './financeFormat';
+import { QUOTATION_STATUS_LABELS, downloadPdf, quotationDisplayStatus, formatMoney, formatRate, revisionLabel } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
@@ -79,6 +79,7 @@ export default function QuotationDetails() {
 
   const canUpdate = can(MODULE_KEYS.financeQuotations, 'update');
   const canApprove = can(MODULE_KEYS.financeQuotations, 'approve');
+  const canAccept = can(MODULE_KEYS.financeQuotations, 'accept');
   const canCreate = can(MODULE_KEYS.financeQuotations, 'create');
   const canDelete = can(MODULE_KEYS.financeQuotations, 'delete');
   const canRevise = canCreate && isLatest && !hasAccepted && (q.status === 'sent' || q.status === 'rejected');
@@ -203,7 +204,7 @@ export default function QuotationDetails() {
         description={[q.vesselName, q.client.companyName].filter(Boolean).join(' · ')}
         meta={
           <span className={s.inline}>
-            <StatusBadge status={q.status} label={QUOTATION_STATUS_LABELS[q.status]} />
+            <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} />
             <Badge tone="neutral">{revisionLabel(q.revision)}</Badge>
           </span>
         }
@@ -211,12 +212,13 @@ export default function QuotationDetails() {
           <>
             <Button icon={<Eye />} onClick={() => openPdf('preview')} loading={pdfLoading === 'preview'}>Preview PDF</Button>
             {isOpen && canUpdate && (
-              <Button icon={<Mail />} onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
+              <Button icon={<Mail />} disabled={!approval} title={approval ? undefined : 'Approve the quotation before sending it'}
+                onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
             )}
             {isOpen && canApprove && !approval && (
               <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
             )}
-            {isOpen && canApprove && (
+            {isOpen && canAccept && (
               <Button variant={approval ? 'primary' : undefined} icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
             )}
             <Menu
@@ -226,7 +228,7 @@ export default function QuotationDetails() {
                 isOpen && canUpdate && { label: 'Edit', icon: <Pencil />, onSelect: () => navigate(`${listPath}/${q._id}/edit`) },
                 isOpen && canApprove && !!approval && { label: 'Revoke approval', icon: <Undo2 />, onSelect: () => setPending('revoke') },
                 q.status === 'draft' && canUpdate && { label: 'Mark as sent', icon: <Send />, onSelect: () => setPending('sent') },
-                isOpen && canApprove && {
+                isOpen && canAccept && {
                   label: 'Client rejected…', icon: <XCircle />, onSelect: () => { setRejectReason(''); setRejectError(''); setRejecting(true); },
                 },
                 canRevise && { label: 'Create revision', icon: <FilePlus2 />, onSelect: () => navigate(`${listPath}/new?from=${q._id}`) },
@@ -338,7 +340,7 @@ export default function QuotationDetails() {
                     {r._id === q._id
                       ? <span className={s.mono}>{r.quotationNumber}</span>
                       : <Link to={`${listPath}/${r._id}`} className={s.mono}>{r.quotationNumber}</Link>}
-                    <StatusBadge status={r.status} label={QUOTATION_STATUS_LABELS[r.status]} />
+                    <StatusBadge status={quotationDisplayStatus(r)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(r)]} />
                   </div>
                   <span className={s.muted}>{formatDate(r.quotationDate)} · LKR {formatMoney(r.totalLkr)}</span>
                   {r.status === 'rejected' && r.statusReason && <span className={s.muted}>Reason: {r.statusReason}</span>}
@@ -428,7 +430,6 @@ export default function QuotationDetails() {
           </>
         }
       >
-        {!approval && <p className={s.notice} role="status">This quotation has not been approved yet.</p>}
         <Field label="Message" hint="Optional · added to the email body">
           <Textarea rows={3} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} />
         </Field>

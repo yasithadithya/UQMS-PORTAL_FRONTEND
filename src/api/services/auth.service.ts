@@ -7,5 +7,7 @@ export const authService = {
       method: 'POST',
       body: JSON.stringify({ login: loginField, password: passwordField }),
     });
-  }
+  },
+  /** Records the sign-out in the audit log; the token is discarded client-side regardless. */
+  logout: () => request<{ success: boolean }>('/auth/logout', { method: 'POST' }),
 };

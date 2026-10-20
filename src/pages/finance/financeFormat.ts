@@ -1,4 +1,4 @@
-import type { FeeCategory, FeeCurrency, QuotationStatus } from '@/api';
+import type { ApiQuotation, FeeCategory, FeeCurrency, QuotationCurrency, QuotationLineItem, QuotationStatus } from '@/api';
 
 /** 2-decimal amount with thousands separators, e.g. 378,442.20. */
 export const formatMoney = (value: number | null | undefined): string =>
@@ -16,10 +16,31 @@ export const formatCurrency = (value: number | null | undefined, currency: FeeCu
 const round2 = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 /** A line's amount in LKR, matching the backend: USD lines are converted with the exchange rate. */
-export const lineAmountLkr = (rate: number, quantity: number, currency: FeeCurrency, exchangeRate: number): number => {
+export const lineAmountLkr = (rate: number, quantity: number, currency: FeeCurrency, exchangeRate: number): number =>
+  lineAmountIn(rate, quantity, currency, 'LKR', exchangeRate);
+
+/**
+ * A line's amount in the quotation's currency, matching the backend: a line in the other currency is
+ * converted with the exchange rate (LKR per 1 USD). Returns 0 while the rate is missing or invalid.
+ */
+export const lineAmountIn = (
+  rate: number, quantity: number, lineCurrency: FeeCurrency, quotationCurrency: QuotationCurrency, exchangeRate: number
+): number => {
   if (!Number.isFinite(rate) || !Number.isFinite(quantity)) return 0;
-  return round2(rate * quantity * (currency === 'USD' ? (Number.isFinite(exchangeRate) ? exchangeRate : 0) : 1));
+  const amount = rate * quantity;
+  if (lineCurrency === quotationCurrency) return round2(amount);
+  if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) return 0;
+  return round2(quotationCurrency === 'LKR' ? amount * exchangeRate : amount / exchangeRate);
 };
+
+// Quotations created before quotation currencies existed are LKR and only carry the LKR figures.
+export const quotationCurrency = (q: Pick<ApiQuotation, 'currency'>): QuotationCurrency => q.currency ?? 'LKR';
+export const quotationTotal = (q: Pick<ApiQuotation, 'total' | 'totalLkr'>): number => q.total ?? q.totalLkr;
+export const quotationDiscountAmount = (q: Pick<ApiQuotation, 'discountAmount' | 'discountLkr'>): number =>
+  q.discountAmount ?? q.discountLkr ?? 0;
+export const quotationSubtotal = (q: Pick<ApiQuotation, 'subtotal' | 'subtotalLkr' | 'total' | 'totalLkr' | 'discountAmount' | 'discountLkr'>): number =>
+  q.subtotal ?? q.subtotalLkr ?? quotationTotal(q) + quotationDiscountAmount(q);
+export const quotationLineAmount = (li: Pick<QuotationLineItem, 'amount' | 'amountLkr'>): number => li.amount ?? li.amountLkr;
 
 export const FEE_CATEGORY_LABELS: Record<FeeCategory, string> = {
   survey: 'Survey fees',

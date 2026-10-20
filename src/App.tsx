@@ -38,7 +38,7 @@ function SuperAdminGate({ children }: { children: React.ReactNode }) {
   return isSuperAdmin ? <Suspense fallback={<LoadingBlock />}>{children}</Suspense> : <NotFound />;
 }
 
-
+//Forece deploy
 /** Renders the page only when the user holds `action` on the module with this key. */
 function PermissionGate({ module, action = 'read', children }: { module: ModuleKey; action?: string; children: React.ReactNode }) {
   const { modulesLoaded, can } = useAuth();

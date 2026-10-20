@@ -699,16 +699,22 @@ export interface QuotationLineItem {
   currency: FeeCurrency;
   rate: number;
   quantity: number;
+  /** rate × quantity in the quotation's currency. Missing on older quotations (use amountLkr). */
+  amount?: number;
+  /** rate × quantity in LKR. */
   amountLkr: number;
   /** Values for the quotation's extra columns, by position. */
   extra?: string[];
 }
 
+/** Currency a quotation is priced and totalled in. */
+export type QuotationCurrency = FeeCurrency;
+
 export type DiscountType = 'percent' | 'amount';
 
 export interface QuotationDiscount {
   type: DiscountType;
-  /** Percentage (0–100) or an LKR amount. */
+  /** Percentage (0–100) or an amount in the quotation's currency. */
   value: number;
   description?: string;
 }
@@ -741,13 +747,20 @@ export interface ApiQuotation {
   vesselName?: string;
   vesselCode?: string;
   client: QuotationClient;
+  /** Missing on quotations created before quotation currencies existed; those are LKR. */
+  currency?: QuotationCurrency;
   /** LKR per 1 USD. */
   exchangeRate: number;
   extraColumns?: string[];
   lineItems: QuotationLineItem[];
+  /** Subtotal, discount and total in the quotation's currency. Missing on older quotations. */
+  subtotal?: number;
+  discountAmount?: number;
+  total?: number;
   subtotalLkr?: number;
   discount?: QuotationDiscount;
   discountLkr?: number;
+  /** Always LKR, whatever the quotation's currency. */
   totalLkr: number;
   notes: string[];
   paymentTerms: string[];
@@ -777,9 +790,10 @@ export type QuotationPayload = {
   vesselName?: string;
   vesselCode?: string;
   client: QuotationClient;
+  currency: QuotationCurrency;
   exchangeRate: number;
   extraColumns: string[];
-  lineItems: Omit<QuotationLineItem, 'amountLkr'>[];
+  lineItems: Omit<QuotationLineItem, 'amount' | 'amountLkr'>[];
   discount?: QuotationDiscount | null;
   notes: string[];
   paymentTerms: string[];

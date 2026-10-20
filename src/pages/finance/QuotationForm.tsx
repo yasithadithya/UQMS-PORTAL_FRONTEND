@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import {
   feeItemsService, quotationsService, vesselCodesService,
   type ApiFeeItem, type ApiQuotation, type ApiVesselCode, type DiscountType, type FeeCategory, type FeeCurrency, type QuotableRequest,
-  type QuotationPayload,
+  type QuotationCurrency, type QuotationPayload,
 } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
@@ -16,7 +16,8 @@ import {
   SectionNav, Select, StickyActionBar, Textarea, type MenuItem,
 } from '@/ui';
 import {
-  DEFAULT_PAYMENT_TERMS, DEFAULT_QUOTATION_NOTES, FEE_CATEGORY_LABELS, formatMoney, formatRate, lineAmountLkr, revisionLabel,
+  DEFAULT_PAYMENT_TERMS, DEFAULT_QUOTATION_NOTES, FEE_CATEGORY_LABELS, formatMoney, formatRate, lineAmountIn, quotationCurrency,
+  revisionLabel,
 } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
@@ -88,6 +89,7 @@ export default function QuotationForm() {
   const [address, setAddress] = useState('');
   const [contactPerson, setContactPerson] = useState('');
   const [email, setEmail] = useState('');
+  const [currency, setCurrency] = useState<QuotationCurrency>('LKR');
   const [exchangeRate, setExchangeRate] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [notes, setNotes] = useState<string[]>(DEFAULT_QUOTATION_NOTES);
@@ -108,6 +110,7 @@ export default function QuotationForm() {
     setAddress(q.client?.address || '');
     setContactPerson(q.client?.contactPerson || '');
     setEmail(q.client?.email || '');
+    setCurrency(quotationCurrency(q));
     setExchangeRate(String(q.exchangeRate));
     setVesselCode(q.vesselCode || '');
     const columns = q.extraColumns || [];
@@ -185,16 +188,21 @@ export default function QuotationForm() {
   };
 
   // ── Line items ──
+  // Amounts are worked out in the quotation's currency; lines in the other ("foreign") currency are converted.
   const rateNumber = Number(exchangeRate);
-  const lineAmounts = lines.map(l => lineAmountLkr(Number(l.rate), Number(l.quantity), l.currency, rateNumber));
-  const subtotalLkr = lineAmounts.reduce((sum, a) => sum + a, 0);
+  const lineAmounts = lines.map(l => lineAmountIn(Number(l.rate), Number(l.quantity), l.currency, currency, rateNumber));
+  const subtotal = Math.round(lineAmounts.reduce((sum, a) => sum + a, 0) * 100) / 100;
   const discountNumber = Number(discountValue) || 0;
-  const discountLkr = discountNumber > 0
-    ? Math.round((discountType === 'percent' ? (subtotalLkr * discountNumber) / 100 : discountNumber) * 100) / 100
+  const discountAmount = discountNumber > 0
+    ? Math.round((discountType === 'percent' ? (subtotal * discountNumber) / 100 : discountNumber) * 100) / 100
     : 0;
-  const totalLkr = subtotalLkr - discountLkr;
-  const usdSubtotal = lines.reduce((sum, l) => sum + (l.currency === 'USD' ? (Number(l.rate) || 0) * (Number(l.quantity) || 0) : 0), 0);
-  const hasUsdLines = lines.some(l => l.currency === 'USD');
+  const total = subtotal - discountAmount;
+  const foreignCurrency: FeeCurrency = currency === 'LKR' ? 'USD' : 'LKR';
+  const foreignSubtotal = lines.reduce((sum, l) => sum + (l.currency === foreignCurrency ? (Number(l.rate) || 0) * (Number(l.quantity) || 0) : 0), 0);
+  const hasForeignLines = lines.some(l => l.currency === foreignCurrency);
+  // A fixed-amount discount is in the quotation's currency, so switching currency changes the discount;
+  // only users who may change discounts can do that while one is set.
+  const currencyLocked = !canDiscount && discountType === 'amount' && discountNumber > 0;
 
   const updateLine = (key: number, patch: Partial<Line>) => {
     setLines(prev => prev.map(l => (l.key === key ? { ...l, ...patch } : l)));
@@ -263,7 +271,7 @@ export default function QuotationForm() {
     if (discountValue.trim() !== '') {
       if (!(discountNumber >= 0)) next.discount = 'Enter a discount of 0 or more.';
       else if (discountType === 'percent' && discountNumber > 100) next.discount = 'A percentage discount cannot exceed 100%.';
-      else if (discountLkr > subtotalLkr) next.discount = 'The discount cannot be more than the subtotal.';
+      else if (discountAmount > subtotal) next.discount = 'The discount cannot be more than the subtotal.';
     }
     if (!quotationDate) next.quotationDate = 'Enter the quotation date.';
     if (!title.trim()) next.title = 'Enter a title.';
@@ -304,6 +312,7 @@ export default function QuotationForm() {
         contactPerson: contactPerson.trim() || undefined,
         email: email.trim() || undefined,
       },
+      currency,
       exchangeRate: rateNumber,
       vesselCode,
       extraColumns: extraColumns.map(c => c.trim()),
@@ -451,7 +460,7 @@ export default function QuotationForm() {
           <FormSection
             id="qt-lines"
             title="Line items"
-            description="USD lines are converted to LKR with the conversion rate. LKR lines (e.g. transport) are added as they are."
+            description={`The quotation is priced in ${currency}. ${foreignCurrency} lines are converted to ${currency} with the conversion rate; ${currency} lines are added as they are.`}
             actions={
               <div className={s.inline}>
                 <Menu
@@ -473,6 +482,21 @@ export default function QuotationForm() {
               </div>
             }
           >
+            <div className={s.narrow}>
+              <Field
+                label="Quotation currency"
+                required
+                hint={currencyLocked
+                  ? 'Remove the fixed-amount discount, or ask the Technical Committee, to change the currency.'
+                  : 'Amounts, the discount and the total are shown and printed in this currency.'}
+              >
+                <Select aria-label="Quotation currency" value={currency} disabled={currencyLocked}
+                  onChange={e => { setCurrency(e.target.value as QuotationCurrency); clearError('discount'); unsaved.markDirty(); }}>
+                  <option value="LKR">LKR – Sri Lankan Rupee</option>
+                  <option value="USD">USD – US Dollar</option>
+                </Select>
+              </Field>
+            </div>
             {lines.length === 0 ? (
               <p className={s.emptyLines} data-field-error={errors.lines ? true : undefined}>
                 No lines yet. Add fees from the fee structure, or a custom line.
@@ -494,7 +518,7 @@ export default function QuotationForm() {
                   <span role="columnheader">Currency</span>
                   <span role="columnheader">Rate</span>
                   <span role="columnheader">Qty</span>
-                  <span role="columnheader" className={s.right}>Amount (LKR)</span>
+                  <span role="columnheader" className={s.right}>Amount ({currency})</span>
                   <span role="columnheader"><span className="sr-only">Actions</span></span>
                 </div>
                 {lines.map((line, index) => {
@@ -540,7 +564,7 @@ export default function QuotationForm() {
                           onChange={e => updateLine(line.key, { quantity: e.target.value })} />
                       </div>
                       <span role="cell" className={s.lineAmount}>
-                        <span className={s.mobileLabel}>Amount (LKR)</span>
+                        <span className={s.mobileLabel}>Amount ({currency})</span>
                         {formatMoney(lineAmounts[index])}
                       </span>
                       <div role="cell" className={s.lineActions}>
@@ -567,10 +591,10 @@ export default function QuotationForm() {
                 <Select value={discountType} disabled={!canDiscount}
                   onChange={e => { setDiscountType(e.target.value as DiscountType); clearError('discount'); }}>
                   <option value="percent">Percentage (%)</option>
-                  <option value="amount">Amount (LKR)</option>
+                  <option value="amount">Amount ({currency})</option>
                 </Select>
               </Field>
-              <Field label={discountType === 'percent' ? 'Discount (%)' : 'Discount (LKR)'} error={errors.discount}>
+              <Field label={discountType === 'percent' ? 'Discount (%)' : `Discount (${currency})`} error={errors.discount}>
                 <Input type="number" inputMode="decimal" min={0} step="0.01" value={discountValue} disabled={!canDiscount}
                   placeholder="0" onChange={e => { setDiscountValue(e.target.value); clearError('discount'); }} />
               </Field>
@@ -581,18 +605,19 @@ export default function QuotationForm() {
             </FormGrid>
 
             <div className={s.totals}>
-              {hasUsdLines && (
+              {hasForeignLines && (
                 <span className={s.muted}>
-                  USD lines: USD {formatMoney(usdSubtotal)} × {Number.isFinite(rateNumber) && rateNumber > 0 ? formatRate(rateNumber) : '—'}
+                  {foreignCurrency} lines: {foreignCurrency} {formatMoney(foreignSubtotal)} {foreignCurrency === 'USD' ? '×' : '÷'}{' '}
+                  {Number.isFinite(rateNumber) && rateNumber > 0 ? formatRate(rateNumber) : '—'}
                 </span>
               )}
-              {discountLkr > 0 && (
+              {discountAmount > 0 && (
                 <span className={s.muted}>
-                  Subtotal LKR {formatMoney(subtotalLkr)} − discount LKR {formatMoney(discountLkr)}
+                  Subtotal {currency} {formatMoney(subtotal)} − discount {currency} {formatMoney(discountAmount)}
                 </span>
               )}
               <span className={s.totalLabel}>Total</span>
-              <strong className={s.totalValue}>LKR {formatMoney(totalLkr)}</strong>
+              <strong className={s.totalValue}>{currency} {formatMoney(total)}</strong>
             </div>
           </FormSection>
 
@@ -614,7 +639,7 @@ export default function QuotationForm() {
             </FormGrid>
           </FormSection>
 
-          <StickyActionBar dirty={unsaved.dirty} status={<span>Total LKR {formatMoney(totalLkr)}</span>}>
+          <StickyActionBar dirty={unsaved.dirty} status={<span>Total {currency} {formatMoney(total)}</span>}>
             <ButtonLink to={backHref}>Cancel</ButtonLink>
             {isEdit ? (
               <>

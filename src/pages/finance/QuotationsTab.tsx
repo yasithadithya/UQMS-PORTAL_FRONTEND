@@ -8,7 +8,10 @@ import Pagination from '@/components/Pagination';
 import { formatDate } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { Badge, ButtonLink, ConfirmDialog, DataTable, Menu, SearchInput, Select, StatusBadge, Toolbar, type Column } from '@/ui';
-import { QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, quotationDisplayStatus, type QuotationDisplayStatus } from './financeFormat';
+import {
+  QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, quotationCurrency, quotationDisplayStatus, quotationTotal,
+  type QuotationDisplayStatus,
+} from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
@@ -101,7 +104,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
     { key: 'vessel', header: 'Vessel', cell: q => q.vesselName || '—' },
     { key: 'company', header: 'Client', hideOnMobile: true, cell: q => q.client?.companyName || '—' },
     { key: 'date', header: 'Date', nowrap: true, hideOnMobile: true, cell: q => formatDate(q.quotationDate) },
-    { key: 'total', header: 'Total (LKR)', align: 'right', nowrap: true, cell: q => formatMoney(q.totalLkr) },
+    { key: 'total', header: 'Total', align: 'right', nowrap: true, cell: q => `${quotationCurrency(q)} ${formatMoney(quotationTotal(q))}` },
     { key: 'status', header: 'Status', nowrap: true, cell: q => <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} /> },
   ];
 

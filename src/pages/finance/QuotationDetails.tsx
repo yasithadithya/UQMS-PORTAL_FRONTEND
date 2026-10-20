@@ -10,7 +10,10 @@ import { MODULE_KEYS } from '@/utils/permissions';
 import {
   Badge, Button, ButtonLink, ConfirmDialog, ErrorState, Field, LoadingBlock, Menu, Modal, PageHeader, Section, StatusBadge, Textarea,
 } from '@/ui';
-import { QUOTATION_STATUS_LABELS, downloadPdf, quotationDisplayStatus, formatMoney, formatRate, revisionLabel } from './financeFormat';
+import {
+  QUOTATION_STATUS_LABELS, downloadPdf, quotationDisplayStatus, formatMoney, formatRate, quotationCurrency, quotationDiscountAmount,
+  quotationLineAmount, quotationSubtotal, quotationTotal, revisionLabel,
+} from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
 
@@ -140,18 +143,22 @@ export default function QuotationDetails() {
   const request = typeof q.request === 'object' ? q.request : null;
   const approval = q.approval;
   const extraColumns = q.extraColumns || [];
+  const currency = quotationCurrency(q);
+  const discountAmount = quotationDiscountAmount(q);
   // Shown as the table footer, and as a list under the table on phones where the footer scrolls out of view.
   const totals: { label: string; value: string; total?: boolean }[] = [
-    ...(q.discountLkr && q.discount
+    ...(discountAmount && q.discount
       ? [
-          { label: 'Subtotal', value: formatMoney(q.subtotalLkr ?? q.totalLkr + q.discountLkr) },
+          { label: 'Subtotal', value: formatMoney(quotationSubtotal(q)) },
           {
             label: `Discount${q.discount.type === 'percent' ? ` (${formatRate(q.discount.value)}%)` : ''}${q.discount.description ? ` · ${q.discount.description}` : ''}`,
-            value: `(${formatMoney(q.discountLkr)})`,
+            value: `(${formatMoney(discountAmount)})`,
           },
         ]
       : []),
-    { label: 'Total amount', value: `LKR ${formatMoney(q.totalLkr)}`, total: true },
+    { label: 'Total amount', value: `${currency} ${formatMoney(quotationTotal(q))}`, total: true },
+    // For a USD quotation, also show the LKR equivalent kept for reporting.
+    ...(currency !== 'LKR' ? [{ label: 'LKR equivalent', value: `LKR ${formatMoney(q.totalLkr)}` }] : []),
   ];
 
   const approve = async () => {
@@ -263,6 +270,7 @@ export default function QuotationDetails() {
               <div><dt>Request no.</dt><dd>{q.requestNumber}{request?.rfsDocNo ? ` (${request.rfsDocNo})` : ''}</dd></div>
               <div><dt>Job no.</dt><dd>{q.jobNumber || '—'}</dd></div>
               <div><dt>Date</dt><dd>{formatDate(q.quotationDate)}</dd></div>
+              <div><dt>Currency</dt><dd>{currency}</dd></div>
               <div><dt>Conversion rate</dt><dd>LKR {formatRate(q.exchangeRate)} / USD</dd></div>
               <div><dt>Vessel code</dt><dd>{q.vesselCode || '—'}</dd></div>
               <div><dt>Emailed to client</dt><dd>{q.emailedAt ? `${formatDateTime(q.emailedAt)} · ${q.emailedTo}` : 'Not yet'}</dd></div>
@@ -283,7 +291,7 @@ export default function QuotationDetails() {
                     {extraColumns.map((c, ci) => <th scope="col" key={ci}>{c}</th>)}
                     <th scope="col" className={s.right}>Rate</th>
                     <th scope="col" className={s.right}>Qty</th>
-                    <th scope="col" className={s.right}>Amount (LKR)</th>
+                    <th scope="col" className={s.right}>Amount ({currency})</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,7 +302,7 @@ export default function QuotationDetails() {
                       {extraColumns.map((_, ci) => <td key={ci}>{li.extra?.[ci] || '—'}</td>)}
                       <td className={s.right}>{li.currency} {formatRate(li.rate)}</td>
                       <td className={s.right}>{formatRate(li.quantity)}</td>
-                      <td className={s.right}>{formatMoney(li.amountLkr)}</td>
+                      <td className={s.right}>{formatMoney(quotationLineAmount(li))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -342,7 +350,7 @@ export default function QuotationDetails() {
                       : <Link to={`${listPath}/${r._id}`} className={s.mono}>{r.quotationNumber}</Link>}
                     <StatusBadge status={quotationDisplayStatus(r)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(r)]} />
                   </div>
-                  <span className={s.muted}>{formatDate(r.quotationDate)} · LKR {formatMoney(r.totalLkr)}</span>
+                  <span className={s.muted}>{formatDate(r.quotationDate)} · {quotationCurrency(r)} {formatMoney(quotationTotal(r))}</span>
                   {r.status === 'rejected' && r.statusReason && <span className={s.muted}>Reason: {r.statusReason}</span>}
                 </li>
               ))}

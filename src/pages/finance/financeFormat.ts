@@ -1,4 +1,5 @@
 import type { ApiQuotation, FeeCategory, FeeCurrency, QuotationCurrency, QuotationLineItem, QuotationStatus } from '@/api';
+import type { Tone } from '@/ui';
 
 /** 2-decimal amount with thousands separators, e.g. 378,442.20. */
 export const formatMoney = (value: number | null | undefined): string =>
@@ -62,6 +63,10 @@ export const QUOTATION_STATUS_LABELS: Record<QuotationDisplayStatus, string> = {
 
 export const quotationDisplayStatus = (q: { status: QuotationStatus; approval?: unknown }): QuotationDisplayStatus =>
   q.status === 'draft' && q.approval ? 'approved' : q.status;
+
+/** The quotations table shows Approved in yellow so it stands apart from Accepted (green). Other statuses use the shared map. */
+export const quotationStatusTone = (status: QuotationDisplayStatus): Tone | undefined =>
+  status === 'approved' ? 'warning' : undefined;
 
 export const revisionLabel = (revision: number) => (revision === 0 ? 'Original' : `Revision ${revision}`);
 

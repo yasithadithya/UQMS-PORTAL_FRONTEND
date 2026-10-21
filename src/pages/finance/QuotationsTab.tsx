@@ -9,7 +9,7 @@ import { formatDate } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { Badge, ButtonLink, ConfirmDialog, DataTable, Menu, SearchInput, Select, StatusBadge, Toolbar, type Column } from '@/ui';
 import {
-  QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, quotationCurrency, quotationDisplayStatus, quotationTotal,
+  QUOTATION_STATUS_LABELS, downloadPdf, formatMoney, quotationCurrency, quotationDisplayStatus, quotationStatusTone, quotationTotal,
   type QuotationDisplayStatus,
 } from './financeFormat';
 import { quotationsPath } from './financeTabs';
@@ -105,7 +105,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
     { key: 'company', header: 'Client', hideOnMobile: true, cell: q => q.client?.companyName || '—' },
     { key: 'date', header: 'Date', nowrap: true, hideOnMobile: true, cell: q => formatDate(q.quotationDate) },
     { key: 'total', header: 'Total', align: 'right', nowrap: true, cell: q => `${quotationCurrency(q)} ${formatMoney(quotationTotal(q))}` },
-    { key: 'status', header: 'Status', nowrap: true, cell: q => <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} /> },
+    { key: 'status', header: 'Status', nowrap: true, cell: q => <StatusBadge status={quotationDisplayStatus(q)} label={QUOTATION_STATUS_LABELS[quotationDisplayStatus(q)]} tone={quotationStatusTone(quotationDisplayStatus(q))} /> },
   ];
 
   return (

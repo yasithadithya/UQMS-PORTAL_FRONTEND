@@ -928,6 +928,20 @@ export interface ApiApprovalRequest {
   reviewedAt?: string;
   reason?: string;
   createdAt: string;
+  /** Readable field-by-field changes (IDs already turned into names by the server). */
+  changes?: ApiApprovalChange[];
+}
+
+export interface ApiApprovalChange {
+  key: string;
+  label: string;
+  list: boolean;
+  before: string[];
+  after: string[];
+  added: string[];
+  removed: string[];
+  changed: boolean;
+  empty?: string;
 }
 
 export interface ApiPreviousDocument {

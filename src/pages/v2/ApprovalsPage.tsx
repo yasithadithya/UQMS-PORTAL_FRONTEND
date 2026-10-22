@@ -1,43 +1,87 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { CheckCircle2, Inbox, XCircle } from 'lucide-react';
-import { Badge, Button, DataTable, Drawer, Field, PageHeader, Tabs, Textarea, type Column } from '@/ui';
-import { showAuditValue } from '@/components/audit/ChangeList';
+import { ArrowRight, CheckCircle2, Inbox, XCircle } from 'lucide-react';
+import { Badge, Button, Checkbox, DataTable, Drawer, Field, PageHeader, Tabs, Textarea, type Column } from '@/ui';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { approvalsService } from '@/api';
-import type { ApiApprovalRequest } from '@/api';
+import type { ApiApprovalChange, ApiApprovalRequest } from '@/api';
 import { formatDateTime } from '@/utils/date';
 import s from './v2.module.css';
 
 const ENTITY_LABELS: Record<string, string> = { 'checklist-question': 'Checklist question' };
 const OP_TONES = { create: 'success', update: 'info', delete: 'danger' } as const;
-const HIDDEN = new Set(['_id', '__v', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy']);
+const OP_LABELS = { create: 'New', update: 'Edit', delete: 'Delete' } as const;
 
-/** Field-by-field comparison of the record before and the proposed change. */
-function Diff({ approval }: { approval: ApiApprovalRequest }) {
-  const before = approval.before ?? {};
-  const after = approval.operation === 'delete' ? {} : approval.payload ?? {};
-  const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(k => !HIDDEN.has(k));
-  const show = (v: unknown) => {
-    if (Array.isArray(v)) return v.map(x => (x && typeof x === 'object' ? (x as any).name ?? (x as any).code ?? (x as any).AreaCategory ?? JSON.stringify(x) : String(x))).join(', ') || '—';
-    return showAuditValue(v);
-  };
+/** One field: text shows old → new; lists show chips marked added / removed / unchanged. */
+function ChangeRow({ change, operation }: { change: ApiApprovalChange; operation: ApiApprovalRequest['operation'] }) {
+  const emptyText = <span className={s.changeEmpty}>{change.empty ?? 'None'}</span>;
+  const shown = operation === 'delete' ? change.before : change.after;
+
+  let body: React.ReactNode;
+  if (change.list) {
+    const kept = shown.filter(v => !change.added.includes(v));
+    const removed = operation === 'update' ? change.removed : [];
+    const added = operation === 'update' ? change.added : [];
+    body = kept.length + removed.length + added.length === 0 ? emptyText : (
+      <ul className={s.chips}>
+        {added.map(v => <li key={`+${v}`} className={`${s.chip} ${s.chipAdded}`}><span aria-label="Added">+</span> {v}</li>)}
+        {removed.map(v => <li key={`-${v}`} className={`${s.chip} ${s.chipRemoved}`}><span aria-label="Removed">−</span> {v}</li>)}
+        {kept.map(v => <li key={v} className={s.chip}>{v}</li>)}
+      </ul>
+    );
+  } else if (operation === 'update' && change.changed) {
+    body = (
+      <div className={s.textChange}>
+        <span className={s.oldValue}>{change.before[0] || emptyText}</span>
+        <ArrowRight className={s.changeArrow} aria-label="changed to" />
+        <span className={s.newValue}>{change.after[0] || emptyText}</span>
+      </div>
+    );
+  } else {
+    body = shown[0] ? <span className={s.plainValue}>{shown[0]}</span> : emptyText;
+  }
+
   return (
-    <table className={s.diff}>
-      <thead><tr><th>Field</th><th>Current</th><th>Proposed</th></tr></thead>
-      <tbody>
-        {keys.map(k => {
-          const b = show(before[k]);
-          const a = approval.operation === 'delete' ? '(deleted)' : k in after ? show(after[k]) : b;
-          return (
-            <tr key={k} className={a !== b ? s.changed : undefined}>
-              <th scope="row">{k}</th><td>{approval.operation === 'create' ? '—' : b}</td><td>{a}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div className={`${s.changeRow} ${operation === 'update' && change.changed ? s.changeRowChanged : ''}`}>
+      <div className={s.changeLabel}>
+        {change.label}
+        {operation === 'update' && change.changed && <Badge tone="warning">Changed</Badge>}
+        {operation === 'update' && change.list && change.changed && (
+          <span className={s.changeCount}>
+            {[change.added.length && `${change.added.length} added`, change.removed.length && `${change.removed.length} removed`].filter(Boolean).join(', ')}
+          </span>
+        )}
+      </div>
+      {body}
+    </div>
+  );
+}
+
+/** The proposed change, field by field. Edits show only changed fields unless asked. */
+function Changes({ approval }: { approval: ApiApprovalRequest }) {
+  const [showAll, setShowAll] = useState(false);
+  const changes = approval.changes ?? [];
+  const changedCount = changes.filter(c => c.changed).length;
+  const isUpdate = approval.operation === 'update';
+  const visible = isUpdate && !showAll ? changes.filter(c => c.changed) : changes;
+
+  return (
+    <div className={s.stack}>
+      <div className={s.changesHead}>
+        <span>
+          {approval.operation === 'create' && 'A new checklist question will be added.'}
+          {approval.operation === 'delete' && 'This checklist question will be deleted.'}
+          {isUpdate && (changedCount === 0 ? 'No fields change.' : `${changedCount} field${changedCount === 1 ? '' : 's'} will change.`)}
+        </span>
+        {isUpdate && changes.length > changedCount && (
+          <Checkbox label="Show unchanged fields" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
+        )}
+      </div>
+      <div className={s.changeList}>
+        {visible.map(c => <ChangeRow key={c.key} change={c} operation={approval.operation} />)}
+      </div>
+    </div>
   );
 }
 
@@ -89,7 +133,7 @@ export default function ApprovalsPage() {
     { key: 'summary', header: 'Change', primary: true, cell: r => (
       <span className={s.cellStack}><span className={s.strong}>{r.summary}</span><span className={s.muted}>{ENTITY_LABELS[r.entityType] ?? r.entityType}</span></span>
     ) },
-    { key: 'op', header: 'Type', cell: r => <Badge tone={OP_TONES[r.operation]}>{r.operation}</Badge> },
+    { key: 'op', header: 'Type', cell: r => <Badge tone={OP_TONES[r.operation]}>{OP_LABELS[r.operation]}</Badge> },
     { key: 'by', header: 'Requested by', hideOnMobile: true, cell: r => r.requestedByName || '—' },
     { key: 'at', header: 'Requested', nowrap: true, hideOnMobile: true, cell: r => formatDateTime(r.createdAt) },
     ...(status !== 'pending' ? [{ key: 'rev', header: 'Decided by', hideOnMobile: true, cell: (r: ApiApprovalRequest) => r.reviewedByName || '—' }] : []),
@@ -116,7 +160,7 @@ export default function ApprovalsPage() {
           onClose={() => setOpen(null)}
           width={640}
           title={open.summary}
-          description={`${ENTITY_LABELS[open.entityType] ?? open.entityType} · ${open.operation} · requested by ${open.requestedByName || '—'}`}
+          description={`${ENTITY_LABELS[open.entityType] ?? open.entityType} · ${OP_LABELS[open.operation]} · requested by ${open.requestedByName || '—'} on ${formatDateTime(open.createdAt)}`}
           footer={open.status === 'pending' && canApprove && (
             <>
               <Button variant="danger" icon={<XCircle />} loading={busy === 'reject'} disabled={!!busy} onClick={() => decide('reject')}>Reject</Button>
@@ -125,7 +169,7 @@ export default function ApprovalsPage() {
           )}
         >
           <div className={s.stack}>
-            <Diff approval={open} />
+            <Changes key={open._id} approval={open} />
             {open.reason && <p className={s.hint}>Reason: {open.reason}</p>}
             {open.status === 'pending' && canApprove && (
               <Field label="Comment" hint="Required when rejecting.">

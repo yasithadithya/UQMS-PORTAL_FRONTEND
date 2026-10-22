@@ -71,12 +71,21 @@ const formatHoses = (count: string, material: string, width: string, length: str
   return parts.join('; ');
 };
 
-export default function VesselEquipmentRecordPage() {
+/** V2: embedded in the "Report Generation" section of the reporting workspace. */
+export interface ReportEmbedProps {
+  surveyReportId: string;
+  readOnly?: boolean;
+  onSaved?: () => void;
+}
+
+export default function VesselEquipmentRecordPage({ embedded }: { embedded?: ReportEmbedProps } = {}) {
   const { can } = useAuth();
-  const canSave = can(MODULE_KEYS.marineReports, 'update');
+  const canSave = !embedded?.readOnly && can(MODULE_KEYS.marineReports, 'update');
   const navigate = useNavigate();
   const unsaved = useUnsavedChanges();
-  const { id, module } = useParams<{ id: string; module?: string }>(); // Survey Report ID
+  const params = useParams<{ id: string; module?: string }>();
+  const id = embedded?.surveyReportId ?? params.id; // Survey Report ID
+  const { module } = params;
   const activeModule = module || 'reporting';
 
   const [loading, setLoading] = useState(true);
@@ -177,7 +186,8 @@ export default function VesselEquipmentRecordPage() {
         toast.success('Record of Equipment saved successfully!');
         // Navigate back to the survey report edit page
         unsaved.allowNavigation();
-        navigate(`/${activeModule}/marine/first-entry/survey-report/edit/${id}`);
+        if (embedded) embedded.onSaved?.();
+        else navigate(`/${activeModule}/marine/first-entry/survey-report/edit/${id}`);
       } else {
         toast.error(res.message || 'Failed to save equipment record.');
       }
@@ -277,16 +287,17 @@ export default function VesselEquipmentRecordPage() {
 
   return (
     <div className="animate-in">
-      <PageHeader
+      {!embedded && <PageHeader
         back={{ href: backPath, label: 'Survey report' }}
         title="Record of equipment"
         description={surveyReport
           ? [surveyReport.shipName, surveyReport.uqmsNo, surveyReport.reportNo].filter(Boolean).join(' · ')
           : 'Recommended equipment for the vessel, grouped by code.'}
         meta={equipmentRecords.length > 0 && <Badge tone={answered === equipmentRecords.length ? 'success' : 'neutral'}>{answered}/{equipmentRecords.length} answered</Badge>}
-      />
+      />}
 
       <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty} className={s.form}>
+        <fieldset disabled={!!embedded?.readOnly} className={s.fieldsetReset}>
         {groups.length === 0 ? (
           <Card padding="none">
             <EmptyState icon={<ClipboardList />} title="No equipment questions yet" description="Equipment questions are set up by an administrator in master data." />
@@ -322,14 +333,17 @@ export default function VesselEquipmentRecordPage() {
             </Section>
           ))
         )}
+        </fieldset>
 
-        <StickyActionBar dirty={unsaved.dirty}>
-          <ButtonLink to={backPath}>Cancel</ButtonLink>
-          <Button type="submit" variant="primary" loading={saving} disabled={!canSave}
-            title={canSave ? undefined : 'You do not have permission to save this record.'}>
-            Save record
-          </Button>
-        </StickyActionBar>
+        {!embedded?.readOnly && (
+          <StickyActionBar dirty={unsaved.dirty}>
+            {!embedded && <ButtonLink to={backPath}>Cancel</ButtonLink>}
+            <Button type="submit" variant="primary" loading={saving} disabled={!canSave}
+              title={canSave ? undefined : 'You do not have permission to save this record.'}>
+              Save record
+            </Button>
+          </StickyActionBar>
+        )}
       </form>
       {unsaved.dialog}
     </div>

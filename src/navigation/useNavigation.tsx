@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Blocks, Briefcase, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
+  Anchor, BadgeCheck, Blocks, BookOpenCheck, Briefcase, CheckSquare, FileSearch, FolderArchive, UserCheck, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
   UserCog, Users, Wallet,
 } from 'lucide-react';
 import type { ApiModule } from '@/api';
@@ -67,6 +67,14 @@ const ICONS: Record<string, ReactNode> = {
   industrial: <Factory />,
   checklists: <ClipboardList />,
   jobs: <Briefcase />,
+  'surveyor-allocation': <UserCheck />,
+  'view-report': <FileSearch />,
+  authorization: <BadgeCheck />,
+  approvals: <CheckSquare />,
+  ships: <Anchor />,
+  qms: <BookOpenCheck />,
+  'qms.checklist': <ListChecks />,
+  'previous-docs': <FolderArchive />,
 };
 
 /** Icon for a module: by stable key first, then by name, then a generic grid. */

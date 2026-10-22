@@ -77,6 +77,7 @@ export const firstEntryService = {
     firstEntryId: string;
     status?: string;
     documents?: ApiScheduleIIDocument[];
+    mssProofDocuments?: ApiScheduleIIDocument[];
   }) => {
     return request<{ success: boolean; message: string; data: ApiScheduleII }>('/first-entries/schedule2', {
       method: 'POST',
@@ -89,6 +90,7 @@ export const firstEntryService = {
   updateScheduleII: (scheduleId: string, payload: Partial<{
     status?: string;
     documents?: ApiScheduleIIDocument[];
+    mssProofDocuments?: ApiScheduleIIDocument[];
   }>) => {
     return request<{ success: boolean; message: string; data: ApiScheduleII }>(`/first-entries/schedule2/${scheduleId}`, {
       method: 'PUT',

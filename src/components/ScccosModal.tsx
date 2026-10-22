@@ -1,3 +1,4 @@
+import { cosVariantFor } from '@/config/certificateVariants';
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Eye, FileDown, FileText, RefreshCw } from 'lucide-react';
 import { Button, EmptyState, Field, Input, Modal, Textarea } from '@/ui';
@@ -15,6 +16,8 @@ interface ScccosModalProps {
   booking: ApiFirstEntrySurveyBooking | null;
   surveyReportId: string;
   onSuccess?: () => void;
+  /** V2: decides the certificate variant (SSC → SSCCOS). Defaults to the booking vessel's code. */
+  vesselCode?: string;
 }
 
 export default function ScccosModal(props: ScccosModalProps) {
@@ -27,10 +30,12 @@ function ScccosDialog({
   onClose,
   booking,
   surveyReportId,
-  onSuccess
+  onSuccess,
+  vesselCode,
 }: ScccosModalProps & { booking: NonNullable<ScccosModalProps['booking']> }) {
 
-  const [typeOfSurvey, setTypeOfSurvey] = useState('SSC Initial Survey');
+  const variant = cosVariantFor(vesselCode ?? (typeof booking.vesselId === 'object' ? (booking.vesselId as any)?.vesselCode : undefined));
+  const [typeOfSurvey, setTypeOfSurvey] = useState(variant.defaultTypeOfSurvey);
   const [nominatedDeparturePoint, setNominatedDeparturePoint] = useState(
     'Following respective Ports: Colombo, Galle, Hambantota, Trincomalee'
   );
@@ -180,8 +185,8 @@ function ScccosDialog({
         size="xl"
         flush
         className={d.dialog}
-        title="Small Craft Code Certificate of Survey"
-        description={`${vesselName || 'Vessel'} · record the survey findings and generate the SSC COS.`}
+        title={variant.title}
+        description={`${vesselName || 'Vessel'} · record the survey findings and generate the ${variant.shortName}.`}
         footer={
           <>
             <Button onClick={onClose} disabled={generating}>Close</Button>
@@ -206,7 +211,7 @@ function ScccosDialog({
             <section className={d.group}>
               <h3 className={d.groupTitle}>Certificate details</h3>
               <div className={d.stack}>
-                <Field label="Type of survey"><Input placeholder="e.g. SSC Initial Survey" value={typeOfSurvey} onChange={e => setTypeOfSurvey(e.target.value)} /></Field>
+                <Field label="Type of survey"><Input placeholder={`e.g. ${variant.defaultTypeOfSurvey}`} value={typeOfSurvey} onChange={e => setTypeOfSurvey(e.target.value)} /></Field>
                 <Field label="Surveyor" hint="The logged-in user is recorded as the surveyor.">
                   <Input value={surveyorName} readOnly />
                 </Field>
@@ -247,7 +252,7 @@ function ScccosDialog({
 
           <div className={d.previewPane}>
             {previewUrl ? (
-              <iframe src={previewUrl} title="SSC certificate preview" className={d.preview} />
+              <iframe src={previewUrl} title="Certificate preview" className={d.preview} />
             ) : (
               <div className={d.previewEmpty}>
                 <EmptyState

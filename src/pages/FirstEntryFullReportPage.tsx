@@ -27,12 +27,21 @@ type OpenSignableDocument = {
   downloadFileName: string;
 };
 
-export default function FirstEntryFullReportPage() {
-  const { id, module } = useParams<{ id: string; module?: string }>();
+/** V2: embedded as the "Checklist" section of the reporting workspace. */
+export interface ChecklistEmbedProps {
+  surveyReportId: string;
+  readOnly?: boolean;
+}
+
+export default function FirstEntryFullReportPage({ embedded }: { embedded?: ChecklistEmbedProps } = {}) {
+  const params = useParams<{ id: string; module?: string }>();
+  const id = embedded?.surveyReportId ?? params.id;
+  const { module } = params;
+  const readOnly = !!embedded?.readOnly;
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, can } = useAuth();
-  const canEditReport = can(MODULE_KEYS.marineReports, 'update');
+  const canEditReport = !readOnly && can(MODULE_KEYS.marineReports, 'update');
   const canIssueCertificates = can(MODULE_KEYS.marineCertificates, 'create');
   const canViewCertificates = can(MODULE_KEYS.marineCertificates, 'read');
 
@@ -303,7 +312,7 @@ export default function FirstEntryFullReportPage() {
       }
     } catch (err: any) {
       toast.error('Failed to generate Full Report: ' + err.message);
-      navigate(`${basePath}?tab=reports`);
+      if (!embedded) navigate(`${basePath}?tab=reports`);
     }
   };
 
@@ -670,12 +679,14 @@ export default function FirstEntryFullReportPage() {
 
   return (
     <div className={s.container}>
-      <PageHeader
-        back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
-        title="Survey check sheet"
-        description={`Report ${surveyReport?.reportNo || '—'}${vessel?.vesselName ? ` · ${vessel.vesselName}` : ''}`}
-        meta={<Badge tone={progressStats.percentage === 100 ? 'success' : 'neutral'}>{progressStats.completed}/{progressStats.total} checked</Badge>}
-      />
+      {!embedded && (
+        <PageHeader
+          back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
+          title="Survey check sheet"
+          description={`Report ${surveyReport?.reportNo || '—'}${vessel?.vesselName ? ` · ${vessel.vesselName}` : ''}`}
+          meta={<Badge tone={progressStats.percentage === 100 ? 'success' : 'neutral'}>{progressStats.completed}/{progressStats.total} checked</Badge>}
+        />
+      )}
 
       {/* Header Info Panel */}
       <div className={s.headerCard}>
@@ -742,7 +753,8 @@ export default function FirstEntryFullReportPage() {
             )}
           </div>
           <div className={s.reportActions}>
-            {report.dailyReportPdfGeneratedAt && (
+            {/* V2: only the certificate is signed; the daily report is listed under Reports. */}
+            {report.dailyReportPdfGeneratedAt && !embedded && (
               <Button size="sm" icon={<PenLine />} onClick={handleViewDailyReport}>
                 {report.eSignature ? 'View signed daily report' : 'View & sign daily report'}
               </Button>
@@ -753,17 +765,17 @@ export default function FirstEntryFullReportPage() {
               icon={<Eye />}
               onClick={handlePreviewDailyReport}
               loading={previewLoading}
-              disabled={generatingPdf || !!report.eSignature}
+              disabled={generatingPdf || !!report.eSignature || readOnly}
               title={report.eSignature ? 'The daily report is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
             >
               Preview & generate daily report
             </Button>
-            {isScccosEligible && booking && (
+            {!embedded && isScccosEligible && booking && (
               surveyReport?.status === 'COS Generated'
                 ? <Button size="sm" icon={<Award />} onClick={handleViewCos} disabled={!canViewCertificates}>View COS</Button>
                 : <Button size="sm" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCertificates}>Generate SSC COS</Button>
             )}
-            {isDockingSurveyEligible && booking && (
+            {!embedded && isDockingSurveyEligible && booking && (
               dockingSurveyCertExists
                 ? <Button size="sm" icon={<Anchor />} onClick={handleViewDockingSurvey} disabled={!canViewCertificates}>View docking survey</Button>
                 : <Button size="sm" icon={<Anchor />} onClick={() => setIsDockingSurveyModalOpen(true)} disabled={!canIssueCertificates}>Generate docking survey</Button>
@@ -772,6 +784,7 @@ export default function FirstEntryFullReportPage() {
         </div>
       </div>
 
+      <fieldset disabled={readOnly} className={s.fieldsetReset}>
       {/* Checklist Sections grouped by Question Category */}
       {Object.keys(groupedChecklist).length === 0 ? (
         <Card padding="none">
@@ -1246,8 +1259,9 @@ export default function FirstEntryFullReportPage() {
           </Button>
         </form>
       </div>
+      </fieldset>
 
-      {isScccosEligible && booking && (
+      {!embedded && isScccosEligible && booking && (
         <Section
           className={s.cosCard}
           title="Small Craft Code Certificate of Survey"

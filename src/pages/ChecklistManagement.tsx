@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import {
   checklistQuestionsService,
+  approvalsService,
   operationsService,
   vesselCodesService,
   type ApiChecklistQuestion,
@@ -21,11 +22,16 @@ import {
 } from '@/ui';
 import s from './ChecklistManagement.module.css';
 
-export default function ChecklistManagement() {
+/**
+ * Admin master data, or (V2) QMS → Checklist: in QMS mode every change is sent to Approvals and only
+ * applied once approved. Approvers' own changes are applied straight away.
+ */
+export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
   const { can } = useAuth();
-  const canCreate = can(MODULE_KEYS.adminMasterData, 'create');
-  const canUpdate = can(MODULE_KEYS.adminMasterData, 'update');
-  const canDelete = can(MODULE_KEYS.adminMasterData, 'delete');
+  const permKey = qms ? MODULE_KEYS.qmsChecklist : MODULE_KEYS.adminMasterData;
+  const canCreate = can(permKey, 'create');
+  const canUpdate = can(permKey, 'update');
+  const canDelete = can(permKey, 'delete');
   const [questions, setQuestions] = useState<ApiChecklistQuestion[]>([]);
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [areaOperations, setAreaOperations] = useState<ApiAreaOfOperation[]>([]);
@@ -187,7 +193,17 @@ export default function ChecklistManagement() {
         qCategory: formQCategory.trim() || null,
       };
 
-      if (editingQuestion?._id) {
+      if (qms) {
+        const res = await approvalsService.submit({
+          entityType: 'checklist-question',
+          operation: editingQuestion?._id ? 'update' : 'create',
+          entityId: editingQuestion?._id,
+          payload: payload as Record<string, unknown>,
+        });
+        toast.success(res.message);
+        fetchQuestions();
+        setShowModal(false);
+      } else if (editingQuestion?._id) {
         const res = await checklistQuestionsService.updateQuestion(editingQuestion._id, payload);
         if (res.success) {
           toast.success('Checklist item updated successfully.');
@@ -216,6 +232,12 @@ export default function ChecklistManagement() {
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
     try {
+      if (qms) {
+        const proposed = await approvalsService.submit({ entityType: 'checklist-question', operation: 'delete', entityId: deleteConfirmId });
+        toast.success(proposed.message);
+        fetchQuestions();
+        return;
+      }
       const res = await checklistQuestionsService.deleteQuestion(deleteConfirmId);
       if (res.success) {
         toast.success('Checklist question deleted successfully.');
@@ -272,9 +294,11 @@ export default function ChecklistManagement() {
   return (
     <div className="animate-in">
       <PageHeader
-        breadcrumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Checklists' }]}
+        breadcrumbs={qms ? [{ label: 'QMS', href: '/qms' }, { label: 'Checklist' }] : [{ label: 'Admin', href: '/admin' }, { label: 'Checklists' }]}
         title="Checklist items"
-        description="Questions on the survey check sheet, and which surveys, boats, areas and vessel codes each one applies to."
+        description={qms
+          ? 'Questions on the survey check sheet. Changes are sent to Approvals and take effect once approved.'
+          : 'Questions on the survey check sheet, and which surveys, boats, areas and vessel codes each one applies to.'}
         actions={createButton}
       />
 

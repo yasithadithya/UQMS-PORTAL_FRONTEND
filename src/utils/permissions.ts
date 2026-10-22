@@ -30,6 +30,23 @@ export const MODULE_KEYS = {
   adminModules: 'admin.modules',
   adminMasterData: 'admin.master-data',
   adminAuditLog: 'admin.audit-log',
+  // V2 survey workflow
+  surveyorAllocation: 'surveyor-allocation',
+  jobs: 'jobs',
+  jobsMarine: 'jobs.marine',
+  jobsIndustrial: 'jobs.industrial',
+  jobsReporting: 'jobs.reporting',
+  viewReport: 'view-report',
+  authorization: 'authorization',
+  approvals: 'approvals',
+  ships: 'ships',
+  qms: 'qms',
+  qmsDocuments: 'qms.qms',
+  qmsForms: 'qms.forms',
+  qmsChecklist: 'qms.checklist',
+  qmsSop: 'qms.sop',
+  qmsJd: 'qms.jd',
+  previousDocs: 'previous-docs',
 } as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[keyof typeof MODULE_KEYS];
@@ -57,6 +74,7 @@ export const ACTION_LABELS: Record<string, string> = {
   override: 'Override',
   discount: 'Discount',
   export: 'Export',
+  'view-all': 'View all',
 };
 
 /** The role name that has unrestricted access (matches the backend). */

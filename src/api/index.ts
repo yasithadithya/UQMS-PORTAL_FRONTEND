@@ -19,3 +19,6 @@ export * from './services/hr.service';
 export * from './services/eSignature.service';
 export * from './services/finance.service';
 export * from './services/auditLog.service';
+export * from './services/jobs.service';
+export * from './services/approvals.service';
+export * from './services/previousDocs.service';

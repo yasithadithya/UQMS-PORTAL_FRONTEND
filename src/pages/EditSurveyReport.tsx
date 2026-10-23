@@ -202,7 +202,7 @@ const defaultInspections = [
 ];
 
 /** V2: embedded in the "Report Generation" section of the reporting workspace. */
-export default function EditSurveyReport({ embedded }: { embedded?: { surveyReportId: string; readOnly?: boolean } } = {}) {
+export default function EditSurveyReport({ embedded }: { embedded?: { surveyReportId: string; readOnly?: boolean; onChanged?: () => void } } = {}) {
   const { can: canRaw } = useAuth();
   const navigate = useNavigate();
   const params = useParams<{ id: string; module?: string }>();
@@ -728,6 +728,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
     const approved = await handleSave('Approved', remarks);
     if (approved) {
       toast.success('Report finalized and approved!');
+      embedded?.onChanged?.();
     }
   };
 
@@ -1599,12 +1600,9 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
       <StickyActionBar status={status === 'Approved' ? 'Approved: the report can no longer be edited' : 'Draft'}>
         <Button icon={<FileDown />} onClick={handlePreviewPdf} loading={downloading}>Preview PDF</Button>
         {status === 'Approved' && existingReportId ? (
-          // V2 (embedded): only the certificate is signed, so this report is viewed from the Reports tab.
-          !embedded && (
-            <Button variant="primary" icon={<PenLine />} onClick={() => setShowSignModal(true)}>
-              {isSigned ? 'View signed report' : 'View & sign'}
-            </Button>
-          )
+          <Button variant="primary" icon={<PenLine />} onClick={() => setShowSignModal(true)}>
+            {isSigned ? 'View signed report' : 'View & sign'}
+          </Button>
         ) : readOnly ? null : (
           <>
             <Button
@@ -1648,7 +1646,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
       {showSignModal && existingReportId && (
         <SignableDocumentModal
           isOpen
-          onClose={() => setShowSignModal(false)}
+          onClose={() => { setShowSignModal(false); embedded?.onChanged?.(); }}
           title={`Survey Report — ${vessel?.vesselName || 'Vessel'}`}
           docType="survey-report"
           docId={existingReportId}

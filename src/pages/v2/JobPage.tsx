@@ -8,7 +8,7 @@ import { jobsService } from '@/api';
 import type { ApiJob } from '@/api';
 import { IMPLEMENTED_MAIN_TYPES, type MainSurveyType } from '@/config/surveyCategories';
 import { formatDate, formatDateTime } from '@/utils/date';
-import FirstEntryWorkspace from './reporting/FirstEntryWorkspace';
+import FirstEntryWorkspace, { type WorkspaceWorkflow } from './reporting/FirstEntryWorkspace';
 import { JobStatusBadge, Notice, mainTypeLabel, personName, surveyTypeLabel } from './shared';
 import s from './v2.module.css';
 
@@ -19,7 +19,7 @@ const STAGES: { key: string; label: string; reached: string[] }[] = [
   { key: 'allocated', label: 'Allocated', reached: ['allocated', 'booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
   { key: 'booked', label: 'Survey booked', reached: ['booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
   { key: 'in-progress', label: 'Reporting', reached: ['in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
-  { key: 'pending-authorization', label: 'Certificate signed', reached: ['pending-authorization', 'completed'] },
+  { key: 'pending-authorization', label: 'Sent to manager', reached: ['pending-authorization', 'completed'] },
   { key: 'completed', label: 'Manager approved', reached: ['completed'] },
 ];
 
@@ -117,11 +117,28 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
     return res;
   });
 
+  const openSummary = () => setParams(prev => {
+    const p = new URLSearchParams(prev);
+    p.set('stage', 'reporting');
+    p.set('view', 'reporting');
+    p.set('section', 'summary');
+    return p;
+  });
+
+  const workflow: WorkspaceWorkflow = {
+    active: mode === 'work',
+    busy,
+    submit: () => run('submit', () => jobsService.submit(job._id)),
+    submitToManager: () => run('submit-manager', () => jobsService.submitToManager(job._id)),
+    review: () => setDecision('review'),
+  };
+
+  // Submitting is done from the Summary section; the header just points there.
   const actions = (
     <>
-      {mode === 'work' && access?.canSubmit && (
-        <Button variant="primary" icon={<Send />} loading={busy === 'submit'} onClick={() => run('submit', () => jobsService.submit(job._id))}>
-          Submit to surveyor
+      {mode === 'work' && started && (access?.canSubmit || access?.showSubmitToManager) && (
+        <Button variant="primary" icon={<Send />} onClick={openSummary}>
+          {access?.canSubmit ? 'Submit for surveyor approval' : 'Submit for manager approval'}
         </Button>
       )}
       {mode === 'work' && access?.canReview && (
@@ -232,7 +249,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
                 />
               </div>
             ) : (
-              <FirstEntryWorkspace job={job} readOnly={readOnly} onJob={next => setJob(prev => ({ ...prev, ...next, access: prev?.access }))} reload={load} />
+              <FirstEntryWorkspace job={job} readOnly={readOnly} onJob={next => setJob(prev => ({ ...prev, ...next, access: prev?.access }))} reload={load} workflow={workflow} />
             )}
           </>
         )}

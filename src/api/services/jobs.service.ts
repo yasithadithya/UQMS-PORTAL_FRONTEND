@@ -63,6 +63,7 @@ export const jobsService = {
   unmarkLastVisit: (id: string) => request<JobResponse>(`/jobs/${id}/unmark-last-visit`, { method: 'POST' }),
 
   submit: (id: string) => request<JobResponse>(`/jobs/${id}/submit`, { method: 'POST' }),
+  submitToManager: (id: string) => request<JobResponse>(`/jobs/${id}/submit-to-manager`, { method: 'POST' }),
   review: (id: string, decision: 'approve' | 'reject', reason?: string) =>
     request<JobResponse>(`/jobs/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, reason }) }),
   authorize: (id: string, decision: 'approve' | 'reject', reason?: string) =>

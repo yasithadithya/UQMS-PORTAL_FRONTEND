@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Anchor, Award, ExternalLink, Eye, FileText, Hourglass, Lock, PenLine, RotateCcw, Send, Wrench } from 'lucide-react';
+import { Anchor, Award, CheckCircle2, Circle, ExternalLink, Eye, FileText, Hourglass, Lock, PenLine, RotateCcw, Send, Wrench } from 'lucide-react';
 import {
   Badge, Button, Card, ConfirmDialog, EmptyState, LoadingBlock, Modal, Section, Tabs, buttonClassName,
 } from '@/ui';
@@ -18,10 +18,10 @@ import { firstEntryService, fetchReportPdf, jobsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiJob, ApiJobReportItem, ApiScheduleII, ApiScheduleIIDocument, ApiSurveyType, SignableDocType } from '@/api';
 import { cosVariantFor } from '@/config/certificateVariants';
 import { formatDateTime } from '@/utils/date';
-import { DocumentList, Notice } from '../shared';
+import { DocumentList, JobStatusBadge, Notice, personName } from '../shared';
 import s from '../v2.module.css';
 
-type SectionId = 'preliminary' | 'schedule' | 'checklist' | 'supporting' | 'reports-gen' | 'certificate' | 'status' | 'narrative';
+type SectionId = 'preliminary' | 'schedule' | 'checklist' | 'supporting' | 'reports-gen' | 'certificate' | 'status' | 'narrative' | 'summary';
 
 const SECTIONS: { value: SectionId; label: string }[] = [
   { value: 'preliminary', label: '1. Preliminary Data' },
@@ -32,7 +32,18 @@ const SECTIONS: { value: SectionId; label: string }[] = [
   { value: 'certificate', label: '6. Certificate' },
   { value: 'status', label: '7. Survey Status' },
   { value: 'narrative', label: '8. Narrative Report' },
+  { value: 'summary', label: '9. Summary' },
 ];
+
+/** Submit and review actions, run by the job page so its header and history stay in sync. */
+export interface WorkspaceWorkflow {
+  /** False when the page is opened to view or authorize rather than to work on the job. */
+  active: boolean;
+  busy: string | null;
+  submit: () => void;
+  submitToManager: () => void;
+  review: () => void;
+}
 
 /**
  * Which reports a job needs, decided by its survey sub types. Edit these rules when the list of
@@ -218,10 +229,16 @@ function ReportGenerationSection({
   const { can } = useAuth();
   const [panel, setPanel] = useState<'equipment' | 'final' | null>(null);
   const [dockingOpen, setDockingOpen] = useState(false);
-  const [viewer, setViewer] = useState<{ title: string; docType: SignableDocType; id: string } | null>(null);
+  const [signing, setSigning] = useState<{ title: string; docType: SignableDocType; id: string } | null>(null);
   const surveyReportId = job.links?.surveyReportId;
-  const types = job.surveyTypes.filter((t): t is ApiSurveyType => typeof t === 'object');
-  const needs = new Set(REPORT_RULES.filter(r => r.applies(types, job.mainSurveyType)).map(r => r.id));
+  const needs = reportsNeeded(job);
+  const docs = job.documents;
+  const canSign = can(MODULE_KEYS.jobsReporting, 'approve') || can(MODULE_KEYS.marineCertificates, 'sign-on-behalf');
+  const open = job.status !== 'completed' && job.status !== 'pending-authorization';
+  const signLabel = (signed?: boolean) => (signed || !canSign || !open ? 'View PDF' : 'View & sign');
+  const signedBadge = (signed?: boolean) => (
+    <Badge tone={signed ? 'success' : 'warning'}>{signed ? 'Signed' : 'Not signed'}</Badge>
+  );
 
   if (!surveyReportId) return <Notice>Start the reporting from the job page first.</Notice>;
 
@@ -246,12 +263,20 @@ function ReportGenerationSection({
               <div className={s.cardBody}>
                 <h3 className={s.cardTitle}><FileText aria-hidden="true" />Survey Report (Part C)</h3>
                 <p className={s.hint}>Hull, machinery, safety equipment and capacity.</p>
+                {job.links?.finalReportId && (
+                  <div className={s.row}>
+                    {signedBadge(docs?.surveyReport.signed)}
+                    {!docs?.surveyReport.finalized && <span className={s.hint}>Finalize & approve the report, then sign it.</span>}
+                  </div>
+                )}
                 <div className={s.cardActions}>
                   <Button size="sm" variant={panel === 'final' ? 'primary' : 'secondary'} onClick={() => setPanel(panel === 'final' ? null : 'final')}>
-                    {panel === 'final' ? 'Close' : readOnly ? 'View' : 'Fill in'}
+                    {panel === 'final' ? 'Close' : readOnly || docs?.surveyReport.finalized ? 'View' : 'Fill in'}
                   </Button>
                   {job.links?.finalReportId && (
-                    <Button size="sm" icon={<Eye />} onClick={() => setViewer({ title: 'Survey report', docType: 'survey-report', id: job.links!.finalReportId! })}>PDF</Button>
+                    <Button size="sm" icon={<PenLine />} onClick={() => setSigning({ title: `Survey report — ${job.vesselName}`, docType: 'survey-report', id: job.links!.finalReportId! })}>
+                      {signLabel(docs?.surveyReport.signed)}
+                    </Button>
                   )}
                 </div>
               </div>
@@ -263,9 +288,12 @@ function ReportGenerationSection({
             <div className={s.cardBody}>
               <h3 className={s.cardTitle}><Anchor aria-hidden="true" />Docking Survey Report</h3>
               <p className={s.hint}>Docking statement for the docking survey.</p>
+              {job.links?.dockingCertId && <div className={s.row}>{signedBadge(docs?.dockingCert.signed)}</div>}
               <div className={s.cardActions}>
                 {job.links?.dockingCertId ? (
-                  <Button size="sm" icon={<Eye />} onClick={() => setViewer({ title: 'Docking survey report', docType: 'docking-cert', id: job.links!.dockingCertId! })}>View</Button>
+                  <Button size="sm" icon={<PenLine />} onClick={() => setSigning({ title: `Docking survey report — ${job.vesselName}`, docType: 'docking-cert', id: job.links!.dockingCertId! })}>
+                    {signLabel(docs?.dockingCert.signed)}
+                  </Button>
                 ) : (
                   <Button size="sm" variant="primary" disabled={readOnly || !booking || !can(MODULE_KEYS.marineCertificates, 'create')} onClick={() => setDockingOpen(true)}>Generate</Button>
                 )}
@@ -278,7 +306,7 @@ function ReportGenerationSection({
       {panel === 'equipment' && (
         <VesselEquipmentRecordPage embedded={{ surveyReportId, readOnly, onSaved: () => { setPanel(null); onChanged(); } }} />
       )}
-      {panel === 'final' && <EditSurveyReport embedded={{ surveyReportId, readOnly }} />}
+      {panel === 'final' && <EditSurveyReport embedded={{ surveyReportId, readOnly, onChanged }} />}
 
       <DockingSurveyModal
         isOpen={dockingOpen}
@@ -287,7 +315,17 @@ function ReportGenerationSection({
         surveyReportId={surveyReportId}
         onSuccess={() => { setDockingOpen(false); onChanged(); }}
       />
-      {viewer && <PdfModal title={viewer.title} load={() => fetchReportPdf(viewer.docType, viewer.id)} onClose={() => setViewer(null)} />}
+      {signing && (
+        <SignableDocumentModal
+          isOpen
+          onClose={() => { setSigning(null); onChanged(); }}
+          title={signing.title}
+          docType={signing.docType}
+          docId={signing.id}
+          fetchPdf={() => fetchReportPdf(signing.docType, signing.id)}
+          downloadFileName={`${signing.title.replace(/\s+/g, '_')}.pdf`}
+        />
+      )}
     </div>
   );
 }
@@ -295,6 +333,11 @@ function ReportGenerationSection({
 // ---------------------------------------------------------------------------
 // 6. Certificate
 // ---------------------------------------------------------------------------
+
+const reportsNeeded = (job: ApiJob) => {
+  const types = job.surveyTypes.filter((t): t is ApiSurveyType => typeof t === 'object');
+  return new Set(REPORT_RULES.filter(r => r.applies(types, job.mainSurveyType)).map(r => r.id));
+};
 
 function CertificateSection({
   job, booking, readOnly, onChanged,
@@ -320,14 +363,16 @@ function CertificateSection({
           : <Button variant="primary" icon={<Award />} disabled={readOnly || !hasLastVisit || !booking || !can(MODULE_KEYS.marineCertificates, 'create')} onClick={() => setGenerateOpen(true)}>Generate {variant.shortName}</Button>}
       >
         {!certificateId && !hasLastVisit && <p className={s.hint}>Mark the last visit in the survey booking before generating the certificate.</p>}
-        {!certificateId && hasLastVisit && <p className={s.hint}>Record the findings and generate the certificate. The surveyor then signs it, and it goes to the manager for approval.</p>}
+        {!certificateId && hasLastVisit && <p className={s.hint}>Record the findings and generate the certificate. The surveyor then signs it and submits the job for manager approval from the Summary section.</p>}
         {certificateId && (
           <p className={s.hint}>
             {job.status === 'pending-authorization' && 'Signed and waiting for manager approval.'}
             {job.status === 'completed' && 'Signed and approved by the manager.'}
-            {!['pending-authorization', 'completed'].includes(job.status) && (canSign
-              ? 'Open the certificate to sign it. Signing locks the reporting and sends the job to the manager.'
-              : 'The surveyor signs the certificate.')}
+            {!['pending-authorization', 'completed'].includes(job.status) && (job.documents?.certificate.signed
+              ? 'Signed. Once the reports are signed too, submit the job for manager approval from the Summary section.'
+              : canSign
+                ? 'Open the certificate to sign it. Once the reports are signed too, submit the job for manager approval from the Summary section.'
+                : 'The surveyor signs the certificate.')}
           </p>
         )}
       </Section>
@@ -354,6 +399,129 @@ function CertificateSection({
           fetchPdf={() => fetchReportPdf('scccos', certificateId)}
           downloadFileName={`${variant.shortName}_${job.vesselName}.pdf`}
         />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 9. Summary
+// ---------------------------------------------------------------------------
+
+type ReadinessItem = { label: string; done: boolean; detail?: string; section?: SectionId; required: boolean };
+
+function SummarySection({
+  job, workflow, onGo,
+}: { job: ApiJob; workflow: WorkspaceWorkflow; onGo: (section: SectionId) => void }) {
+  const links = job.links ?? {};
+  const needs = reportsNeeded(job);
+  const access = job.access;
+  const surveyor = personName(job.surveyor);
+
+  const items: ReadinessItem[] = [
+    { label: 'Reporting started', done: !!links.surveyReportId, section: 'checklist', required: true },
+    { label: 'Schedule II', done: !!links.scheduleIIId, section: 'schedule', required: false },
+    ...(job.mssProofRequired
+      ? [{ label: 'MSS proof', done: !!job.mssProofUploaded, section: 'schedule' as SectionId, required: true }]
+      : []),
+    { label: 'Supporting documents', done: job.supportingDocuments.length > 0, detail: `${job.supportingDocuments.length} uploaded`, section: 'supporting', required: false },
+    ...(needs.has('equipment')
+      ? [
+        { label: 'Record of Equipment', done: !!links.equipmentRecordId, section: 'reports-gen' as SectionId, required: false },
+        { label: 'Survey Report (Part C) finalized', done: !!job.documents?.surveyReport.finalized, section: 'reports-gen' as SectionId, required: true },
+        { label: 'Survey Report signed', done: !!job.documents?.surveyReport.signed, section: 'reports-gen' as SectionId, required: true },
+      ]
+      : []),
+    ...(needs.has('docking')
+      ? [
+        { label: 'Docking Survey Report generated', done: !!links.dockingCertId, section: 'reports-gen' as SectionId, required: true },
+        { label: 'Docking Survey Report signed', done: !!job.documents?.dockingCert.signed, section: 'reports-gen' as SectionId, required: true },
+      ]
+      : []),
+    { label: 'Certificate generated', done: !!links.certificateId, section: 'certificate', required: true },
+    { label: 'Certificate signed', done: !!job.documents?.certificate.signed, section: 'certificate', required: true },
+  ];
+
+  const showSubmit = workflow.active && !!access?.canSubmit;
+  const showReview = workflow.active && !!access?.canReview;
+  const showManager = workflow.active && !!access?.showSubmitToManager;
+
+  return (
+    <div className={s.stack}>
+      <Section title="Job summary" description="What has been done for this job and what is still missing." actions={<JobStatusBadge status={job.status} />}>
+        <ul className={s.readiness}>
+          {items.map(item => (
+            <li key={item.label} className={s.readinessRow}>
+              <span className={item.done ? s.readinessDone : item.required ? s.readinessMissing : s.readinessOptional} aria-hidden="true">
+                {item.done ? <CheckCircle2 /> : <Circle />}
+              </span>
+              <span className={s.docText}>
+                <span className={s.docName}>{item.label}</span>
+                <span className={s.docMeta}>
+                  {item.detail ?? (item.done ? 'Done' : item.required ? 'Required' : 'Not done')}
+                </span>
+              </span>
+              {item.section && (
+                <Button size="sm" variant="ghost" onClick={() => onGo(item.section!)}>Open</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {job.status === 'submitted' && !showReview && (
+        <Notice icon={<Send />}>Submitted to {surveyor} for approval.</Notice>
+      )}
+      {job.status === 'surveyor-approved' && (
+        <Notice icon={<CheckCircle2 />}>The surveyor approved the reporting.</Notice>
+      )}
+      {job.status === 'pending-authorization' && (
+        <Notice icon={<Hourglass />}>Submitted for manager approval. The reporting is locked until the manager decides.</Notice>
+      )}
+      {job.status === 'completed' && (
+        <Notice icon={<CheckCircle2 />}>Approved by the manager.</Notice>
+      )}
+
+      {showSubmit && (
+        <Section
+          title="Submit for surveyor approval"
+          description={`Send the reporting to ${surveyor} to check. You can't edit it while it is waiting; the surveyor can send it back for changes.`}
+          actions={(
+            <Button variant="primary" icon={<Send />} loading={workflow.busy === 'submit'} disabled={job.mssProofRequired && !job.mssProofUploaded} onClick={workflow.submit}>
+              Submit for surveyor approval
+            </Button>
+          )}
+        >
+          {job.mssProofRequired && !job.mssProofUploaded ? <p className={s.hint}>Upload the MSS proof in the Schedule II section first.</p> : null}
+        </Section>
+      )}
+
+      {showReview && (
+        <Section
+          title="Review the assistant's work"
+          description="The assistant surveyor submitted the reporting. Approve it, or send it back with a reason."
+          actions={<Button variant="primary" icon={<CheckCircle2 />} onClick={workflow.review}>Review submission</Button>}
+        />
+      )}
+
+      {showManager && (
+        <Section
+          title="Submit for manager approval"
+          description="Send the job with its signed reports and certificate to the manager. The reporting is locked while it waits; if the manager rejects it, the signatures are removed so the documents can be corrected and signed again."
+          actions={(
+            <Button
+              variant="primary"
+              icon={<Send />}
+              loading={workflow.busy === 'submit-manager'}
+              disabled={!access?.canSubmitToManager}
+              onClick={workflow.submitToManager}
+            >
+              Submit for manager approval
+            </Button>
+          )}
+        >
+          {access?.submitToManagerBlockedReason ? <p className={s.hint}>{access.submitToManagerBlockedReason}</p> : null}
+        </Section>
       )}
     </div>
   );
@@ -397,7 +565,7 @@ export function ReportsTab({ job }: { job: ApiJob }) {
                   <span className={s.docName}>{item.name}</span>
                   <span className={s.docMeta}>{item.generatedAt ? formatDateTime(item.generatedAt) : ''}</span>
                 </span>
-                {item.docType === 'scccos' && <Badge tone={item.signed ? 'success' : 'warning'}>{item.signed ? 'Signed' : 'Not signed'}</Badge>}
+                {(item.docType === 'scccos' || item.docType === 'survey-report' || item.docType === 'docking-cert') && <Badge tone={item.signed ? 'success' : 'warning'}>{item.signed ? 'Signed' : 'Not signed'}</Badge>}
                 {item.docType ? (
                   <Button size="sm" variant="ghost" icon={<Eye />} onClick={() => setViewer(item)}>View</Button>
                 ) : item.url ? (
@@ -423,8 +591,8 @@ export function ReportsTab({ job }: { job: ApiJob }) {
 
 /** V2 Survey Reporting workspace for First Entry jobs: Reporting (8 sections) and Reports. */
 export default function FirstEntryWorkspace({
-  job, readOnly, onJob, reload,
-}: { job: ApiJob; readOnly: boolean; onJob: (j: ApiJob) => void; reload: () => void }) {
+  job, readOnly, onJob, reload, workflow,
+}: { job: ApiJob; readOnly: boolean; onJob: (j: ApiJob) => void; reload: () => void; workflow: WorkspaceWorkflow }) {
   const [params, setParams] = useSearchParams();
   const view = params.get('view') === 'reports' ? 'reports' : 'reporting';
   const section = (SECTIONS.some(x => x.value === params.get('section')) ? params.get('section') : 'preliminary') as SectionId;
@@ -485,6 +653,7 @@ export default function FirstEntryWorkspace({
           {section === 'certificate' && <CertificateSection job={job} booking={booking} readOnly={readOnly} onChanged={changed} />}
           {section === 'status' && <Placeholder title="Survey Status" />}
           {section === 'narrative' && <Placeholder title="Narrative Report" />}
+          {section === 'summary' && <SummarySection job={job} workflow={workflow} onGo={next => set({ section: next })} />}
         </>
       )}
 

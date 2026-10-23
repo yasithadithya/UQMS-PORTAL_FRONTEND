@@ -529,7 +529,10 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
   const clearError = (key: 'shipName' | 'portOfSurvey' | 'shipBuilder' | 'engineBuilder') =>
     setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
   const numberValue = (v: string): number | '' => (v !== '' ? Number(v) : '');
-  const requestsEditable = isFieldEditable('requestIds');
+  // A job booking's vessel and request are fixed by the job, so they're never editable here.
+  const vesselEditable = !job && isFieldEditable('vesselId');
+  const shipNameEditable = !job && isFieldEditable('shipName');
+  const requestsEditable = !job && isFieldEditable('requestIds');
   const surveysEditable = isFieldEditable('surveysRequested');
 
   const SECTIONS = [
@@ -558,21 +561,21 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
         <fieldset disabled={!!job?.readOnly} className={s.fieldsetReset}>
           <FormSection id="sb-vessel" title="Vessel" description="Choosing a registered vessel fills in its registry, tonnage and engine details.">
             <FormGrid columns={2}>
-              <Field label="Registered vessel" hint="Optional: leave empty for an unlisted vessel">
+              <Field label="Registered vessel" hint={job ? 'Set by the job' : 'Optional: leave empty for an unlisted vessel'}>
                 <div className={s.inline}>
-                  <Select value={selectedVesselId} onChange={e => handleVesselChange(e.target.value)} disabled={!isFieldEditable('vesselId')}>
+                  <Select value={selectedVesselId} onChange={e => handleVesselChange(e.target.value)} disabled={!vesselEditable}>
                     <option value="">Unlisted vessel (enter manually)</option>
                     {vessels.map(v => (
                       <option key={v._id} value={v._id}>{v.vesselName} {v.uqmsNumber ? `(${v.uqmsNumber})` : ''}</option>
                     ))}
                   </Select>
-                  {selectedVesselId && isFieldEditable('vesselId') && (
+                  {selectedVesselId && vesselEditable && (
                     <IconButton label="Clear vessel" icon={<X />} variant="secondary" onClick={handleRemoveVessel} />
                   )}
                 </div>
               </Field>
               <Field label="Ship name" required error={errors.shipName}>
-                <Input placeholder="e.g. MV Apollo" value={shipName} disabled={!isFieldEditable('shipName')}
+                <Input placeholder="e.g. MV Apollo" value={shipName} disabled={!shipNameEditable}
                   onChange={e => { setShipName(e.target.value); clearError('shipName'); }} />
               </Field>
             </FormGrid>

@@ -90,6 +90,9 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
   const vessel = report && typeof report.vesselId === 'object' && report.vesselId ? report.vesselId : null;
   const surveyReport = report && typeof report.firstEntrySurveyReportId === 'object' && report.firstEntrySurveyReportId ? report.firstEntrySurveyReportId : null;
   const booking = report && typeof report.bookingId === 'object' && report.bookingId ? report.bookingId : null;
+  const visitOptionValues: string[] = ((booking as any)?.visitDetails || []).map(
+    (visit: any, idx: number) => visit.visitNo || `Visit ${idx + 1}`
+  );
 
   const isScccosEligible = useMemo(() => {
     if (!vessel || vessel.vesselCode !== 'SSC') return false;
@@ -901,16 +904,11 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
                                 disabled={isLocked}
                               >
                                 <option value="">Select Visit...</option>
-                                {report.bookingId && typeof report.bookingId === 'object' && (report.bookingId as any).visitDetails
-                                  ?.filter((visit: any) => {
-                                    if (!currentUser) return false;
-                                    return visit.surveyorAssignments?.some((assign: any) => {
-                                      const sId = typeof assign.surveyorId === 'object' && assign.surveyorId
-                                        ? assign.surveyorId._id
-                                        : assign.surveyorId;
-                                      return sId === currentUser.id;
-                                    });
-                                  })
+                                {/* The server already limits the visits to the ones this user may pick. */}
+                                {item.visitNumber && !visitOptionValues.includes(item.visitNumber) && (
+                                  <option value={item.visitNumber}>{item.visitNumber}</option>
+                                )}
+                                {(booking as any)?.visitDetails
                                   ?.map((visit: any, idx: number) => {
                                     const visitVal = visit.visitNo || `Visit ${idx + 1}`;
                                     const visitLabel = visit.visitNo

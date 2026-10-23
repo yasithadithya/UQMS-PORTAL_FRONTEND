@@ -213,6 +213,54 @@
   text-transform: uppercase;
 }
 
+/* ── Summary readiness list ──────────────────────────────────────────── */
+
+.readiness {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.readinessRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.readinessRow + .readinessRow {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.readinessDone,
+.readinessMissing,
+.readinessOptional {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+}
+
+.readinessDone svg,
+.readinessMissing svg,
+.readinessOptional svg {
+  width: 18px;
+  height: 18px;
+}
+
+.readinessDone {
+  color: var(--color-success-fg);
+}
+
+.readinessMissing {
+  color: var(--color-warning-fg);
+}
+
+.readinessOptional {
+  color: var(--color-text-tertiary);
+}
+
 /* ── Report generation cards ─────────────────────────────────────────── */
 
 .cards {

@@ -856,6 +856,10 @@ export interface ApiJobAccess {
   lockedReason: string | null;
   canReview: boolean;
   canSubmit: boolean;
+  /** The lead surveyor sees the "Submit for manager approval" button while the job is open. */
+  showSubmitToManager: boolean;
+  canSubmitToManager: boolean;
+  submitToManagerBlockedReason: string | null;
   canAuthorize: boolean;
 }
 
@@ -890,6 +894,21 @@ export interface ApiJob {
   /** Only on GET /jobs/:id. */
   access?: ApiJobAccess;
   mssProofUploaded?: boolean;
+  /** Only on GET /jobs/:id: the documents the surveyor signs before the job goes to the manager. */
+  documents?: {
+    surveyReport: ApiJobDocumentState;
+    dockingCert: ApiJobDocumentState;
+    certificate: ApiJobDocumentState;
+  };
+}
+
+export interface ApiJobDocumentState {
+  id?: string;
+  /** Whether the job needs this document. */
+  required: boolean;
+  /** Survey report only: finalized ("Approved"), which it must be before signing. */
+  finalized?: boolean;
+  signed: boolean;
 }
 
 export interface ApiAllocatableSurveyor {

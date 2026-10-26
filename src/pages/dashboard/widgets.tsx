@@ -99,7 +99,7 @@ const LIST_LIMIT = 5;
 const useMyJobs = (enabled = true) => useSharedLoad('jobs-mine', () => jobsService.getJobs({ scope: 'mine', page: 1, limit: LIST_LIMIT }), enabled);
 const useAuthorizationJobs = () => useSharedLoad('jobs-authorization', () => jobsService.getJobs({ scope: 'authorization', page: 1, limit: LIST_LIMIT }));
 const useCompletedJobs = () => useSharedLoad('jobs-completed', () => jobsService.getJobs({ scope: 'completed', page: 1, limit: LIST_LIMIT }));
-const usePendingApprovals = () => useSharedLoad('approvals-pending', () => approvalsService.getApprovals({ status: 'pending', page: 1, limit: LIST_LIMIT }));
+const usePendingApprovals = () => useSharedLoad('approvals-pending', () => approvalsService.getApprovals({ status: 'pending,approved', page: 1, limit: LIST_LIMIT }));
 const useFirstEntries = () => useSharedLoad('fe-entries', () => firstEntryService.getFirstEntries({ page: 1, limit: LIST_LIMIT }));
 const usePendingLeaves = () => useSharedLoad('hr-pending-leaves', () => hrService.getLeaveRequests({ status: 'Pending', page: 1, limit: LIST_LIMIT }));
 const useHrStats = () => useSharedLoad('hr-stats', () => hrService.getDashboardStats());
@@ -265,7 +265,7 @@ function ApprovalsList() {
         {a => (
           <li key={a._id}>
             <RowLink to={base} title={a.summary} sub={[a.requestedByName, formatDate(a.createdAt)].filter(Boolean).join(' · ')}
-              end={<StatusBadge status={a.operation} />} />
+              end={<StatusBadge status={a.status} label={a.status === 'approved' ? 'Awaiting acceptance' : 'Awaiting approval'} tone={a.status === 'approved' ? 'info' : 'warning'} />} />
           </li>
         )}
       </ListBody>
@@ -728,7 +728,7 @@ export const WIDGETS: WidgetDef[] = [
     sizes: ['md', 'lg'], available: a => a.can(MODULE_KEYS.authorization), Component: AuthorizationList },
   { id: 'jobs.completed-list', title: 'Recently completed reports', description: 'The latest completed, approved survey reports.', group: 'Survey jobs', icon: <FileSearch />,
     sizes: ['md', 'lg'], available: a => a.can(MODULE_KEYS.viewReport), Component: CompletedReportsList },
-  { id: 'approvals.pending-count', title: 'Pending approvals (count)', description: 'Checklist changes waiting for review.', group: 'Survey jobs', icon: <CheckSquare />,
+  { id: 'approvals.pending-count', title: 'Pending approvals (count)', description: 'QMS changes waiting for approval or acceptance.', group: 'Survey jobs', icon: <CheckSquare />,
     sizes: ['sm'], available: a => a.can(MODULE_KEYS.approvals), Component: ApprovalsStat },
   { id: 'approvals.pending-list', title: 'Pending approvals', description: 'The latest changes waiting for review.', group: 'Survey jobs', icon: <CheckSquare />,
     sizes: ['md', 'lg'], available: a => a.can(MODULE_KEYS.approvals), Component: ApprovalsList },

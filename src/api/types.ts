@@ -933,6 +933,17 @@ export interface ApiJobReportItem {
   generatedAt?: string;
 }
 
+/** pending = waiting for approval (level 1); approved = waiting for acceptance (level 2); accepted = in effect. */
+export type ApiApprovalStatus = 'pending' | 'approved' | 'accepted' | 'rejected';
+
+export interface ApiApprovalHistoryEntry {
+  action: 'submitted' | 'approved' | 'accepted' | 'rejected';
+  stage?: 'approval' | 'acceptance';
+  byName?: string;
+  at: string;
+  comment?: string;
+}
+
 export interface ApiApprovalRequest {
   _id: string;
   entityType: 'checklist-question';
@@ -941,12 +952,27 @@ export interface ApiApprovalRequest {
   summary: string;
   payload: Record<string, unknown>;
   before?: Record<string, unknown> | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: ApiApprovalStatus;
+  requestComment?: string;
   requestedByName?: string;
-  reviewedByName?: string;
-  reviewedAt?: string;
-  reason?: string;
+  approvedByName?: string;
+  approvalComment?: string;
+  /** Date of approval. */
+  requestDate?: string;
+  acceptedByName?: string;
+  acceptanceComment?: string;
+  /** Date of acceptance: when the change took effect. */
+  effectiveDate?: string;
+  rejectedStage?: 'approval' | 'acceptance';
+  rejectedByName?: string;
+  rejectedAt?: string;
+  rejectionComment?: string;
+  /** Revision the change gave the record (0 = first issue). */
+  revision?: number;
+  history?: ApiApprovalHistoryEntry[];
+  resultId?: string;
   createdAt: string;
+  updatedAt?: string;
   /** Readable field-by-field changes (IDs already turned into names by the server). */
   changes?: ApiApprovalChange[];
 }

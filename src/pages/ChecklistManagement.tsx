@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
@@ -15,7 +16,8 @@ import {
 } from '@/api';
 import Pagination from '@/components/Pagination';
 import SearchableMultiSelect from '@/components/SearchableMultiSelect';
-import { ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { History, ListChecks, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { QMS_HISTORY_SLUG } from '@/navigation/useNavigation';
 import {
   Badge, Button, Checkbox, ConfirmDialog, DataTable, Drawer, Field, FormGrid, IconButton, Input, Modal, PageHeader, SearchInput, Select,
   Textarea, Toolbar, type Column,
@@ -23,8 +25,8 @@ import {
 import s from './ChecklistManagement.module.css';
 
 /**
- * Admin master data, or (V2) QMS → Checklist: in QMS mode every change is sent to Approvals and only
- * applied once approved. Approvers' own changes are applied straight away.
+ * Admin master data, or (V2) QMS → Checklist: in QMS mode every addition, edit or deletion is sent to
+ * Approvals with a request comment, and only applied once it has been approved and then accepted.
  */
 export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
   const { can } = useAuth();
@@ -61,7 +63,17 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [formErrors, setFormErrors] = useState<{ item?: string; surveys?: string }>({});
+  const [formErrors, setFormErrors] = useState<{ item?: string; surveys?: string; requestComment?: string }>({});
+  // QMS mode: why the change is being requested (required for every addition, edit and deletion).
+  const [requestComment, setRequestComment] = useState('');
+  const [deleteComment, setDeleteComment] = useState('');
+  const [deleteCommentError, setDeleteCommentError] = useState<string | undefined>();
+  const [deleting, setDeleting] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  // /qms/checklist → /qms/revision-history
+  const historyPath = `${location.pathname.split('/').slice(0, -1).join('/')}/${QMS_HISTORY_SLUG}`;
+  const openHistory = (recordId?: string) => navigate(recordId ? `${historyPath}?record=${recordId}` : historyPath);
 
   // Form payload states (using array states for all select dropdowns)
   const [formItemText, setFormItemText] = useState('');
@@ -149,6 +161,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
     setFormBoatTypes([]);
     setFormVesselCode('');
     setFormQCategory('');
+    setRequestComment('');
     setShowModal(true);
   };
 
@@ -169,16 +182,18 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
     setFormBoatTypes(boatIds);
     setFormVesselCode(q.vesselCode || '');
     setFormQCategory(q.qCategory || '');
+    setRequestComment('');
     setShowModal(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const found: { item?: string; surveys?: string } = {};
+    const found: { item?: string; surveys?: string; requestComment?: string } = {};
     if (!formItemText.trim()) found.item = 'Enter the item text.';
     if (formSurveyCategories.length === 0) found.surveys = 'Select at least one survey category.';
+    if (qms && !requestComment.trim()) found.requestComment = 'Explain why this change is needed.';
     setFormErrors(found);
-    if (found.item || found.surveys) return;
+    if (found.item || found.surveys || found.requestComment) return;
 
     try {
       setSaving(true);
@@ -199,6 +214,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
           operation: editingQuestion?._id ? 'update' : 'create',
           entityId: editingQuestion?._id,
           payload: payload as Record<string, unknown>,
+          requestComment: requestComment.trim(),
         });
         toast.success(res.message);
         fetchQuestions();
@@ -229,11 +245,24 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
     }
   };
 
+  const askDelete = (id: string | null) => {
+    setDeleteConfirmId(id);
+    setDeleteComment('');
+    setDeleteCommentError(undefined);
+  };
+
   const handleDelete = async () => {
     if (!deleteConfirmId) return;
+    if (qms && !deleteComment.trim()) {
+      setDeleteCommentError('Explain why this item should be deleted.');
+      return;
+    }
     try {
+      setDeleting(true);
       if (qms) {
-        const proposed = await approvalsService.submit({ entityType: 'checklist-question', operation: 'delete', entityId: deleteConfirmId });
+        const proposed = await approvalsService.submit({
+          entityType: 'checklist-question', operation: 'delete', entityId: deleteConfirmId, requestComment: deleteComment.trim(),
+        });
         toast.success(proposed.message);
         fetchQuestions();
         return;
@@ -248,6 +277,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
     } catch (err: any) {
       toast.error('Error deleting checklist question: ' + err.message);
     } finally {
+      setDeleting(false);
       setDeleteConfirmId(null);
     }
   };
@@ -290,6 +320,12 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
   ];
 
   const createButton = canCreate && <Button variant="primary" icon={<Plus />} onClick={openAddModal}>Add item</Button>;
+  const headerActions = (
+    <>
+      {qms && <Button icon={<History />} onClick={() => openHistory()}>Revision history</Button>}
+      {createButton}
+    </>
+  );
 
   return (
     <div className="animate-in">
@@ -297,9 +333,9 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         breadcrumbs={qms ? [{ label: 'QMS', href: '/qms' }, { label: 'Checklist' }] : [{ label: 'Admin', href: '/admin' }, { label: 'Checklists' }]}
         title="Checklist items"
         description={qms
-          ? 'Questions on the survey check sheet. Changes are sent to Approvals and take effect once approved.'
+          ? 'Questions on the survey check sheet. Every change needs a request comment, then approval and acceptance. It takes effect once accepted.'
           : 'Questions on the survey check sheet, and which surveys, boats, areas and vessel codes each one applies to.'}
-        actions={createButton}
+        actions={headerActions}
       />
 
       <Toolbar
@@ -332,7 +368,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         rowActions={(q) => (
           <>
             <IconButton label={`Edit ${q.item}`} icon={<Pencil />} size="sm" onClick={() => openEditModal(q)} disabled={!canUpdate} />
-            <IconButton label={`Delete ${q.item}`} icon={<Trash2 />} size="sm" variant="dangerGhost" onClick={() => setDeleteConfirmId(q._id || null)} disabled={!canDelete} />
+            <IconButton label={`Delete ${q.item}`} icon={<Trash2 />} size="sm" variant="dangerGhost" onClick={() => askDelete(q._id || null)} disabled={!canDelete} />
           </>
         )}
         footer={<Pagination page={page} limit={limit} total={total} totalPages={totalPages} onPageChange={setPage} onLimitChange={setLimit} />}
@@ -377,7 +413,9 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         footer={
           <>
             <Button onClick={() => setShowModal(false)} disabled={saving}>Cancel</Button>
-            <Button type="submit" form="checklist-form" variant="primary" loading={saving}>{editingQuestion ? 'Save changes' : 'Add item'}</Button>
+            <Button type="submit" form="checklist-form" variant="primary" loading={saving}>
+              {qms ? 'Send for approval' : editingQuestion ? 'Save changes' : 'Add item'}
+            </Button>
           </>
         }
       >
@@ -420,6 +458,13 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
           </div>
           <SearchableMultiSelect label="Boat types" value={formBoatTypes} options={boatOptions} placeholder="All boat types" onChange={setFormBoatTypes} />
           <SearchableMultiSelect label="Areas of operation" value={formAreaOperations} options={areaOptions} placeholder="All areas" onChange={setFormAreaOperations} />
+          {qms && (
+            <Field label="Request comment" required error={formErrors.requestComment}
+              hint="Why this change is needed. The approver and acceptor see this, and it is kept in the revision history.">
+              <Textarea rows={3} value={requestComment}
+                onChange={(e) => { setRequestComment(e.target.value); setFormErrors((p) => ({ ...p, requestComment: undefined })); }} />
+            </Field>
+          )}
         </form>
       </Modal>
 
@@ -432,6 +477,9 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         footer={
           <>
             <Button onClick={() => setViewingQuestion(null)}>Close</Button>
+            {qms && viewingQuestion?._id && (
+              <Button icon={<History />} onClick={() => openHistory(viewingQuestion._id)}>Revision history</Button>
+            )}
             {canUpdate && viewingQuestion && (
               <Button variant="primary" icon={<Pencil />} onClick={() => { const q = viewingQuestion; setViewingQuestion(null); openEditModal(q); }}>Edit item</Button>
             )}
@@ -456,10 +504,18 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
 
       <ConfirmDialog
         open={!!deleteConfirmId}
-        title="Delete checklist item?"
-        message="It will no longer appear on new check sheets. This can't be undone."
-        confirmText="Delete item"
+        title={qms ? 'Request deletion?' : 'Delete checklist item?'}
+        message={qms ? (
+          <div className={s.stack}>
+            <p>The deletion is sent for approval and acceptance. The item stays on check sheets until it is accepted.</p>
+            <Field label="Request comment" required error={deleteCommentError}>
+              <Textarea rows={3} value={deleteComment} onChange={(e) => { setDeleteComment(e.target.value); setDeleteCommentError(undefined); }} />
+            </Field>
+          </div>
+        ) : "It will no longer appear on new check sheets. This can't be undone."}
+        confirmText={qms ? 'Send for approval' : 'Delete item'}
         destructive
+        loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmId(null)}
       />

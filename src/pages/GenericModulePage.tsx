@@ -1,6 +1,6 @@
 import { useParams, useLocation, Link, Navigate } from 'react-router-dom';
 import type { Sector } from '@/config/surveyCategories';
-import { ChevronRight, Construction } from 'lucide-react';
+import { ChevronRight, Construction, History } from 'lucide-react';
 import { Button, Card, EmptyState, ErrorState, PageHeader, Skeleton } from '@/ui';
 import { ADMIN_PAGES, moduleIcon } from '@/navigation/useNavigation';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +20,8 @@ import JobListPage from './v2/JobListPage';
 import JobPage, { type JobPageMode } from './v2/JobPage';
 import ApprovalsPage from './v2/ApprovalsPage';
 import PreviousDocsPage from './v2/PreviousDocsPage';
+import QmsRevisionHistoryPage from './v2/QmsRevisionHistoryPage';
+import { QMS_HISTORY_SLUG } from '@/navigation/useNavigation';
 import s from './GenericModulePage.module.css';
 
 /** My Jobs sector sub-modules. */
@@ -134,6 +136,14 @@ export default function GenericModulePage() {
         return screen.list(basePath);
     }
 
+    // --- QMS → Revision history (not a module of its own; readable by anyone who can open QMS) ---
+    const qmsModule = modules.find(m => m.key === MODULE_KEYS.qms);
+    if (qmsModule && toSlug(qmsModule.name) === normalizedModule && pathSegments[1] === QMS_HISTORY_SLUG) {
+        if (pathSegments.length > 2) return <NotFound />;
+        if (!canAccessModule(qmsModule._id)) return <AccessDenied />;
+        return <QmsRevisionHistoryPage basePath={`/${normalizedModule}`} />;
+    }
+
     // --- Walk the module tree based on path segments ---
     const { trail, matched } = resolveModuleTrail(modules, pathSegments);
     if (matched === 0 || matched < pathSegments.length) {
@@ -191,6 +201,15 @@ export default function GenericModulePage() {
     // Handle Admin static sub-pages
     if (currentModule.key === MODULE_KEYS.admin && pathSegments.length === 1) {
         subModulesToDisplay.push(...ADMIN_PAGES.filter(page => can(page.module)));
+    }
+
+    if (currentModule.key === MODULE_KEYS.qms && pathSegments.length === 1) {
+        subModulesToDisplay.push({
+            name: 'Revision history',
+            href: `/${normalizedModule}/${QMS_HISTORY_SLUG}`,
+            desc: 'Every QMS change: request comments, approvals, acceptances, request and effective dates',
+            icon: <History />,
+        });
     }
 
     return (

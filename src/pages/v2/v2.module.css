@@ -460,6 +460,73 @@
   text-decoration: line-through;
 }
 
+/* ── QMS change requests ─────────────────────────────────────────────── */
+
+.factFull {
+  grid-column: 1 / -1;
+}
+
+.pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timelineItem {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+/* Line joining the icons */
+.timelineItem:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 26px;
+  bottom: 2px;
+  left: 11px;
+  width: 2px;
+  background: var(--color-border-subtle);
+}
+
+.timelineIcon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+}
+
+.timelineIcon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.timeline-approved .timelineIcon {
+  background: var(--color-info-bg);
+  color: var(--color-info-fg);
+}
+
+.timeline-accepted .timelineIcon {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+}
+
+.timeline-rejected .timelineIcon {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+}
+
 @media (max-width: 640px) {
   .facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));

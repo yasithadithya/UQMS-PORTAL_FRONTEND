@@ -1,100 +1,39 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { ArrowRight, CheckCircle2, Inbox, XCircle } from 'lucide-react';
-import { Badge, Button, Checkbox, DataTable, Drawer, Field, PageHeader, Tabs, Textarea, type Column } from '@/ui';
+import { CheckCircle2, Inbox, XCircle } from 'lucide-react';
+import { Badge, Button, DataTable, Drawer, Field, PageHeader, Tabs, Textarea, type Column } from '@/ui';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { approvalsService } from '@/api';
-import type { ApiApprovalChange, ApiApprovalRequest } from '@/api';
-import { formatDateTime } from '@/utils/date';
+import type { ApiApprovalRequest, ApiApprovalStatus } from '@/api';
+import { formatDate, formatDateTime } from '@/utils/date';
+import { ChangeFacts, Changes, ENTITY_LABELS, OP_LABELS, OP_TONES, Timeline, revisionText } from './QmsChange';
 import s from './v2.module.css';
 
-const ENTITY_LABELS: Record<string, string> = { 'checklist-question': 'Checklist question' };
-const OP_TONES = { create: 'success', update: 'info', delete: 'danger' } as const;
-const OP_LABELS = { create: 'New', update: 'Edit', delete: 'Delete' } as const;
+const TABS: { value: ApiApprovalStatus; label: string; empty: string }[] = [
+  { value: 'pending', label: 'Awaiting approval', empty: 'Nothing waiting for approval' },
+  { value: 'approved', label: 'Awaiting acceptance', empty: 'Nothing waiting for acceptance' },
+  { value: 'accepted', label: 'Accepted', empty: 'No accepted changes' },
+  { value: 'rejected', label: 'Rejected', empty: 'No rejected changes' },
+];
 
-/** One field: text shows old → new; lists show chips marked added / removed / unchanged. */
-function ChangeRow({ change, operation }: { change: ApiApprovalChange; operation: ApiApprovalRequest['operation'] }) {
-  const emptyText = <span className={s.changeEmpty}>{change.empty ?? 'None'}</span>;
-  const shown = operation === 'delete' ? change.before : change.after;
-
-  let body: React.ReactNode;
-  if (change.list) {
-    const kept = shown.filter(v => !change.added.includes(v));
-    const removed = operation === 'update' ? change.removed : [];
-    const added = operation === 'update' ? change.added : [];
-    body = kept.length + removed.length + added.length === 0 ? emptyText : (
-      <ul className={s.chips}>
-        {added.map(v => <li key={`+${v}`} className={`${s.chip} ${s.chipAdded}`}><span aria-label="Added">+</span> {v}</li>)}
-        {removed.map(v => <li key={`-${v}`} className={`${s.chip} ${s.chipRemoved}`}><span aria-label="Removed">−</span> {v}</li>)}
-        {kept.map(v => <li key={v} className={s.chip}>{v}</li>)}
-      </ul>
-    );
-  } else if (operation === 'update' && change.changed) {
-    body = (
-      <div className={s.textChange}>
-        <span className={s.oldValue}>{change.before[0] || emptyText}</span>
-        <ArrowRight className={s.changeArrow} aria-label="changed to" />
-        <span className={s.newValue}>{change.after[0] || emptyText}</span>
-      </div>
-    );
-  } else {
-    body = shown[0] ? <span className={s.plainValue}>{shown[0]}</span> : emptyText;
-  }
-
-  return (
-    <div className={`${s.changeRow} ${operation === 'update' && change.changed ? s.changeRowChanged : ''}`}>
-      <div className={s.changeLabel}>
-        {change.label}
-        {operation === 'update' && change.changed && <Badge tone="warning">Changed</Badge>}
-        {operation === 'update' && change.list && change.changed && (
-          <span className={s.changeCount}>
-            {[change.added.length && `${change.added.length} added`, change.removed.length && `${change.removed.length} removed`].filter(Boolean).join(', ')}
-          </span>
-        )}
-      </div>
-      {body}
-    </div>
-  );
-}
-
-/** The proposed change, field by field. Edits show only changed fields unless asked. */
-function Changes({ approval }: { approval: ApiApprovalRequest }) {
-  const [showAll, setShowAll] = useState(false);
-  const changes = approval.changes ?? [];
-  const changedCount = changes.filter(c => c.changed).length;
-  const isUpdate = approval.operation === 'update';
-  const visible = isUpdate && !showAll ? changes.filter(c => c.changed) : changes;
-
-  return (
-    <div className={s.stack}>
-      <div className={s.changesHead}>
-        <span>
-          {approval.operation === 'create' && 'A new checklist question will be added.'}
-          {approval.operation === 'delete' && 'This checklist question will be deleted.'}
-          {isUpdate && (changedCount === 0 ? 'No fields change.' : `${changedCount} field${changedCount === 1 ? '' : 's'} will change.`)}
-        </span>
-        {isUpdate && changes.length > changedCount && (
-          <Checkbox label="Show unchanged fields" checked={showAll} onChange={e => setShowAll(e.target.checked)} />
-        )}
-      </div>
-      <div className={s.changeList}>
-        {visible.map(c => <ChangeRow key={c.key} change={c} operation={approval.operation} />)}
-      </div>
-    </div>
-  );
-}
-
+/**
+ * QMS change control. Level 1 approves a request (sets the request date); level 2 accepts it, which
+ * applies the change and sets the effective date. Either level can reject, with a comment.
+ */
 export default function ApprovalsPage() {
   const { can } = useAuth();
   const canApprove = can(MODULE_KEYS.approvals, 'approve');
-  const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const canAccept = can(MODULE_KEYS.approvals, 'accept');
+  // Acceptors who can't approve start on their own queue.
+  const [status, setStatus] = useState<ApiApprovalStatus>(canAccept && !canApprove ? 'approved' : 'pending');
   const [rows, setRows] = useState<ApiApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<ApiApprovalRequest | null>(null);
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState<'approve' | 'reject' | null>(null);
+  const [comment, setComment] = useState('');
+  const [commentError, setCommentError] = useState<string | undefined>();
+  const [busy, setBusy] = useState<'yes' | 'reject' | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,18 +48,29 @@ export default function ApprovalsPage() {
   }, [status]);
   useEffect(() => { load(); }, [load]);
 
-  const decide = async (decision: 'approve' | 'reject') => {
-    if (!open) return;
-    if (decision === 'reject' && !reason.trim()) {
-      toast.error('Give a reason for rejecting.');
+  const openRow = (r: ApiApprovalRequest) => {
+    setOpen(r);
+    setComment('');
+    setCommentError(undefined);
+  };
+
+  /** Which level the open request is at, if this user can act on it. */
+  const level = open?.status === 'pending' && canApprove ? 'approval' : open?.status === 'approved' && canAccept ? 'acceptance' : null;
+
+  const decide = async (yes: boolean) => {
+    if (!open || !level) return;
+    const text = comment.trim();
+    if (!yes && !text) {
+      setCommentError('A comment is required to reject.');
       return;
     }
-    setBusy(decision);
+    setBusy(yes ? 'yes' : 'reject');
     try {
-      const res = await approvalsService.decide(open._id, decision, reason.trim() || undefined);
+      const res = level === 'approval'
+        ? await approvalsService.decide(open._id, yes ? 'approve' : 'reject', text || undefined)
+        : await approvalsService.accept(open._id, yes ? 'accept' : 'reject', text || undefined);
       toast.success(res.message);
       setOpen(null);
-      setReason('');
       load();
     } catch (err: any) {
       toast.error(err.message);
@@ -131,19 +81,37 @@ export default function ApprovalsPage() {
 
   const columns: Column<ApiApprovalRequest>[] = [
     { key: 'summary', header: 'Change', primary: true, cell: r => (
-      <span className={s.cellStack}><span className={s.strong}>{r.summary}</span><span className={s.muted}>{ENTITY_LABELS[r.entityType] ?? r.entityType}</span></span>
+      <span className={s.cellStack}>
+        <span className={s.strong}>{r.summary}</span>
+        <span className={s.muted}>{ENTITY_LABELS[r.entityType] ?? r.entityType}{r.requestComment ? ` · ${r.requestComment}` : ''}</span>
+      </span>
     ) },
     { key: 'op', header: 'Type', cell: r => <Badge tone={OP_TONES[r.operation]}>{OP_LABELS[r.operation]}</Badge> },
     { key: 'by', header: 'Requested by', hideOnMobile: true, cell: r => r.requestedByName || '—' },
-    { key: 'at', header: 'Requested', nowrap: true, hideOnMobile: true, cell: r => formatDateTime(r.createdAt) },
-    ...(status !== 'pending' ? [{ key: 'rev', header: 'Decided by', hideOnMobile: true, cell: (r: ApiApprovalRequest) => r.reviewedByName || '—' }] : []),
+    { key: 'at', header: 'Submitted', nowrap: true, hideOnMobile: true, cell: r => formatDateTime(r.createdAt) },
+    ...(status !== 'pending' ? [
+      { key: 'reqDate', header: 'Request date', nowrap: true, hideOnMobile: true, cell: (r: ApiApprovalRequest) => (r.requestDate ? formatDate(r.requestDate) : '—') },
+    ] : []),
+    ...(status === 'accepted' ? [
+      { key: 'effDate', header: 'Effective date', nowrap: true, cell: (r: ApiApprovalRequest) => formatDate(r.effectiveDate) },
+      { key: 'rev', header: 'Revision', nowrap: true, cell: (r: ApiApprovalRequest) => revisionText(r.revision) },
+    ] : []),
+    ...(status === 'rejected' ? [
+      { key: 'rej', header: 'Rejected by', hideOnMobile: true, cell: (r: ApiApprovalRequest) => (
+        <span className={s.cellStack}><span>{r.rejectedByName || '—'}</span><span className={s.muted}>at {r.rejectedStage ?? 'approval'}</span></span>
+      ) },
+    ] : []),
   ];
+
+  const current = TABS.find(t => t.value === status)!;
 
   return (
     <div className="animate-in">
-      <PageHeader title="Approvals" description="QMS changes waiting for approval. A change takes effect only after it is approved." />
-      <Tabs label="Status" value={status} onValueChange={setStatus}
-        items={[{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }]} />
+      <PageHeader
+        title="Approvals"
+        description="QMS change control. Every addition, edit or deletion must be approved and then accepted. It takes effect only once accepted."
+      />
+      <Tabs label="Status" value={status} onValueChange={setStatus} items={TABS.map(t => ({ value: t.value, label: t.label }))} />
       <DataTable
         columns={columns}
         rows={rows}
@@ -151,31 +119,43 @@ export default function ApprovalsPage() {
         loading={loading}
         error={error}
         onRetry={load}
-        onRowClick={r => { setOpen(r); setReason(''); }}
-        empty={{ icon: <Inbox />, title: status === 'pending' ? 'Nothing waiting for approval' : `No ${status} changes` }}
+        onRowClick={openRow}
+        empty={{ icon: <Inbox />, title: current.empty }}
       />
       {open && (
         <Drawer
           open
           onClose={() => setOpen(null)}
-          width={640}
+          dismissible={!busy}
+          width={680}
           title={open.summary}
-          description={`${ENTITY_LABELS[open.entityType] ?? open.entityType} · ${OP_LABELS[open.operation]} · requested by ${open.requestedByName || '—'} on ${formatDateTime(open.createdAt)}`}
-          footer={open.status === 'pending' && canApprove && (
+          description={`${ENTITY_LABELS[open.entityType] ?? open.entityType} · ${OP_LABELS[open.operation]} · submitted by ${open.requestedByName || '—'} on ${formatDateTime(open.createdAt)}`}
+          footer={level && (
             <>
-              <Button variant="danger" icon={<XCircle />} loading={busy === 'reject'} disabled={!!busy} onClick={() => decide('reject')}>Reject</Button>
-              <Button variant="primary" icon={<CheckCircle2 />} loading={busy === 'approve'} disabled={!!busy} onClick={() => decide('approve')}>Approve & apply</Button>
+              <Button variant="danger" icon={<XCircle />} loading={busy === 'reject'} disabled={!!busy} onClick={() => decide(false)}>Reject</Button>
+              <Button variant="primary" icon={<CheckCircle2 />} loading={busy === 'yes'} disabled={!!busy} onClick={() => decide(true)}>
+                {level === 'approval' ? 'Approve' : 'Accept & apply'}
+              </Button>
             </>
           )}
         >
           <div className={s.stack}>
+            <ChangeFacts approval={open} />
             <Changes key={open._id} approval={open} />
-            {open.reason && <p className={s.hint}>Reason: {open.reason}</p>}
-            {open.status === 'pending' && canApprove && (
-              <Field label="Comment" hint="Required when rejecting.">
-                <Textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} />
+            {level && (
+              <Field
+                label={level === 'approval' ? 'Approval comment' : 'Acceptance comment'}
+                hint={level === 'approval'
+                  ? 'Optional when approving, required when rejecting. Approving sets the request date; the change still needs to be accepted.'
+                  : 'Optional when accepting, required when rejecting. Accepting applies the change and sets the effective date.'}
+                error={commentError}
+              >
+                <Textarea rows={3} value={comment} onChange={e => { setComment(e.target.value); setCommentError(undefined); }} />
               </Field>
             )}
+            {!level && open.status === 'pending' && <p className={s.hint}>Waiting for someone with approve permission.</p>}
+            {!level && open.status === 'approved' && <p className={s.hint}>Approved. Waiting for someone with accept permission.</p>}
+            <Timeline approval={open} />
           </div>
         </Drawer>
       )}

@@ -10,17 +10,32 @@ const query = (params: Record<string, unknown>) => {
   return qs ? `?${qs}` : '';
 };
 
+type ListResponse = { success: boolean; count: number; pagination: PaginationMeta; data: ApiApprovalRequest[] };
+type OneResponse = { success: boolean; message: string; data: ApiApprovalRequest };
+
 export const approvalsService = {
+  /** `status` may be comma-separated, e.g. "pending,approved" for everything still open. */
   getApprovals: (params: { status?: string; entityType?: string; entityId?: string; page?: number; limit?: number } = {}) =>
-    request<{ success: boolean; count: number; pagination: PaginationMeta; data: ApiApprovalRequest[] }>(`/approvals${query(params)}`),
+    request<ListResponse>(`/approvals${query(params)}`),
 
-  /** Proposes a change. Approvers' changes are applied straight away. */
-  submit: (payload: { entityType: 'checklist-question'; operation: 'create' | 'update' | 'delete'; entityId?: string; payload?: Record<string, unknown> }) =>
-    request<{ success: boolean; message: string; data: ApiApprovalRequest }>('/approvals', { method: 'POST', body: JSON.stringify(payload) }),
+  /** QMS revision history: every change request in every state, newest activity first. */
+  getHistory: (params: { status?: string; entityType?: string; entityId?: string; search?: string; page?: number; limit?: number } = {}) =>
+    request<ListResponse>(`/approvals/history${query(params)}`),
 
-  decide: (id: string, decision: 'approve' | 'reject', reason?: string) =>
-    request<{ success: boolean; message: string; data: ApiApprovalRequest }>(`/approvals/${id}/decision`, {
-      method: 'POST',
-      body: JSON.stringify({ decision, reason }),
-    }),
+  /** Proposes a change. It needs approval and then acceptance before it takes effect. */
+  submit: (payload: {
+    entityType: 'checklist-question';
+    operation: 'create' | 'update' | 'delete';
+    entityId?: string;
+    payload?: Record<string, unknown>;
+    requestComment: string;
+  }) => request<OneResponse>('/approvals', { method: 'POST', body: JSON.stringify(payload) }),
+
+  /** Level 1. */
+  decide: (id: string, decision: 'approve' | 'reject', comment?: string) =>
+    request<OneResponse>(`/approvals/${id}/decision`, { method: 'POST', body: JSON.stringify({ decision, comment }) }),
+
+  /** Level 2: accepting applies the change. */
+  accept: (id: string, decision: 'accept' | 'reject', comment?: string) =>
+    request<OneResponse>(`/approvals/${id}/acceptance`, { method: 'POST', body: JSON.stringify({ decision, comment }) }),
 };

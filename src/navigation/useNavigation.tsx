@@ -53,6 +53,9 @@ export const ADMIN_PAGES: { name: string; navLabel: string; href: string; desc: 
   { name: 'Audit Log', navLabel: 'Audit log', href: '/audit-log', desc: 'History of overrides and controlled changes', module: MODULE_KEYS.adminAuditLog, icon: <History /> },
 ];
 
+/** QMS → Revision history lives at /<qms>/revision-history. */
+export const QMS_HISTORY_SLUG = 'revision-history';
+
 /* ------------------------------------------------------------------ icons */
 
 const ICONS: Record<string, ReactNode> = {
@@ -239,6 +242,14 @@ export function useNavigation(): Navigation {
             adminLinks.push({ kind: 'link', id: '/dev/ui', label: 'UI kit', to: '/dev/ui', trail, isActive: loc => loc.pathname === '/dev/ui' });
           }
           if (adminLinks.length) sections.unshift({ id: 'admin-pages', items: adminLinks });
+        }
+
+        if (mod.key === MODULE_KEYS.qms) {
+          const to = `${path}/${QMS_HISTORY_SLUG}`;
+          sections.push({
+            id: 'qms-history',
+            items: [{ kind: 'link', id: to, label: 'Revision history', to, trail, isActive: loc => underPath(loc.pathname, to) }],
+          });
         }
 
         const allLinks = sections.flatMap(s => s.items);

@@ -226,7 +226,8 @@ export default function QuotationDetails() {
               <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
             )}
             {isOpen && canAccept && (
-              <Button variant={approval ? 'primary' : undefined} icon={<CheckCircle2 />} onClick={() => setPending('accepted')}>Accept</Button>
+              <Button variant={approval ? 'primary' : undefined} icon={<CheckCircle2 />} disabled={!approval}
+                title={approval ? undefined : 'Approve the quotation before accepting it'} onClick={() => setPending('accepted')}>Accept</Button>
             )}
             <Menu
               label="More quotation actions"

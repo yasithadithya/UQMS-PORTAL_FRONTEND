@@ -82,9 +82,6 @@ export const jobsService = {
     );
   },
 
-  /** V2 master data: which main type a survey sub type belongs to. */
-  setSurveyTypeMapping: (id: string, mapping: { mainType?: string | null; sector?: string }) =>
-    request<{ success: boolean; data: ApiSurveyType }>(`/operations/survey-types/${id}/mapping`, { method: 'PATCH', body: JSON.stringify(mapping) }),
 };
 
 /** Fetches a generated report PDF for the viewer, by document type. */

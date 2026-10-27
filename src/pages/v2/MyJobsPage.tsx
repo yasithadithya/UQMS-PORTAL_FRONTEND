@@ -69,7 +69,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
     ) },
     { key: 'surveys', header: 'Surveys', hideOnMobile: true, cell: j => j.surveyTypes.map(t => (typeof t === 'object' ? t.code : t)).join(', ') || '—' },
     ...(seesAll ? [{ key: 'surveyor', header: 'Surveyor', hideOnMobile: true, cell: (j: ApiJob) => personName(j.surveyor) }] : []),
-    { key: 'allocated', header: 'Allocated', hideOnMobile: true, nowrap: true, cell: j => (j.allocatedAt ? formatDate(j.allocatedAt) : '—') },
+    { key: 'allocated', header: 'Surveyor booked', hideOnMobile: true, nowrap: true, cell: j => (j.allocatedAt ? formatDate(j.allocatedAt) : '—') },
     { key: 'status', header: 'Status', cell: j => <JobStatusBadge status={j.status} /> },
   ];
 
@@ -78,7 +78,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
       <PageHeader
         breadcrumbs={[{ label: 'My Jobs' }, { label: sectorLabel }]}
         title={`${sectorLabel} jobs`}
-        description={seesAll ? 'All open jobs across surveyors. Completed jobs move to View Report.' : 'Jobs allocated to you. Open a job to book the survey and start reporting. Completed jobs move to View Report.'}
+        description={seesAll ? 'All open jobs across surveyors. Completed jobs move to View Report.' : 'Jobs you are booked on. Open a job to plan the visits and start reporting. Completed jobs move to View Report.'}
       />
 
       <Tabs
@@ -101,7 +101,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
         error={error}
         onRetry={load}
         onRowClick={j => navigate(`${basePath}/${j._id}`)}
-        empty={{ icon: <Briefcase />, title: 'No jobs here', description: `No ${MAIN_SURVEY_TYPE_LABELS[mainType].toLowerCase()} jobs ${seesAll ? '' : 'are allocated to you '}right now.` }}
+        empty={{ icon: <Briefcase />, title: 'No jobs here', description: `No ${MAIN_SURVEY_TYPE_LABELS[mainType].toLowerCase()} jobs ${seesAll ? '' : 'are booked for you '}right now.` }}
         footer={meta.total > limit && (
           <Pagination page={meta.page} limit={limit} total={meta.total} totalPages={meta.totalPages} onPageChange={setPage} onLimitChange={setLimit} />
         )}

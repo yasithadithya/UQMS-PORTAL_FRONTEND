@@ -363,7 +363,7 @@ function CertificateSection({
           ? <Button variant="primary" icon={<PenLine />} onClick={() => setSignOpen(true)}>{canSign && job.status !== 'completed' ? 'View & sign' : 'View certificate'}</Button>
           : <Button variant="primary" icon={<Award />} disabled={readOnly || !hasLastVisit || !booking || !can(MODULE_KEYS.marineCertificates, 'create')} onClick={() => setGenerateOpen(true)}>Generate {variant.shortName}</Button>}
       >
-        {!certificateId && !hasLastVisit && <p className={s.hint}>Mark the last visit in the survey booking before generating the certificate.</p>}
+        {!certificateId && !hasLastVisit && <p className={s.hint}>Mark the last visit in Visit planning before generating the certificate.</p>}
         {!certificateId && hasLastVisit && <p className={s.hint}>Record the findings and generate the certificate. The surveyor then signs it and submits the job for manager approval from the Summary section.</p>}
         {certificateId && (
           <p className={s.hint}>
@@ -668,7 +668,7 @@ export default function FirstEntryWorkspace({
       <ConfirmDialog
         open={confirmUnmark}
         title="Unmark the last visit?"
-        message="The visit stays in the booking but is no longer the last visit, so more visits can be added."
+        message="The visit stays in the visit plan but is no longer the last visit, so more visits can be added."
         confirmText="Unmark"
         loading={unmarking}
         onCancel={() => setConfirmUnmark(false)}

@@ -169,7 +169,7 @@ export default function CreateFirstEntrySurveyReport() {
         setFirstSurveyDate(data.firstSurveyDate ? data.firstSurveyDate.split('T')[0] : '');
         setLastSurveyDate(data.lastSurveyDate ? data.lastSurveyDate.split('T')[0] : '');
         setSurveys(data.surveys || []);
-        toast.success('Report details pre-populated from booking successfully!');
+        toast.success('Report details pre-populated from the visit plan successfully!');
       } else {
         toast.error('Failed to pre-populate details.');
       }
@@ -224,7 +224,7 @@ export default function CreateFirstEntrySurveyReport() {
     e.preventDefault();
 
     if (!selectedBookingId) {
-      setBookingError('Choose the survey booking this report is for.');
+      setBookingError('Choose the visit plan this report is for.');
       return;
     }
 
@@ -332,7 +332,7 @@ export default function CreateFirstEntrySurveyReport() {
       <PageHeader
         back={{ href: listPath, label: 'Survey reports' }}
         title={isEdit ? 'Edit survey report' : 'Create survey report'}
-        description={isEdit ? 'Update report details and each survey’s status.' : 'Choose a survey booking; the vessel details, dates and surveys are filled in from it.'}
+        description={isEdit ? 'Update report details and each survey’s status.' : 'Choose a visit plan; the vessel details, dates and surveys are filled in from it.'}
         meta={
           <>
             {reportNo && <Badge tone="accent" title="Report number">{reportNo}</Badge>}
@@ -344,11 +344,11 @@ export default function CreateFirstEntrySurveyReport() {
 
       <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty} noValidate className={s.form}>
         {!isEdit && (
-          <FormSection title="Survey booking">
+          <FormSection title="Visit plan">
             <div className={s.narrow}>
-              <Field label="Booking" required error={bookingError}>
+              <Field label="Visit plan" required error={bookingError}>
                 <Select
-                  placeholder="Choose a survey booking"
+                  placeholder="Choose a visit plan"
                   value={selectedBookingId}
                   onChange={e => { handleBookingChange(e.target.value); setBookingError(undefined); }}
                 >
@@ -365,13 +365,13 @@ export default function CreateFirstEntrySurveyReport() {
 
         {!selectedBookingId && !isEdit && (
           <Card padding="none">
-            <EmptyState icon={<FileText />} title="Choose a booking to start" description="The report is built from the booking’s vessel, visit dates and requested surveys." />
+            <EmptyState icon={<FileText />} title="Choose a visit plan to start" description="The report is built from the visit plan’s vessel, visit dates and requested surveys." />
           </Card>
         )}
 
         {selectedBookingId && (
           <>
-            <FormSection title="Vessel & timeline" description="From the survey booking.">
+            <FormSection title="Vessel & timeline" description="From the visit plan.">
               <dl className={s.facts}>
                 {fact('Ship', shipName)}
                 {fact('Managed by', managedBy)}
@@ -403,7 +403,7 @@ export default function CreateFirstEntrySurveyReport() {
 
             <FormSection title="Surveys" description={surveys.length ? `${surveys.length} ${surveys.length === 1 ? 'survey' : 'surveys'} from the booking.` : undefined}>
               {surveys.length === 0 ? (
-                <p className={s.emptyNote}>This booking has no requested surveys.</p>
+                <p className={s.emptyNote}>This visit plan has no requested surveys.</p>
               ) : (
                 <div className={s.surveys}>
                   {surveys.map((survey, index) => (

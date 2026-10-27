@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Inbox, Settings2, ShieldAlert, UserCheck } from 'lucide-react';
 import {
-  Badge, Button, Checkbox, DataTable, Drawer, Field, FormGrid, FormSection, Input, Modal, PageHeader, SearchInput, Select, Tabs, Textarea, Toolbar,
+  Badge, Button, Checkbox, DataTable, Field, FormGrid, FormSection, Input, Modal, PageHeader, SearchInput, Select, Tabs, Textarea, Toolbar,
   type Column,
 } from '@/ui';
 import SearchableSelect from '@/components/SearchableSelect';
@@ -44,11 +44,18 @@ function AllocationForm({
 }) {
   const requestTypeIds = (request.surveyTypes || []).map(idOf);
   const requestTypes = surveyTypes.filter(t => requestTypeIds.includes(t._id));
-  const guessedMain = (requestTypes.find(t => t.mainType)?.mainType as MainSurveyType | undefined)
-    ?? (request.sector === 'industrial' ? 'industrial-survey' : 'first-entry');
+  // Sub types can belong to several main types: prefer one that every mapped requested survey shares.
+  const guessMain = (): MainSurveyType => {
+    const mapped = requestTypes.filter(t => t.mainTypes?.length);
+    const sectorTypes = MAIN_TYPES_BY_SECTOR[request.sector || 'marine'];
+    const candidates = sectorTypes.filter(m => mapped.some(t => t.mainTypes!.includes(m)));
+    return candidates.find(m => mapped.every(t => t.mainTypes!.includes(m)))
+      ?? candidates[0]
+      ?? (request.sector === 'industrial' ? 'industrial-survey' : 'first-entry');
+  };
 
   const [sector, setSector] = useState<Sector>(request.sector || 'marine');
-  const [mainType, setMainType] = useState<MainSurveyType>(guessedMain);
+  const [mainType, setMainType] = useState<MainSurveyType>(guessMain);
   const [subTypes, setSubTypes] = useState<string[]>(requestTypeIds);
   const [surveyorId, setSurveyorId] = useState('');
   const [assistantIds, setAssistantIds] = useState<string[]>([]);
@@ -69,10 +76,10 @@ function AllocationForm({
     if (!MAIN_TYPES_BY_SECTOR[next].includes(mainType)) setMainType(MAIN_TYPES_BY_SECTOR[next][0]);
   };
 
-  // Sub types offered: those mapped to the main type, plus unmapped ones (until the mapping is complete).
+  // Sub types offered: those mapped to the main type (a sub type can be under several), plus unmapped ones (until the mapping is complete).
   const subTypeOptions = surveyTypes
-    .filter(t => (!t.mainType || t.mainType === mainType) && (!t.sector || t.sector === 'both' || t.sector === sector))
-    .map(t => ({ id: t._id, label: `${t.code} · ${t.name}${t.mainType ? '' : ' (unmapped)'}` }));
+    .filter(t => (!t.mainTypes?.length || t.mainTypes.includes(mainType)) && (!t.sector || t.sector === 'both' || t.sector === sector))
+    .map(t => ({ id: t._id, label: `${t.code} · ${t.name}${t.mainTypes?.length ? '' : ' (unmapped)'}` }));
   const leadOptions = surveyors.filter(u => u.roleName === 'surveyor').map(u => ({ id: u._id, label: personName(u) }));
   const assistantOptions = surveyors.filter(u => u._id !== surveyorId).map(u => ({
     id: u._id, label: `${personName(u)} (${u.roleName === 'surveyor' ? 'Surveyor' : 'Assistant'})`,
@@ -93,7 +100,7 @@ function AllocationForm({
         mssProofRequired,
         request: edits,
       });
-      toast.success(res.message || 'Job allocated.');
+      toast.success(res.message || 'Surveyor booked.');
       onDone(res.data);
     } catch (err: any) {
       setError(err.message);
@@ -109,12 +116,12 @@ function AllocationForm({
       open
       onClose={onClose}
       size="lg"
-      title={`Allocate ${request.jobNumber || request.requestNumber}`}
+      title={`Book surveyors for ${request.jobNumber || request.requestNumber}`}
       description={`${request.vesselName} · quotation ${request.acceptedQuotationNumber ?? '—'} accepted`}
       footer={
         <>
           <Button onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="primary" icon={<UserCheck />} onClick={submit} loading={saving}>Allocate & issue UQMS number</Button>
+          <Button variant="primary" icon={<UserCheck />} onClick={submit} loading={saving}>Book surveyors & issue UQMS number</Button>
         </>
       }
     >
@@ -193,46 +200,6 @@ function AllocationForm({
   );
 }
 
-/** Master data: which main survey type each survey (sub type) belongs to. */
-function SurveyTypeMappingDrawer({ surveyTypes, onClose, onSaved }: { surveyTypes: ApiSurveyType[]; onClose: () => void; onSaved: (t: ApiSurveyType) => void }) {
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const save = async (t: ApiSurveyType, patch: { mainType?: string | null; sector?: string }) => {
-    setSavingId(t._id);
-    try {
-      const res = await jobsService.setSurveyTypeMapping(t._id, patch);
-      onSaved(res.data);
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setSavingId(null);
-    }
-  };
-  return (
-    <Drawer open onClose={onClose} width={620} title="Survey type mapping" description="Group each survey under its main survey type. Unmapped surveys can be chosen under any main type.">
-      <ul className={s.history}>
-        {surveyTypes.map(t => (
-          <li key={t._id} style={{ alignItems: 'center' }}>
-            <span style={{ flex: '1 1 200px' }}><span className={s.mono}>{t.code}</span> {t.name}</span>
-            <Select aria-label={`Main type for ${t.name}`} value={t.mainType ?? ''} disabled={savingId === t._id}
-              onChange={e => save(t, { mainType: e.target.value || null })} style={{ width: 190 }}>
-              <option value="">Not mapped</option>
-              {[...MARINE_MAIN_TYPES, ...INDUSTRIAL_MAIN_TYPES].map(m => (
-                <option key={m} value={m}>{(INDUSTRIAL_MAIN_TYPES as readonly string[]).includes(m) ? 'Industrial · ' : ''}{MAIN_SURVEY_TYPE_LABELS[m]}</option>
-              ))}
-            </Select>
-            <Select aria-label={`Sector for ${t.name}`} value={t.sector ?? 'marine'} disabled={savingId === t._id}
-              onChange={e => save(t, { sector: e.target.value })} style={{ width: 130 }}>
-              <option value="marine">Marine</option>
-              <option value="industrial">Industrial</option>
-              <option value="both">Both</option>
-            </Select>
-          </li>
-        ))}
-      </ul>
-    </Drawer>
-  );
-}
-
 export default function SurveyorAllocationPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
@@ -244,7 +211,6 @@ export default function SurveyorAllocationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<ApiAllocationQueueItem | null>(null);
-  const [showMapping, setShowMapping] = useState(false);
 
   const [surveyTypes, setSurveyTypes] = useState<ApiSurveyType[]>([]);
   const [surveyors, setSurveyors] = useState<ApiAllocatableSurveyor[]>([]);
@@ -254,7 +220,7 @@ export default function SurveyorAllocationPage() {
 
   const canAllocate = can(MODULE_KEYS.surveyorAllocation, 'create');
   const canOverrideMss = can(MODULE_KEYS.surveyorAllocation, 'override');
-  const canMap = can(MODULE_KEYS.adminMasterData, 'update');
+  const canConfigure = can(MODULE_KEYS.adminSurveyConfig, 'read');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,7 +258,7 @@ export default function SurveyorAllocationPage() {
     }).catch((err: any) => toast.error('Could not load lookups: ' + err.message));
   }, []);
 
-  const unmappedCount = useMemo(() => surveyTypes.filter(t => !t.mainType).length, [surveyTypes]);
+  const unmappedCount = useMemo(() => surveyTypes.filter(t => !t.mainTypes?.length).length, [surveyTypes]);
 
   const queueColumns: Column<ApiAllocationQueueItem>[] = [
     { key: 'job', header: 'Job / request', primary: true, cell: r => (
@@ -320,20 +286,20 @@ export default function SurveyorAllocationPage() {
   return (
     <div className="animate-in">
       <PageHeader
-        title="Surveyor Allocation"
-        description="Requests whose quotation was accepted. Allocate a surveyor, confirm the survey type and issue the UQMS number."
-        actions={canMap && <Button icon={<Settings2 />} onClick={() => setShowMapping(true)}>Survey type mapping{unmappedCount ? ` (${unmappedCount} unmapped)` : ''}</Button>}
+        title="Surveyor Booking"
+        description="Requests whose quotation was accepted. Book the surveyors, confirm the survey type and issue the UQMS number. Only the surveyors booked here can work on the job's reporting."
+        actions={canConfigure && <Button icon={<Settings2 />} onClick={() => navigate('/survey-configuration')}>Survey configuration{unmappedCount ? ` (${unmappedCount} unmapped)` : ''}</Button>}
       />
 
       {!canAllocate && (
-        <Notice tone="warning" icon={<ShieldAlert />}>You can view the queue but not allocate surveyors.</Notice>
+        <Notice tone="warning" icon={<ShieldAlert />}>You can view the queue but not book surveyors.</Notice>
       )}
 
       <Tabs
-        label="Allocation"
+        label="Surveyor booking"
         value={tab}
         onValueChange={v => setTab(v)}
-        items={[{ value: 'queue', label: 'Awaiting allocation', count: tab === 'queue' ? queue.length : undefined }, { value: 'allocated', label: 'Allocated, not started' }]}
+        items={[{ value: 'queue', label: 'Awaiting surveyor booking', count: tab === 'queue' ? queue.length : undefined }, { value: 'allocated', label: 'Booked, not started' }]}
       />
 
       <Toolbar attached search={<SearchInput value={search} onChange={setSearch} placeholder="Search vessel, job, request or company…" />} />
@@ -348,8 +314,8 @@ export default function SurveyorAllocationPage() {
           error={error}
           onRetry={load}
           onRowClick={canAllocate ? r => setSelected(r) : undefined}
-          rowActions={canAllocate ? r => <Button size="sm" variant="primary" onClick={() => setSelected(r)}>Allocate</Button> : undefined}
-          empty={{ icon: <Inbox />, title: 'Nothing to allocate', description: 'Requests appear here once their quotation is accepted.' }}
+          rowActions={canAllocate ? r => <Button size="sm" variant="primary" onClick={() => setSelected(r)}>Book surveyors</Button> : undefined}
+          empty={{ icon: <Inbox />, title: 'Nothing to book', description: 'Requests appear here once their quotation is accepted.' }}
         />
       ) : (
         <DataTable
@@ -379,14 +345,6 @@ export default function SurveyorAllocationPage() {
             setSelected(null);
             load();
           }}
-        />
-      )}
-
-      {showMapping && (
-        <SurveyTypeMappingDrawer
-          surveyTypes={surveyTypes}
-          onClose={() => setShowMapping(false)}
-          onSaved={t => setSurveyTypes(prev => prev.map(p => (p._id === t._id ? { ...p, ...t } : p)))}
         />
       )}
     </div>

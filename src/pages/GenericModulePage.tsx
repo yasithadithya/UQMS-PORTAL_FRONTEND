@@ -6,7 +6,7 @@ import { ADMIN_PAGES, moduleIcon } from '@/navigation/useNavigation';
 import { useAuth } from '@/context/AuthContext';
 import { AccessDenied, NotFound } from '@/components/StatusPage';
 import { getParentId, resolveModuleTrail, toSlug } from '@/utils/modules';
-import { MODULE_KEYS, isNavigable } from '@/utils/permissions';
+import { MODULE_KEYS, isDocumentLibraryKey, isNavigable } from '@/utils/permissions';
 import NewRequestPage from './NewRequest';
 import CreateRequestPage from './CreateRequest';
 import RequestDetailsPage from './RequestDetails';
@@ -20,6 +20,7 @@ import JobListPage from './v2/JobListPage';
 import JobPage, { type JobPageMode } from './v2/JobPage';
 import ApprovalsPage from './v2/ApprovalsPage';
 import PreviousDocsPage from './v2/PreviousDocsPage';
+import DocumentLibraryPage from './v2/DocumentLibraryPage';
 import QmsRevisionHistoryPage from './v2/QmsRevisionHistoryPage';
 import { QMS_HISTORY_SLUG } from '@/navigation/useNavigation';
 import s from './GenericModulePage.module.css';
@@ -163,6 +164,11 @@ export default function GenericModulePage() {
     // --- Special case: First Entry sub-sub-module (under Marine) renders the tab-based page ---
     if (currentModule.key === MODULE_KEYS.firstEntry) {
         return <MarineModulePage />;
+    }
+
+    // --- Upload-and-view document screens (UQMS Rules & Guidelines, Flag Instructions) ---
+    if (isDocumentLibraryKey(currentModule.key)) {
+        return <DocumentLibraryPage key={currentModule.key} library={currentModule.key} breadcrumbs={breadcrumbs.map(b => ({ label: b.name, href: b.href }))} />;
     }
 
     // --- V2: QMS → Checklist (changes go to Approvals) ---

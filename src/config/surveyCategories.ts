@@ -23,12 +23,25 @@ export const MAIN_TYPES_BY_SECTOR: Record<Sector, readonly MainSurveyType[]> = {
 export const sectorOfMainType = (mainType: MainSurveyType): Sector =>
   (INDUSTRIAL_MAIN_TYPES as readonly string[]).includes(mainType) ? 'industrial' : 'marine';
 
+/** Sector a survey sub type is offered in ("both" = marine and industrial). */
+export type SubTypeSector = Sector | 'both';
+
+export const ALL_MAIN_TYPES: readonly MainSurveyType[] = [...MARINE_MAIN_TYPES, ...INDUSTRIAL_MAIN_TYPES];
+
+/** Main types a sub type offered in this sector may belong to (mirrors the backend check). */
+export const mainTypesForSector = (sector: SubTypeSector): readonly MainSurveyType[] =>
+  sector === 'both' ? ALL_MAIN_TYPES : MAIN_TYPES_BY_SECTOR[sector];
+
+/** "First Entry" or, for industrial types whose labels repeat marine ones, "Industrial · Audits". */
+export const mainTypeFullLabel = (t: MainSurveyType): string =>
+  `${sectorOfMainType(t) === 'industrial' ? 'Industrial · ' : ''}${MAIN_SURVEY_TYPE_LABELS[t]}`;
+
 /** Main types whose reporting workspace is built in this version. */
 export const IMPLEMENTED_MAIN_TYPES: MainSurveyType[] = ['first-entry'];
 
 export const JOB_STATUS_LABELS: Record<string, string> = {
-  allocated: 'Allocated',
-  booked: 'Booked',
+  allocated: 'Surveyor booked',
+  booked: 'Visits planned',
   'in-progress': 'In progress',
   submitted: 'Submitted for review',
   'surveyor-approved': 'Surveyor approved',

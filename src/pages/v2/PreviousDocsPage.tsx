@@ -88,8 +88,8 @@ export default function PreviousDocsPage() {
   return (
     <div className="animate-in">
       <PageHeader
-        title="Previous Docs"
-        description="Documents from surveys done before the portal, filed by UQMS number and vessel."
+        title="Manual Surveys"
+        description="Documents from surveys done before the portal and new surveys done manually, filed by UQMS number and vessel."
         actions={canCreate && <Button variant="primary" icon={<Plus />} onClick={() => setDraft({ ...EMPTY })}>Add documents</Button>}
       />
       <Toolbar attached search={<SearchInput value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search UQMS number, vessel name or code…" />} />
@@ -103,7 +103,7 @@ export default function PreviousDocsPage() {
         onRetry={load}
         onRowClick={r => setDraft({ _id: r._id, uqmsNumber: r.uqmsNumber, vesselName: r.vesselName, vesselCode: r.vesselCode ?? '', remarks: r.remarks ?? '', documents: r.documents })}
         rowActions={canDelete ? r => <Button size="sm" variant="dangerGhost" icon={<Trash2 />} onClick={() => setDeleteId(r._id)}>Delete</Button> : undefined}
-        empty={{ icon: <FolderArchive />, title: 'No previous documents yet' }}
+        empty={{ icon: <FolderArchive />, title: 'No manual survey documents yet' }}
         footer={total > limit && <Pagination page={page} limit={limit} total={total} totalPages={totalPages} onPageChange={setPage} onLimitChange={setLimit} />}
       />
 
@@ -112,7 +112,7 @@ export default function PreviousDocsPage() {
           open
           size="lg"
           onClose={() => setDraft(null)}
-          title={draft._id ? `${draft.vesselName} · ${draft.uqmsNumber}` : 'Add previous documents'}
+          title={draft._id ? `${draft.vesselName} · ${draft.uqmsNumber}` : 'Add manual survey documents'}
           footer={editable ? (
             <>
               <Button onClick={() => setDraft(null)} disabled={saving}>Cancel</Button>

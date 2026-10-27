@@ -498,15 +498,15 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
       }
 
       if (res.success) {
-        toast.success(isEdit ? 'Survey Booking updated successfully!' : 'Survey Booking created successfully!');
+        toast.success(isEdit ? 'Visit plan updated successfully!' : 'Visit plan created successfully!');
         unsaved.allowNavigation();
         if (job) job.onSaved(res.data._id);
         else navigate(`/${activeModule}/marine/first-entry?tab=survey`);
       } else {
-        toast.error(res.message || 'Failed to save booking.');
+        toast.error(res.message || 'Failed to save the visit plan.');
       }
     } catch (err: any) {
-      toast.error('Error saving survey booking: ' + err.message);
+      toast.error('Error saving visit plan: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -524,7 +524,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
   }, [job, isEdit, initialLoading, vessels, requests]);
 
   if (initialLoading) {
-    return <LoadingBlock label="Loading survey booking…" />;
+    return <LoadingBlock label="Loading visit plan…" />;
   }
 
   const listPath = `/${activeModule}/marine/first-entry?tab=survey`;
@@ -549,8 +549,8 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
     <div className="animate-in">
       {!job && (
         <PageHeader
-          back={{ href: listPath, label: 'Survey bookings' }}
-          title={isEdit ? 'Edit survey booking' : 'Book survey'}
+          back={{ href: listPath, label: 'Visit planning' }}
+          title={isEdit ? 'Edit visit plan' : 'Plan visits'}
           description={isEdit
             ? 'Fields that already have a value are locked. Visits and surveyor assignments can always be changed.'
             : 'Link the vessel and its requests, then plan visits and assign surveyors. Fields marked * are required.'}
@@ -586,7 +586,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
           <FormSection
             id="sb-requests"
             title="Requests"
-            description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this booking.`}
+            description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this visit plan.`}
           >
             {relevantRequests.length === 0 ? (
               <p className={s.empty}>
@@ -819,7 +819,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
             {!job && <ButtonLink to={listPath}>Cancel</ButtonLink>}
             <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
               title={canSave ? undefined : 'You do not have permission to save this record.'}>
-              {isEdit ? 'Save changes' : 'Book survey'}
+              {isEdit ? 'Save changes' : 'Save visit plan'}
             </Button>
           </StickyActionBar>
           )}

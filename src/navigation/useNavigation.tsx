@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Anchor, BadgeCheck, Blocks, BookOpenCheck, Briefcase, CheckSquare, FileSearch, FolderArchive, UserCheck, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
-  UserCog, Users, Wallet,
+  Anchor, BadgeCheck, Blocks, BookOpenCheck, Briefcase, CheckSquare, FileSearch, FolderArchive, UserCheck, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship, SlidersHorizontal,
+  UserCog, Users, Wallet, Scale, ScrollText, BookMarked, Flag, FileText, Newspaper, Landmark,
 } from 'lucide-react';
 import type { ApiModule } from '@/api';
 import { useAuth } from '@/context/AuthContext';
@@ -50,6 +50,7 @@ export const ADMIN_PAGES: { name: string; navLabel: string; href: string; desc: 
   { name: 'Role Management', navLabel: 'Roles & permissions', href: '/roles', desc: 'Configure granular module permissions', module: MODULE_KEYS.adminRoles, icon: <ShieldCheck /> },
   { name: 'Module Management', navLabel: 'Modules', href: '/modules', desc: 'Create and edit system modules', module: MODULE_KEYS.adminModules, icon: <Blocks /> },
   { name: 'Checklist Management', navLabel: 'Checklists', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria', module: MODULE_KEYS.adminMasterData, icon: <ListChecks /> },
+  { name: 'Survey Configuration', navLabel: 'Survey configuration', href: '/survey-configuration', desc: 'Survey types and the main survey types they belong to', module: MODULE_KEYS.adminSurveyConfig, icon: <SlidersHorizontal /> },
   { name: 'Audit Log', navLabel: 'Audit log', href: '/audit-log', desc: 'History of overrides and controlled changes', module: MODULE_KEYS.adminAuditLog, icon: <History /> },
 ];
 
@@ -78,6 +79,14 @@ const ICONS: Record<string, ReactNode> = {
   qms: <BookOpenCheck />,
   'qms.checklist': <ListChecks />,
   'previous-docs': <FolderArchive />,
+  'uqms-rules': <Scale />,
+  'uqms-rules.rules': <ScrollText />,
+  'uqms-rules.guidelines': <BookMarked />,
+  'flag-instructions': <Flag />,
+  'flag-instructions.marine-shipping-notice': <FileText />,
+  'flag-instructions.marine-news': <Newspaper />,
+  'flag-instructions.gazette': <Landmark />,
+  'flag-instructions.msn': <FileText />,
 };
 
 /** Icon for a module: by stable key first, then by name, then a generic grid. */

@@ -245,7 +245,7 @@ function AllocationStat() {
   const { module } = useDashboardLinks();
   const load = useSharedLoad('allocation-queue', () => jobsService.getAllocationQueue());
   const n = countOf(load.data);
-  return <Stat load={load} label="Waiting for allocation" icon={<UserCheck />} tone={n ? 'warning' : 'success'} value={n} hint={n ? 'Accepted quotations' : 'All allocated'} href={module(MODULE_KEYS.surveyorAllocation)} />;
+  return <Stat load={load} label="Waiting for surveyor booking" icon={<UserCheck />} tone={n ? 'warning' : 'success'} value={n} hint={n ? 'Accepted quotations' : 'All booked'} href={module(MODULE_KEYS.surveyorAllocation)} />;
 }
 
 function ApprovalsStat() {
@@ -460,7 +460,7 @@ function FirstEntriesStat() {
 function BookingsStat() {
   const { firstEntry } = useDashboardLinks();
   const load = useSharedLoad('fe-bookings', () => firstEntryService.getFirstEntrySurveyBookings({ page: 1, limit: 1 }));
-  return <Stat load={load} label="Survey bookings" icon={<CalendarCheck />} tone="info" value={countOf(load.data)} hint="On record" href={`${firstEntry}?tab=survey`} />;
+  return <Stat load={load} label="Visit plans" icon={<CalendarCheck />} tone="info" value={countOf(load.data)} hint="On record" href={`${firstEntry}?tab=survey`} />;
 }
 
 function ReportsStat() {
@@ -687,7 +687,7 @@ function QuickActionsWidget() {
   const actions = [
     can(MODULE_KEYS.newRequest, 'override') && { to: '/new-request/create', label: 'New request', icon: <FilePlus2 /> },
     links.firstEntry && can(MODULE_KEYS.marineEntries, 'create') && { to: `${links.firstEntry}/create`, label: 'Create first entry', icon: <Plus /> },
-    can(MODULE_KEYS.surveyorAllocation) && { to: links.module(MODULE_KEYS.surveyorAllocation), label: 'Allocate surveyors', icon: <UserCheck /> },
+    can(MODULE_KEYS.surveyorAllocation) && { to: links.module(MODULE_KEYS.surveyorAllocation), label: 'Book surveyors', icon: <UserCheck /> },
     can(MODULE_KEYS.financeQuotations, 'create') && { to: `${links.module(MODULE_KEYS.finance)}/quotations/new`, label: 'New quotation', icon: <ReceiptText /> },
     can(MODULE_KEYS.viewReport) && { to: links.module(MODULE_KEYS.viewReport), label: 'View reports', icon: <FileSearch /> },
     links.myHr && { to: links.myHr, label: 'My HR', icon: <CalendarClock /> },
@@ -720,7 +720,7 @@ export const WIDGETS: WidgetDef[] = [
     sizes: ['md', 'lg'], available: a => a.can(MODULE_KEYS.jobs), Component: MyOpenJobsList },
   { id: 'jobs.by-type', title: 'Open jobs by survey type', description: 'Open jobs split by main survey type.', group: 'Survey jobs', icon: <PieChart />,
     sizes: ['md', 'lg'], available: a => a.can(MODULE_KEYS.jobs), Component: JobsByTypeWidget },
-  { id: 'jobs.allocation-count', title: 'Waiting for allocation', description: 'Accepted quotations that still need a surveyor.', group: 'Survey jobs', icon: <UserCheck />,
+  { id: 'jobs.allocation-count', title: 'Waiting for surveyor booking', description: 'Accepted quotations that still need a surveyor.', group: 'Survey jobs', icon: <UserCheck />,
     sizes: ['sm'], available: a => a.can(MODULE_KEYS.surveyorAllocation), Component: AllocationStat },
   { id: 'jobs.authorization-count', title: 'Awaiting authorization (count)', description: 'Signed jobs waiting for manager approval.', group: 'Survey jobs', icon: <BadgeCheck />,
     sizes: ['sm'], available: a => a.can(MODULE_KEYS.authorization), Component: AuthorizationStat },
@@ -744,7 +744,7 @@ export const WIDGETS: WidgetDef[] = [
     sizes: ['sm'], available: a => hasFirstEntry(a) && a.can(MODULE_KEYS.marineEntries), Component: FirstEntriesStat },
   { id: 'marine.recent-entries', title: 'Recent first entries', description: 'The latest first entries and their Schedule II status.', group: 'Marine', icon: <Ship />,
     sizes: ['md', 'lg'], available: a => hasFirstEntry(a) && a.can(MODULE_KEYS.marineEntries), Component: RecentFirstEntries },
-  { id: 'marine.bookings-count', title: 'Survey bookings (count)', description: 'Survey bookings on record.', group: 'Marine', icon: <CalendarCheck />,
+  { id: 'marine.bookings-count', title: 'Visit plans (count)', description: 'Visit plans on record.', group: 'Marine', icon: <CalendarCheck />,
     sizes: ['sm'], available: a => hasFirstEntry(a) && a.can(MODULE_KEYS.marineBookings), Component: BookingsStat },
   { id: 'marine.reports-count', title: 'Survey reports (count)', description: 'Survey reports on record.', group: 'Marine', icon: <FileText />,
     sizes: ['sm'], available: a => hasFirstEntry(a) && a.can(MODULE_KEYS.marineReports), Component: ReportsStat },

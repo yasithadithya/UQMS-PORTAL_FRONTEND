@@ -16,8 +16,8 @@ import s from './v2.module.css';
 export type JobPageMode = 'work' | 'view' | 'authorize';
 
 const STAGES: { key: string; label: string; reached: string[] }[] = [
-  { key: 'allocated', label: 'Allocated', reached: ['allocated', 'booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
-  { key: 'booked', label: 'Survey booked', reached: ['booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
+  { key: 'allocated', label: 'Surveyor booked', reached: ['allocated', 'booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
+  { key: 'booked', label: 'Visits planned', reached: ['booked', 'in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
   { key: 'in-progress', label: 'Reporting', reached: ['in-progress', 'submitted', 'surveyor-approved', 'pending-authorization', 'completed'] },
   { key: 'pending-authorization', label: 'Sent to manager', reached: ['pending-authorization', 'completed'] },
   { key: 'completed', label: 'Manager approved', reached: ['completed'] },
@@ -173,7 +173,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
             <div><dt>Surveys</dt><dd>{job.surveyTypes.map(surveyTypeLabel).join(', ') || '—'}</dd></div>
             <div><dt>Surveyors</dt><dd>{surveyorNames}</dd></div>
             <div><dt>MSS proof</dt><dd>{job.mssProofRequired ? (job.mssProofUploaded ? 'Required · uploaded' : 'Required · missing') : 'Not required'}</dd></div>
-            <div><dt>Allocated</dt><dd>{job.allocatedAt ? formatDate(job.allocatedAt) : '—'}</dd></div>
+            <div><dt>Surveyor booked</dt><dd>{job.allocatedAt ? formatDate(job.allocatedAt) : '—'}</dd></div>
           </dl>
           <ol className={s.steps} style={{ marginTop: 'var(--space-4)' }} aria-label="Job progress">
             {STAGES.map(st => {
@@ -201,7 +201,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
         {!implemented ? (
           <Card padding="none">
             <EmptyState icon={<Construction />} title={`${mainTypeLabel(job.mainSurveyType)} reporting is coming in the next version`}
-              description="The job is allocated. Its reporting workspace will be available once this survey type is built." />
+              description="Surveyors are booked for this job. Its reporting workspace will be available once this survey type is built." />
           </Card>
         ) : (
           <>
@@ -214,7 +214,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
                 return p;
               })}
               items={[
-                { value: 'booking', label: 'Survey booking' },
+                { value: 'booking', label: 'Visit planning' },
                 { value: 'reporting', label: 'Survey reporting', disabled: !started },
               ]}
             />
@@ -224,7 +224,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
                 {!started && job.links?.bookingId && (
                   <Notice icon={<CalendarCheck />}>
                     <div className={s.row} style={{ justifyContent: 'space-between', width: '100%' }}>
-                      <span>The survey is booked. Start the reporting when you're ready.</span>
+                      <span>The visits are planned. Start the reporting when you're ready.</span>
                       <Button variant="primary" icon={<ClipboardList />} loading={busy === 'start'} disabled={mode !== 'work' || readOnly} onClick={startReporting}>
                         Survey Reporting
                       </Button>

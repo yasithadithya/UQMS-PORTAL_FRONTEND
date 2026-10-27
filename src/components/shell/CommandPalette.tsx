@@ -36,7 +36,7 @@ export function CommandPalette({ open, onOpenChange, nav }: Props) {
     const fe = nav.firstEntryPath;
     const actions: (Command | false)[] = [
       !!fe && can(MODULE_KEYS.marineEntries, 'create') && { id: 'a-fe', label: 'Create first entry', icon: <Ship />, group: 'Actions', run: go(`${fe}/create`) },
-      !!fe && can(MODULE_KEYS.marineBookings, 'create') && { id: 'a-book', label: 'Book a survey', icon: <CalendarPlus />, group: 'Actions', run: go(`${fe}/survey-booking/create`) },
+      !!fe && can(MODULE_KEYS.marineBookings, 'create') && { id: 'a-book', label: 'Plan survey visits', icon: <CalendarPlus />, group: 'Actions', run: go(`${fe}/survey-booking/create`) },
       !!fe && can(MODULE_KEYS.marineReports, 'create') && { id: 'a-report', label: 'Create survey report', icon: <FileText />, group: 'Actions', run: go(`${fe}/survey-report/create`) },
       can(MODULE_KEYS.newRequest, 'create') && { id: 'a-req', label: 'New survey request', icon: <FilePlus2 />, group: 'Actions', run: go('/new-request/create') },
       { id: 'a-theme', label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme', icon: theme === 'dark' ? <Sun /> : <Moon />, group: 'Actions', run: toggleTheme },

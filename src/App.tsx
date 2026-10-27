@@ -19,6 +19,7 @@ import ProfilePage from '@/pages/Profile';
 import ModulesPage from '@/pages/Modules';
 import RolesPage from '@/pages/Roles';
 import AuditLogPage from '@/pages/AuditLog';
+import SurveyConfigurationPage from '@/pages/SurveyConfiguration';
 import GenericModulePage, { ModulesLoading } from '@/pages/GenericModulePage';
 import CreateFirstEntry from '@/pages/CreateFirstEntry';
 import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking';
@@ -115,7 +116,8 @@ function Root() {
             <Route path="/roles" element={<PermissionGate module={MODULE_KEYS.adminRoles}><RolesPage /></PermissionGate>} />
             <Route path="/audit-log" element={<PermissionGate module={MODULE_KEYS.adminAuditLog}><AuditLogPage /></PermissionGate>} />
             <Route path="/checklist-management" element={<PermissionGate module={MODULE_KEYS.adminMasterData}><ChecklistManagement /></PermissionGate>} />
-            <Route path="/dev/ui" element={<SuperAdminGate><UiKitPage /></SuperAdminGate>} />
+            <Route path="/survey-configuration" element={<PermissionGate module={MODULE_KEYS.adminSurveyConfig}><SurveyConfigurationPage /></PermissionGate>} />
+            <Route path="/dev/ui"element={<SuperAdminGate><UiKitPage /></SuperAdminGate>} />
 
             {/* First Entry Sub-Sub-Module Custom Routes (under Marine) */}
             <Route path="/:module/marine/first-entry/create" element={fe(MODULE_KEYS.marineEntries, 'create', <CreateFirstEntry />)} />

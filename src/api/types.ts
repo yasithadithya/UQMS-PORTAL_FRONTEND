@@ -90,8 +90,8 @@ export interface ApiSurveyType {
   code: string;
   name: string;
   description?: string;
-  /** V2: main survey type this sub type belongs to (null = not mapped yet). */
-  mainType?: string | null;
+  /** V2: main survey types this sub type belongs to; a sub type can sit under several (empty = not mapped yet). */
+  mainTypes?: string[];
   sector?: 'marine' | 'industrial' | 'both';
   createdAt?: string;
   updatedAt?: string;
@@ -998,6 +998,19 @@ export interface ApiPreviousDocument {
   uqmsNumber: string;
   vesselName: string;
   vesselCode?: string;
+  remarks?: string;
+  documents: ApiJobDocument[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** UQMS Rules & Guidelines and Flag Instructions documents. `library` is the screen's module key. */
+export interface ApiLibraryDocument {
+  _id: string;
+  library: string;
+  title: string;
+  referenceNumber?: string;
+  issueDate?: string | null;
   remarks?: string;
   documents: ApiJobDocument[];
   createdAt?: string;

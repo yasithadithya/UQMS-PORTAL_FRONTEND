@@ -30,6 +30,7 @@ export const MODULE_KEYS = {
   adminModules: 'admin.modules',
   adminMasterData: 'admin.master-data',
   adminAuditLog: 'admin.audit-log',
+  adminSurveyConfig: 'admin.survey-config',
   // V2 survey workflow
   surveyorAllocation: 'surveyor-allocation',
   jobs: 'jobs',
@@ -47,9 +48,29 @@ export const MODULE_KEYS = {
   qmsSop: 'qms.sop',
   qmsJd: 'qms.jd',
   previousDocs: 'previous-docs',
+  uqmsRules: 'uqms-rules',
+  uqmsRulesRules: 'uqms-rules.rules',
+  uqmsRulesGuidelines: 'uqms-rules.guidelines',
+  flagInstructions: 'flag-instructions',
+  flagMarineShippingNotice: 'flag-instructions.marine-shipping-notice',
+  flagMarineNews: 'flag-instructions.marine-news',
+  flagGazette: 'flag-instructions.gazette',
+  flagMsn: 'flag-instructions.msn',
 } as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[keyof typeof MODULE_KEYS];
+
+/** Upload-and-view document screens (UQMS Rules & Guidelines, Flag Instructions). Mirrors backend DOCUMENT_LIBRARY_KEYS. */
+export const DOCUMENT_LIBRARIES = {
+  [MODULE_KEYS.uqmsRulesRules]: { title: 'UQMS Rules', description: 'UQMS rules. Upload the current documents and open them here.', referenceLabel: 'Reference no.' },
+  [MODULE_KEYS.uqmsRulesGuidelines]: { title: 'UQMS Guidelines', description: 'UQMS guidelines. Upload the current documents and open them here.', referenceLabel: 'Reference no.' },
+  [MODULE_KEYS.flagMarineShippingNotice]: { title: 'Marine Shipping Notice', description: 'Flag instructions: marine shipping notices.', referenceLabel: 'Notice no.' },
+  [MODULE_KEYS.flagMarineNews]: { title: 'Marine News', description: 'Flag instructions: marine news.', referenceLabel: 'Reference no.' },
+  [MODULE_KEYS.flagGazette]: { title: 'Gazette', description: 'Flag instructions: gazette notifications.', referenceLabel: 'Gazette no.' },
+  [MODULE_KEYS.flagMsn]: { title: 'Merchant Shipping Notices (MSN)', description: 'Flag instructions: Merchant Shipping Notices (MSN).', referenceLabel: 'MSN no.' },
+} as const;
+export type DocumentLibraryKey = keyof typeof DOCUMENT_LIBRARIES;
+export const isDocumentLibraryKey = (key: unknown): key is DocumentLibraryKey => typeof key === 'string' && key in DOCUMENT_LIBRARIES;
 
 export const MARINE_KEYS: ModuleKey[] = [
   MODULE_KEYS.marineEntries, MODULE_KEYS.marineBookings, MODULE_KEYS.marineReports, MODULE_KEYS.marineCertificates,

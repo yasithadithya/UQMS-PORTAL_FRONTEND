@@ -16,7 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { firstEntryService, fetchReportPdf, jobsService } from '@/api';
 import type { ApiFirstEntrySurveyBooking, ApiJob, ApiJobReportItem, ApiScheduleII, ApiScheduleIIDocument, ApiSurveyType, SignableDocType } from '@/api';
-import { cosVariantFor } from '@/config/certificateVariants';
+import { cosVariantFor, scheduleIILabelFor } from '@/config/certificateVariants';
 import { formatDateTime } from '@/utils/date';
 import { DocumentList, JobStatusBadge, Notice, personName } from '../shared';
 import s from '../v2.module.css';
@@ -98,6 +98,7 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
   const [emailing, setEmailing] = useState(false);
   const scheduleId = job.links?.scheduleIIId;
   const firstEntryId = job.links?.firstEntryId;
+  const scheduleLabel = scheduleIILabelFor(job.vesselCode);
 
   useEffect(() => {
     if (!scheduleId) {
@@ -130,14 +131,14 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
     }
   };
 
-  if (loading) return <LoadingBlock label="Loading Schedule II…" />;
+  if (loading) return <LoadingBlock label={`Loading ${scheduleLabel}…`} />;
   const docs = schedule?.documents ?? [];
   const proof = schedule?.mssProofDocuments ?? [];
 
   return (
     <div className={s.stack}>
       <Section
-        title="Schedule II documents"
+        title={`${scheduleLabel} documents`}
         actions={schedule && docs.length > 0 && !readOnly && (
           schedule.emailSent
             ? <Badge tone="success">Emailed to DSSC</Badge>
@@ -146,7 +147,7 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
               try {
                 await firstEntryService.sendScheduleIIEmail(schedule._id);
                 setSchedule({ ...schedule, emailSent: true });
-                toast.success('Schedule II emailed to the DSSC.');
+                toast.success(`${scheduleLabel} emailed to the DSSC.`);
               } catch (err: any) {
                 toast.error(err.message);
               } finally {
@@ -157,9 +158,9 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
       >
         <DocumentList
           documents={docs}
-          emptyText="No Schedule II documents attached yet."
+          emptyText={`No ${scheduleLabel} documents attached yet.`}
           uploadPrefix="schedule2"
-          uploadLabel="Add Schedule II documents"
+          uploadLabel={`Add ${scheduleLabel} documents`}
           readOnly={readOnly}
           onAdd={doc => save({ documents: [...docs, doc] })}
           onRemove={(_d, idx) => save({ documents: docs.filter((_, i) => i !== idx) })}
@@ -420,7 +421,7 @@ function SummarySection({
 
   const items: ReadinessItem[] = [
     { label: 'Reporting started', done: !!links.surveyReportId, section: 'checklist', required: true },
-    { label: 'Schedule II', done: !!links.scheduleIIId, section: 'schedule', required: false },
+    { label: scheduleIILabelFor(job.vesselCode), done: !!links.scheduleIIId, section: 'schedule', required: false },
     ...(job.mssProofRequired
       ? [{ label: 'MSS proof', done: !!job.mssProofUploaded, section: 'schedule' as SectionId, required: true }]
       : []),
@@ -492,7 +493,7 @@ function SummarySection({
             </Button>
           )}
         >
-          {job.mssProofRequired && !job.mssProofUploaded ? <p className={s.hint}>Upload the MSS proof in the Schedule II section first.</p> : null}
+          {job.mssProofRequired && !job.mssProofUploaded ? <p className={s.hint}>Upload the MSS proof in the {scheduleIILabelFor(job.vesselCode)} section first.</p> : null}
         </Section>
       )}
 
@@ -579,7 +580,13 @@ export function ReportsTab({ job }: { job: ApiJob }) {
         </div>
       ))}
       {viewer?.docType && viewer.docId && (
-        <PdfModal title={viewer.name} load={() => fetchReportPdf(viewer.docType!, viewer.docId!)} onClose={() => setViewer(null)} />
+        <PdfModal
+          title={viewer.name}
+          load={() => (viewer.docType === 'daily-visit'
+            ? firstEntryService.getDailyVisitReportPdf(viewer.docId!, viewer.visit ?? '')
+            : fetchReportPdf(viewer.docType!, viewer.docId!))}
+          onClose={() => setViewer(null)}
+        />
       )}
     </Card>
   );
@@ -621,6 +628,7 @@ export default function FirstEntryWorkspace({
   };
 
   const surveyReportId = job.links?.surveyReportId;
+  const sectionItems = SECTIONS.map(x => (x.value === 'schedule' ? { ...x, label: `2. ${scheduleIILabelFor(job.vesselCode)}` } : x));
 
   return (
     <div className={s.stack}>
@@ -640,7 +648,7 @@ export default function FirstEntryWorkspace({
 
       {view === 'reports' ? <ReportsTab job={job} /> : (
         <>
-          <Tabs label="Reporting section" value={section} onValueChange={v => set({ section: v })} items={SECTIONS} />
+          <Tabs label="Reporting section" value={section} onValueChange={v => set({ section: v })} items={sectionItems} />
           {section === 'preliminary' && (job.links?.firstEntryId
             ? <CreateFirstEntry key={job.links.firstEntryId} embedded={{ firstEntryId: job.links.firstEntryId, readOnly, onSaved: changed }} />
             : <Notice tone="warning">This job has no first entry record.</Notice>)}

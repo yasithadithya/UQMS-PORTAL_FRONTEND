@@ -208,6 +208,10 @@ export const firstEntryService = {
   getDailyReportPdfBlob: (id: string) => {
     return requestBlob(`/first-entry-full-reports/${id}/daily-report-pdf`);
   },
+  /** Daily Visit Report for one visit, generated on demand from the checklist items recorded on it. */
+  getDailyVisitReportPdf: (id: string, visit: string) => {
+    return requestBlob(`/first-entry-full-reports/${id}/visit-report-pdf?visit=${encodeURIComponent(visit)}`);
+  },
   addGeneralRemark: (reportId: string, text: string) => {
     return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks`, {
       method: 'POST',

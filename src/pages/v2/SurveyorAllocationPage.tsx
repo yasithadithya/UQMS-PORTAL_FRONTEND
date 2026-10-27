@@ -156,7 +156,7 @@ function AllocationForm({
           <Checkbox
             label="MSS proof required"
             description={canOverrideMss
-              ? 'The surveyor must upload the MSS proof in Schedule II before submitting or signing.'
+              ? 'The surveyor must upload the MSS proof in the code-specific Schedule II (e.g. SSC Schedule II) before submitting or signing.'
               : 'Only users with override access can turn this off.'}
             checked={mssProofRequired}
             disabled={!canOverrideMss}

@@ -873,6 +873,8 @@ export interface ApiJob {
   vesselName: string;
   vesselCode?: string;
   uqmsNumber?: string;
+  /** First Entry jobs: survey report number, issued at Surveyor Allocation. */
+  reportNumber?: string;
   sector: 'marine' | 'industrial';
   mainSurveyType: string;
   surveyTypes: Array<ApiSurveyType | string>;
@@ -924,8 +926,10 @@ export type ApiAllocationQueueItem = ApiRequest & { acceptedQuotationNumber?: st
 export interface ApiJobReportItem {
   category: string;
   name: string;
-  docType?: SignableDocType;
+  docType?: SignableDocType | 'daily-visit';
   docId?: string;
+  /** Daily visit reports: the visit the report covers. */
+  visit?: string;
   key?: string;
   url?: string;
   contentType?: string;

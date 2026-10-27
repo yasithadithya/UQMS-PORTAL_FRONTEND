@@ -166,6 +166,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
         <Card>
           <dl className={s.facts}>
             <div><dt>UQMS no.</dt><dd className={s.mono}>{job.uqmsNumber || '—'}</dd></div>
+            {job.mainSurveyType === 'first-entry' && <div><dt>Report no.</dt><dd className={s.mono}>{job.reportNumber || '—'}</dd></div>}
             <div><dt>Request no.</dt><dd className={s.mono}>{job.requestNumber}</dd></div>
             <div><dt>Quotation</dt><dd className={s.mono}>{job.quotationNumber || '—'}</dd></div>
             <div><dt>Vessel code</dt><dd>{job.vesselCode || '—'}</dd></div>
@@ -236,6 +237,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
                     bookingId: job.links?.bookingId,
                     vesselId: job.vessel,
                     requestId: typeof job.request === 'object' ? job.request._id : job.request,
+                    reportNumber: job.reportNumber,
                     surveyorIds: [job.surveyor, ...job.assistantSurveyors].map(p => (typeof p === 'object' ? p._id : p)),
                     readOnly,
                     onSaved: async bookingId => {

@@ -36,6 +36,8 @@ export interface BookingJobProps {
   bookingId?: string;
   vesselId: string;
   requestId: string;
+  /** Issued at Surveyor Allocation; the booking takes this report number. */
+  reportNumber?: string;
   surveyorIds: string[];
   readOnly?: boolean;
   onSaved: (bookingId: string) => void;
@@ -72,7 +74,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
   const [shipName, setShipName] = useState('');
   const [requestedBy, setRequestedBy] = useState('');
   const [portOfSurvey, setPortOfSurvey] = useState('');
-  const [reportNo, setReportNo] = useState('');
+  const [reportNo, setReportNo] = useState(job?.reportNumber ?? '');
   const [portOfRegistry, setPortOfRegistry] = useState('');
   const [flag, setFlag] = useState('');
   const [shipType, setShipType] = useState('');
@@ -241,7 +243,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
     if (isFieldEditable('shipName')) setShipName('');
     if (isFieldEditable('requestedBy')) setRequestedBy('');
     if (isFieldEditable('portOfSurvey')) setPortOfSurvey('');
-    if (isFieldEditable('reportNo')) setReportNo('');
+    if (isFieldEditable('reportNo')) setReportNo(job?.reportNumber ?? '');
     if (isFieldEditable('portOfRegistry')) setPortOfRegistry('');
     if (isFieldEditable('flag')) setFlag('');
     if (isFieldEditable('shipType')) setShipType('');

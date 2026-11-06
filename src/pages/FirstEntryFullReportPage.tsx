@@ -27,12 +27,21 @@ type OpenSignableDocument = {
   downloadFileName: string;
 };
 
-export default function FirstEntryFullReportPage() {
-  const { id, module } = useParams<{ id: string; module?: string }>();
+/** V2: embedded as the "Checklist" section of the reporting workspace. */
+export interface ChecklistEmbedProps {
+  surveyReportId: string;
+  readOnly?: boolean;
+}
+
+export default function FirstEntryFullReportPage({ embedded }: { embedded?: ChecklistEmbedProps } = {}) {
+  const params = useParams<{ id: string; module?: string }>();
+  const id = embedded?.surveyReportId ?? params.id;
+  const { module } = params;
+  const readOnly = !!embedded?.readOnly;
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, can } = useAuth();
-  const canEditReport = can(MODULE_KEYS.marineReports, 'update');
+  const canEditReport = !readOnly && can(MODULE_KEYS.marineReports, 'update');
   const canIssueCertificates = can(MODULE_KEYS.marineCertificates, 'create');
   const canViewCertificates = can(MODULE_KEYS.marineCertificates, 'read');
 
@@ -58,6 +67,8 @@ export default function FirstEntryFullReportPage() {
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [visitReport, setVisitReport] = useState<{ label: string; url: string } | null>(null);
+  const [visitReportLoading, setVisitReportLoading] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [isScccosModalOpen, setIsScccosModalOpen] = useState(false);
@@ -81,6 +92,9 @@ export default function FirstEntryFullReportPage() {
   const vessel = report && typeof report.vesselId === 'object' && report.vesselId ? report.vesselId : null;
   const surveyReport = report && typeof report.firstEntrySurveyReportId === 'object' && report.firstEntrySurveyReportId ? report.firstEntrySurveyReportId : null;
   const booking = report && typeof report.bookingId === 'object' && report.bookingId ? report.bookingId : null;
+  const visitOptionValues: string[] = ((booking as any)?.visitDetails || []).map(
+    (visit: any, idx: number) => visit.visitNo || `Visit ${idx + 1}`
+  );
 
   const isScccosEligible = useMemo(() => {
     if (!vessel || vessel.vesselCode !== 'SSC') return false;
@@ -303,7 +317,7 @@ export default function FirstEntryFullReportPage() {
       }
     } catch (err: any) {
       toast.error('Failed to generate Full Report: ' + err.message);
-      navigate(`${basePath}?tab=reports`);
+      if (!embedded) navigate(`${basePath}?tab=reports`);
     }
   };
 
@@ -552,7 +566,7 @@ export default function FirstEntryFullReportPage() {
   const handlePreviewDailyReport = async () => {
     if (!report || previewLoading) return;
     if (hasChanges) {
-      toast.warn('Please save your changes before generating the daily report preview.');
+      toast.warn('Please save your changes before generating the checklist preview.');
       return;
     }
 
@@ -563,7 +577,7 @@ export default function FirstEntryFullReportPage() {
       setPreviewUrl(url);
       setShowPreviewModal(true);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load daily report PDF preview.');
+      toast.error(err.message || 'Failed to load the checklist PDF preview.');
     } finally {
       setPreviewLoading(false);
     }
@@ -575,7 +589,7 @@ export default function FirstEntryFullReportPage() {
       setGeneratingPdf(true);
       const res = await firstEntryService.generateDailyReportPdf(report._id);
       if (res.success) {
-        toast.success('Daily Visit Report PDF generated successfully.');
+        toast.success('Survey Checklist PDF generated successfully.');
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
@@ -584,7 +598,7 @@ export default function FirstEntryFullReportPage() {
         toast.error(res.message || 'Failed to generate PDF.');
       }
     } catch (err: any) {
-      toast.error('Error generating daily visit report PDF: ' + err.message);
+      toast.error('Error generating the checklist PDF: ' + err.message);
     } finally {
       setGeneratingPdf(false);
     }
@@ -598,14 +612,39 @@ export default function FirstEntryFullReportPage() {
     }
   };
 
+  /** Visits with checklist items saved against them: each gets its own Daily Visit Report. */
+  const recordedVisits = visitOptionValues.filter(v => (report?.checklist || []).some(i => i.visitNumber === v));
+
+  const handleOpenVisitReport = async (label: string) => {
+    if (!report || visitReportLoading) return;
+    if (hasChanges) {
+      toast.warn('Please save your changes before opening the daily visit report.');
+      return;
+    }
+    try {
+      setVisitReportLoading(label);
+      const blob = await firstEntryService.getDailyVisitReportPdf(report._id, label);
+      setVisitReport({ label, url: URL.createObjectURL(blob) });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load the daily visit report.');
+    } finally {
+      setVisitReportLoading(null);
+    }
+  };
+
+  const handleCloseVisitReport = () => {
+    if (visitReport) URL.revokeObjectURL(visitReport.url);
+    setVisitReport(null);
+  };
+
   const handleViewDailyReport = () => {
     if (!report) return;
     setOpenDocument({
       docType: 'daily-report',
       docId: report._id,
-      title: 'Daily Visit Report',
+      title: 'Survey Checklist',
       fetchPdf: () => firstEntryService.getDailyReportPdfBlob(report._id),
-      downloadFileName: report.dailyReportPdfFilename || `daily-visit-report-${report._id}.pdf`,
+      downloadFileName: report.dailyReportPdfFilename || `survey-checklist-${report._id}.pdf`,
     });
   };
 
@@ -670,12 +709,14 @@ export default function FirstEntryFullReportPage() {
 
   return (
     <div className={s.container}>
-      <PageHeader
-        back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
-        title="Survey check sheet"
-        description={`Report ${surveyReport?.reportNo || '—'}${vessel?.vesselName ? ` · ${vessel.vesselName}` : ''}`}
-        meta={<Badge tone={progressStats.percentage === 100 ? 'success' : 'neutral'}>{progressStats.completed}/{progressStats.total} checked</Badge>}
-      />
+      {!embedded && (
+        <PageHeader
+          back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
+          title="Survey check sheet"
+          description={`Report ${surveyReport?.reportNo || '—'}${vessel?.vesselName ? ` · ${vessel.vesselName}` : ''}`}
+          meta={<Badge tone={progressStats.percentage === 100 ? 'success' : 'neutral'}>{progressStats.completed}/{progressStats.total} checked</Badge>}
+        />
+      )}
 
       {/* Header Info Panel */}
       <div className={s.headerCard}>
@@ -723,7 +764,7 @@ export default function FirstEntryFullReportPage() {
               <>
                 <span className={s.reportLine}>
                   <FileText aria-hidden="true" />
-                  Daily report PDF:{' '}
+                  Survey checklist PDF:{' '}
                   <a href={apiUrl(`/first-entry-full-reports/public-pdf/${report._id}`)} target="_blank" rel="noreferrer">
                     {report.dailyReportPdfFilename || 'View PDF'}
                   </a>
@@ -738,13 +779,14 @@ export default function FirstEntryFullReportPage() {
                 )}
               </>
             ) : (
-              <span className={s.reportMeta}>No daily report PDF generated yet.</span>
+              <span className={s.reportMeta}>No checklist PDF generated yet.</span>
             )}
           </div>
           <div className={s.reportActions}>
-            {report.dailyReportPdfGeneratedAt && (
+            {/* V2: only the certificate is signed; the checklist is listed under Reports. */}
+            {report.dailyReportPdfGeneratedAt && !embedded && (
               <Button size="sm" icon={<PenLine />} onClick={handleViewDailyReport}>
-                {report.eSignature ? 'View signed daily report' : 'View & sign daily report'}
+                {report.eSignature ? 'View signed checklist' : 'View & sign checklist'}
               </Button>
             )}
             <Button
@@ -753,25 +795,44 @@ export default function FirstEntryFullReportPage() {
               icon={<Eye />}
               onClick={handlePreviewDailyReport}
               loading={previewLoading}
-              disabled={generatingPdf || !!report.eSignature}
-              title={report.eSignature ? 'The daily report is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
+              disabled={generatingPdf || !!report.eSignature || readOnly}
+              title={report.eSignature ? 'The checklist is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
             >
-              Preview & generate daily report
+              Preview & generate checklist
             </Button>
-            {isScccosEligible && booking && (
+            {!embedded && isScccosEligible && booking && (
               surveyReport?.status === 'COS Generated'
                 ? <Button size="sm" icon={<Award />} onClick={handleViewCos} disabled={!canViewCertificates}>View COS</Button>
                 : <Button size="sm" icon={<Award />} onClick={() => setIsScccosModalOpen(true)} disabled={!canIssueCertificates}>Generate SSC COS</Button>
             )}
-            {isDockingSurveyEligible && booking && (
+            {!embedded && isDockingSurveyEligible && booking && (
               dockingSurveyCertExists
                 ? <Button size="sm" icon={<Anchor />} onClick={handleViewDockingSurvey} disabled={!canViewCertificates}>View docking survey</Button>
                 : <Button size="sm" icon={<Anchor />} onClick={() => setIsDockingSurveyModalOpen(true)} disabled={!canIssueCertificates}>Generate docking survey</Button>
             )}
           </div>
         </div>
+        <div className={s.reportRow}>
+          <div className={s.reportInfo}>
+            <span className={s.reportLine}>
+              <ClipboardList aria-hidden="true" />
+              Daily visit reports
+              <span className={s.reportMeta}>
+                {recordedVisits.length ? 'One report per visit, generated from the checklist items recorded on it.' : 'Generated once checklist items are saved against a visit.'}
+              </span>
+            </span>
+          </div>
+          <div className={s.reportActions}>
+            {recordedVisits.map(label => (
+              <Button key={label} size="sm" icon={<FileText />} loading={visitReportLoading === label} onClick={() => handleOpenVisitReport(label)}>
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
       </div>
 
+      <fieldset disabled={readOnly} className={s.fieldsetReset}>
       {/* Checklist Sections grouped by Question Category */}
       {Object.keys(groupedChecklist).length === 0 ? (
         <Card padding="none">
@@ -888,16 +949,11 @@ export default function FirstEntryFullReportPage() {
                                 disabled={isLocked}
                               >
                                 <option value="">Select Visit...</option>
-                                {report.bookingId && typeof report.bookingId === 'object' && (report.bookingId as any).visitDetails
-                                  ?.filter((visit: any) => {
-                                    if (!currentUser) return false;
-                                    return visit.surveyorAssignments?.some((assign: any) => {
-                                      const sId = typeof assign.surveyorId === 'object' && assign.surveyorId
-                                        ? assign.surveyorId._id
-                                        : assign.surveyorId;
-                                      return sId === currentUser.id;
-                                    });
-                                  })
+                                {/* The server already limits the visits to the ones this user may pick. */}
+                                {item.visitNumber && !visitOptionValues.includes(item.visitNumber) && (
+                                  <option value={item.visitNumber}>{item.visitNumber}</option>
+                                )}
+                                {(booking as any)?.visitDetails
                                   ?.map((visit: any, idx: number) => {
                                     const visitVal = visit.visitNo || `Visit ${idx + 1}`;
                                     const visitLabel = visit.visitNo
@@ -1022,7 +1078,7 @@ export default function FirstEntryFullReportPage() {
             💬 General Remarks & Discussion
           </h2>
           <p className={s.discussionSubtitle}>
-            A general remark must be added before generating the Daily Visit Report PDF. Closed remarks are omitted from the PDF.
+            A general remark must be added before generating the Survey Checklist PDF. Closed remarks are omitted from the PDF.
           </p>
         </div>
 
@@ -1030,7 +1086,7 @@ export default function FirstEntryFullReportPage() {
           {!report.remarks || report.remarks.length === 0 ? (
             <div className={s.emptyRemarks}>
               <p>No general remarks added yet.</p>
-              <span>Please add at least one remark below to generate the daily report PDF.</span>
+              <span>Please add at least one remark below to generate the checklist PDF.</span>
             </div>
           ) : (
             <div className={s.remarksList}>
@@ -1228,7 +1284,7 @@ export default function FirstEntryFullReportPage() {
         <form onSubmit={handleAddRemark} className={s.remarkForm}>
           <h3 className={s.formTitle}>Add General Remark</h3>
           <textarea
-            placeholder="Type your general remark here... (This remark will be printable in the Daily Visit Report PDF)"
+            placeholder="Type your general remark here... (This remark will be printed on the Survey Checklist and Daily Visit Reports)"
             value={newRemarkText}
             onChange={(e) => setNewRemarkText(e.target.value)}
             className={s.remarkTextarea}
@@ -1246,8 +1302,9 @@ export default function FirstEntryFullReportPage() {
           </Button>
         </form>
       </div>
+      </fieldset>
 
-      {isScccosEligible && booking && (
+      {!embedded && isScccosEligible && booking && (
         <Section
           className={s.cosCard}
           title="Small Craft Code Certificate of Survey"
@@ -1294,16 +1351,27 @@ export default function FirstEntryFullReportPage() {
         onClose={handleClosePreview}
         dismissible={!generatingPdf}
         size="xl"
-        title="Daily visit report preview"
-        description="Check the PDF, then generate the daily report."
+        title="Survey checklist preview"
+        description="Check the PDF, then generate the checklist document."
         footer={
           <>
             <Button onClick={handleClosePreview} disabled={generatingPdf}>Cancel</Button>
-            <Button variant="primary" onClick={handleGenerateDailyReport} loading={generatingPdf} disabled={!canEditReport}>Generate daily report</Button>
+            <Button variant="primary" onClick={handleGenerateDailyReport} loading={generatingPdf} disabled={!canEditReport}>Generate checklist</Button>
           </>
         }
       >
-        {previewUrl && <iframe src={previewUrl} title="Daily visit report preview" className={s.previewFrame} />}
+        {previewUrl && <iframe src={previewUrl} title="Survey checklist preview" className={s.previewFrame} />}
+      </Modal>
+
+      <Modal
+        open={!!visitReport}
+        onClose={handleCloseVisitReport}
+        size="xl"
+        title={`Daily visit report · ${visitReport?.label ?? ''}`}
+        description="Generated from the checklist items recorded on this visit."
+        footer={<Button onClick={handleCloseVisitReport}>Close</Button>}
+      >
+        {visitReport && <iframe src={visitReport.url} title="Daily visit report" className={s.previewFrame} />}
       </Modal>
 
       {openDocument && (

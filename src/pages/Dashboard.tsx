@@ -1,425 +1,252 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState, type DragEvent } from 'react';
 import { toast } from 'react-toastify';
-import { Award, CalendarCheck, CalendarClock, ChevronRight, FilePlus2, FileText, Inbox, Plus, Ship, UserCheck } from 'lucide-react';
+import clsx from 'clsx';
+import { ArrowDown, ArrowUp, Check, FilePlus2, GripVertical, LayoutGrid, Maximize2, Plus, RotateCcw, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
-import { firstEntryService, hrService, requestsService, type ApiFirstEntry, type ApiRequest } from '@/api';
-import { useNavigation } from '@/navigation/useNavigation';
-import Pagination from '@/components/Pagination';
-import { formatDate } from '@/utils/date';
+import type { DashboardWidgetPlacement, DashboardWidgetSize } from '@/api';
+import { Badge, Button, ButtonLink, Card, Drawer, EmptyState, IconButton, Menu, PageHeader, Skeleton } from '@/ui';
+import { DashboardDataProvider } from './dashboard/data';
 import {
-  Badge, Button, ButtonLink, Card, ConfirmDialog, DataTable, EmptyState, ErrorState, PageHeader, Section, Skeleton,
-  StatCard, StatGrid, type Column, type Tone,
-} from '@/ui';
+  DashboardLinksProvider, WIDGETS, WIDGETS_BY_ID, WIDGET_GROUPS, defaultLayout, useBuildDashboardLinks,
+  type WidgetAccess, type WidgetDef,
+} from './dashboard/widgets';
+import { useDashboardLayout } from './dashboard/useDashboardLayout';
 import s from './Dashboard.module.css';
-
-/* ------------------------------------------------------------------ data helper */
-
-type Load<T> = { data?: T; loading: boolean; error?: string; reload: () => void };
-
-/** Runs `load` when `enabled` (and again on reload); ignores responses that arrive after unmount. */
-function useLoad<T>(load: () => Promise<T>, enabled: boolean): Load<T> {
-  const [state, setState] = useState<{ data?: T; loading: boolean; error?: string }>({ loading: enabled });
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let alive = true;
-    setState(prev => ({ ...prev, loading: true, error: undefined }));
-    load()
-      .then(data => { if (alive) setState({ data, loading: false }); })
-      .catch((err: any) => { if (alive) setState({ loading: false, error: err?.message || 'Failed to load' }); });
-    return () => { alive = false; };
-    // `load` is a fresh closure every render; re-run only on enable/reload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, nonce]);
-
-  return { ...state, reload: () => setNonce(n => n + 1) };
-}
-
-const countOf = (res: { count?: number } | undefined) => res?.count ?? 0;
 
 const greetingForHour = (hour: number) => (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
 
-/* ------------------------------------------------------------------ page */
+const SIZE_LABELS: Record<DashboardWidgetSize, string> = {
+  sm: 'Small (quarter width)',
+  md: 'Medium (half width)',
+  lg: 'Large (full width)',
+};
+
+/** Drops widgets the user can't see (unknown id or no permission) and fixes sizes a widget doesn't support. */
+function usableLayout(layout: DashboardWidgetPlacement[], access: WidgetAccess): DashboardWidgetPlacement[] {
+  return layout.flatMap(p => {
+    const def = WIDGETS_BY_ID[p.id];
+    if (!def || !def.available(access)) return [];
+    return [{ id: p.id, size: def.sizes.includes(p.size) ? p.size : def.sizes[0] }];
+  });
+}
 
 /**
- * Home: what needs attention now (website requests to review, leave to approve), the survey pipeline at a glance,
- * and the most recent work. Everything is limited to what the user's role can see.
+ * Home: a grid of widgets the user picks from the modules they can access. Until they customize it they see a
+ * default layout built from their permissions. The layout is saved on their account.
  */
 export default function DashboardPage() {
-  const { user, can } = useAuth();
-  const nav = useNavigation();
-  const fe = nav.firstEntryPath;
-  const leavesLink = nav.links.find(l => l.to.endsWith('tab=leaves'))?.to;
-  const myHrLink = nav.links.find(l => l.to.endsWith('tab=myhr'))?.to;
-  const attendanceLink = nav.links.find(l => l.to.endsWith('tab=attendance'))?.to;
+  const { user, can, canAny, modulesLoaded } = useAuth();
+  const links = useBuildDashboardLinks();
+  const access = useMemo<WidgetAccess>(() => ({ can, canAny, links }), [can, canAny, links]);
+  const { saved, loaded, save } = useDashboardLayout(user?.id);
 
-  const canRequests = can(MODULE_KEYS.newRequest);
-  const canLeave = can(MODULE_KEYS.hrLeave) && !!leavesLink;
-  const canEntries = !!fe && can(MODULE_KEYS.marineEntries);
+  const defaults = useMemo(() => defaultLayout(access), [access]);
+  const current = useMemo(() => usableLayout(saved ?? defaults, access), [saved, defaults, access]);
 
-  // Stat cards in priority order; only the first four the user may see are shown (and fetched).
-  const cardKeys = ([
-    canRequests && 'requests',
-    canLeave && 'leaves',
-    canEntries && 'entries',
-    !!fe && can(MODULE_KEYS.marineBookings) && 'bookings',
-    !!fe && can(MODULE_KEYS.marineReports) && 'reports',
-    !!fe && can(MODULE_KEYS.marineCertificates) && 'certificates',
-    can(MODULE_KEYS.hrAttendance) && !!attendanceLink && 'attendance',
-  ].filter(Boolean) as string[]).slice(0, 4);
-  const shows = (key: string) => cardKeys.includes(key);
+  // While customizing, changes go to a draft that only replaces the saved layout on Save.
+  const [draft, setDraft] = useState<DashboardWidgetPlacement[] | null>(null);
+  const [draftIsDefault, setDraftIsDefault] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const editing = draft !== null;
+  const layout = draft ?? current;
 
-  const [webTotal, setWebTotal] = useState<number | null>(null);
-  const entries = useLoad(() => firstEntryService.getFirstEntries({ page: 1, limit: 5 }), canEntries);
-  const leaves = useLoad(() => hrService.getLeaveRequests({ status: 'Pending', page: 1, limit: 5 }), canLeave);
-  const bookings = useLoad(() => firstEntryService.getFirstEntrySurveyBookings({ page: 1, limit: 1 }), shows('bookings'));
-  const reports = useLoad(() => firstEntryService.getFirstEntrySurveyReports({ page: 1, limit: 1 }), shows('reports'));
-  const certificates = useLoad(() => firstEntryService.getScccosCertificates({ page: 1, limit: 1 }), shows('certificates'));
-  const hrStats = useLoad(() => hrService.getDashboardStats(), shows('attendance'));
-  const attendanceToday = hrStats.data?.data?.attendanceToday;
+  const change = (next: DashboardWidgetPlacement[]) => { setDraft(next); setDraftIsDefault(false); };
+  const move = (from: number, to: number) => {
+    if (!draft || to < 0 || to >= draft.length || from === to) return;
+    const next = [...draft];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    change(next);
+  };
+  const remove = (id: string) => draft && change(draft.filter(p => p.id !== id));
+  const resize = (id: string, size: DashboardWidgetSize) => draft && change(draft.map(p => (p.id === id ? { ...p, size } : p)));
+  const add = (def: WidgetDef) => draft && change([...draft, { id: def.id, size: def.sizes[0] }]);
 
-  const pendingLeaves: any[] = leaves.data?.data?.requests ?? [];
-  const pendingLeaveTotal: number = leaves.data?.data?.total ?? 0;
+  const startEditing = () => { setDraft(current); setDraftIsDefault(saved == null); };
+  const cancel = () => { setDraft(null); setAdding(false); };
+  const resetToDefault = () => { setDraft(defaults); setDraftIsDefault(true); };
+
+  const saveDraft = async () => {
+    if (!draft) return;
+    setSaving(true);
+    try {
+      await save(draftIsDefault ? null : draft);
+      toast.success(draftIsDefault ? 'Dashboard reset to the default layout.' : 'Dashboard saved.');
+      setDraft(null);
+      setAdding(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Could not save your dashboard.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ----- drag to reorder (the arrow buttons do the same for keyboard and touch) ----- */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const dragProps = (id: string) => editing ? {
+    draggable: true,
+    onDragStart: (e: DragEvent) => { setDragId(id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); },
+    onDragOver: (e: DragEvent) => { if (dragId) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (overId !== id) setOverId(id); } },
+    onDrop: (e: DragEvent) => {
+      e.preventDefault();
+      if (dragId && draft) move(draft.findIndex(p => p.id === dragId), draft.findIndex(p => p.id === id));
+      setDragId(null); setOverId(null);
+    },
+    onDragEnd: () => { setDragId(null); setOverId(null); },
+  } : {};
 
   const now = new Date();
   const today = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const fe = links.firstEntry;
 
-  const cards: Record<string, ReactNode> = {
-    requests: (
-      <StatCard key="requests" label="Website requests" icon={<Inbox />} loading={webTotal === null}
-        value={webTotal ?? 0} tone={webTotal ? 'warning' : 'success'} hint={webTotal ? 'Waiting for review' : 'All reviewed'} />
-    ),
-    leaves: (
-      <StatCard key="leaves" label="Leave requests" icon={<CalendarClock />} loading={leaves.loading}
-        value={leaves.error ? '—' : pendingLeaveTotal} tone={pendingLeaveTotal ? 'warning' : 'success'}
-        hint={pendingLeaveTotal ? 'Waiting for approval' : 'Nothing to approve'} href={leavesLink} />
-    ),
-    entries: (
-      <StatCard key="entries" label="First entries" icon={<Ship />} tone="accent" loading={entries.loading}
-        value={entries.error ? '—' : countOf(entries.data)} hint="On record" href={`${fe}?tab=first-entry`} />
-    ),
-    bookings: (
-      <StatCard key="bookings" label="Survey bookings" icon={<CalendarCheck />} tone="info" loading={bookings.loading}
-        value={bookings.error ? '—' : countOf(bookings.data)} hint="On record" href={`${fe}?tab=survey`} />
-    ),
-    reports: (
-      <StatCard key="reports" label="Survey reports" icon={<FileText />} tone="info" loading={reports.loading}
-        value={reports.error ? '—' : countOf(reports.data)} hint="On record" href={`${fe}?tab=reports`} />
-    ),
-    attendance: (
-      <StatCard key="attendance" label="Present today" icon={<UserCheck />} tone="info" loading={hrStats.loading}
-        value={hrStats.error ? '—' : attendanceToday?.Present ?? 0}
-        hint={attendanceToday ? `${attendanceToday.OnLeave || 0} on leave · ${attendanceToday.Absent || 0} absent` : 'Attendance'} href={attendanceLink} />
-    ),
-    certificates: (
-      <StatCard key="certificates" label="Certificates" icon={<Award />} tone="success" loading={certificates.loading}
-        value={certificates.error ? '—' : countOf(certificates.data)} hint="Issued" href={`${fe}?tab=certificates`} />
-    ),
-  };
-
-  const quickActions = (
+  const headerActions = editing ? (
     <>
-      {can(MODULE_KEYS.newRequest, 'override') && (
-        <ButtonLink to="/new-request/create" icon={<FilePlus2 />}>New request</ButtonLink>
-      )}
-      {fe && can(MODULE_KEYS.marineEntries, 'create') && (
-        <ButtonLink to={`${fe}/create`} variant="primary" icon={<Plus />}>Create first entry</ButtonLink>
-      )}
+      <Button variant="ghost" icon={<RotateCcw />} onClick={resetToDefault} disabled={saving}>Reset to default</Button>
+      <Button icon={<Plus />} onClick={() => setAdding(true)} disabled={saving}>Add widgets</Button>
+      <Button onClick={cancel} disabled={saving}>Cancel</Button>
+      <Button variant="primary" icon={<Check />} onClick={saveDraft} loading={saving}>Save layout</Button>
+    </>
+  ) : (
+    <>
+      {can(MODULE_KEYS.newRequest, 'override') && <ButtonLink to="/new-request/create" icon={<FilePlus2 />}>New request</ButtonLink>}
+      {fe && can(MODULE_KEYS.marineEntries, 'create') && <ButtonLink to={`${fe}/create`} icon={<Plus />}>Create first entry</ButtonLink>}
+      <Button variant="primary" icon={<LayoutGrid />} onClick={startEditing} disabled={!modulesLoaded}>Customize</Button>
     </>
   );
 
-  const hasSide = canEntries || canLeave;
-  const hasAnything = canRequests || hasSide || cardKeys.length > 0;
+  // Widgets depend on the module tree (for permissions and links), and on the saved layout if there's no cached copy.
+  const ready = modulesLoaded && (saved !== undefined || loaded);
 
   return (
-    <div className="animate-in">
-      <PageHeader
-        title={`${greetingForHour(now.getHours())}, ${user?.username || 'there'}`}
-        description={today}
-        actions={quickActions}
-      />
+    <DashboardLinksProvider value={links}>
+      <DashboardDataProvider>
+        <div className="animate-in">
+          <PageHeader
+            title={`${greetingForHour(now.getHours())}, ${user?.username || 'there'}`}
+            description={today}
+            actions={headerActions}
+          />
 
-      {cardKeys.length > 0 && <StatGrid>{cardKeys.map(k => cards[k])}</StatGrid>}
+          {editing && (
+            <p className={s.editHint} role="status">
+              Drag widgets to reorder them, or use the arrows. Use the size button to make a widget wider or narrower.
+              Nothing changes until you select <strong>Save layout</strong>.
+            </p>
+          )}
 
-      {hasAnything ? (
-        <div className={hasSide && canRequests ? s.columns : s.single}>
-          {canRequests && <WebsiteRequestsQueue onTotalChange={setWebTotal} />}
-
-          {hasSide && (
-            <div className={s.side}>
-              {canEntries && <RecentFirstEntries load={entries} basePath={fe!} />}
-              {canLeave && <PendingLeaves load={leaves} rows={pendingLeaves} total={pendingLeaveTotal} href={leavesLink!} />}
+          {!ready ? (
+            <div className={s.grid} aria-busy="true">
+              {[0, 1, 2, 3].map(i => <div key={i} className={clsx(s.cell, s.sm)}><Skeleton height={112} radius="var(--radius-lg)" /></div>)}
+              <div className={clsx(s.cell, s.lg)}><Skeleton height={240} radius="var(--radius-lg)" /></div>
+            </div>
+          ) : layout.length === 0 ? (
+            <Card padding="none">
+              <EmptyState
+                icon={<LayoutGrid />}
+                title={editing ? 'No widgets yet' : 'Your dashboard is empty'}
+                description={editing ? 'Add widgets for the modules you use.' : 'Choose the widgets you want to see here.'}
+                action={editing
+                  ? <Button variant="primary" icon={<Plus />} onClick={() => setAdding(true)}>Add widgets</Button>
+                  : <Button variant="primary" icon={<LayoutGrid />} onClick={startEditing}>Customize</Button>}
+              />
+            </Card>
+          ) : (
+            <div className={s.grid}>
+              {layout.map((p, index) => {
+                const def = WIDGETS_BY_ID[p.id];
+                const { Component } = def;
+                return (
+                  <div
+                    key={p.id}
+                    className={clsx(s.cell, s[p.size], editing && s.editing, dragId === p.id && s.dragging, overId === p.id && dragId !== p.id && s.dropTarget)}
+                    {...dragProps(p.id)}
+                  >
+                    {editing && (
+                      <div className={s.toolbar}>
+                        <GripVertical className={s.grip} aria-hidden="true" />
+                        <span className={s.toolbarTitle}>{def.title}</span>
+                        <IconButton size="sm" label="Move earlier" icon={<ArrowUp />} disabled={index === 0} onClick={() => move(index, index - 1)} />
+                        <IconButton size="sm" label="Move later" icon={<ArrowDown />} disabled={index === layout.length - 1} onClick={() => move(index, index + 1)} />
+                        {def.sizes.length > 1 && (
+                          <Menu
+                            label="Change size"
+                            trigger={<IconButton size="sm" label="Change size" icon={<Maximize2 />} noTooltip />}
+                            items={def.sizes.map(size => ({
+                              label: SIZE_LABELS[size],
+                              icon: size === p.size ? <Check /> : <span />,
+                              onSelect: () => resize(p.id, size),
+                            }))}
+                          />
+                        )}
+                        <IconButton size="sm" label="Remove widget" icon={<X />} variant="dangerGhost" onClick={() => remove(p.id)} />
+                      </div>
+                    )}
+                    {/* While editing, the widget is a preview: `inert` stops its links and buttons taking clicks or focus. */}
+                    <div className={s.content} ref={el => { if (el) el.toggleAttribute('inert', editing); }}>
+                      <Component />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </div>
-      ) : (
-        <Card padding="none">
-          <EmptyState
-            title="Welcome to UQMS"
-            description="Use the menu to open the areas your role gives you access to."
-            action={myHrLink ? <ButtonLink to={myHrLink} variant="primary">Open My HR</ButtonLink> : <ButtonLink to="/profile">View your profile</ButtonLink>}
+
+          <AddWidgetsDrawer
+            open={adding}
+            onClose={() => setAdding(false)}
+            access={access}
+            placed={new Set(layout.map(p => p.id))}
+            onAdd={add}
           />
-        </Card>
-      )}
-    </div>
+        </div>
+      </DashboardDataProvider>
+    </DashboardLinksProvider>
   );
 }
 
-/* ------------------------------------------------------------------ website requests */
+/* ------------------------------------------------------------------ widget picker */
 
-const surveySummary = (request: ApiRequest) => {
-  const names = (request.surveyTypes || []).map(survey => (typeof survey === 'string' ? survey : survey.name));
-  if (names.length <= 2) return names.join(', ') || '—';
-  return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
-};
-
-type PendingReview = { request: ApiRequest; decision: 'accept' | 'reject' };
-
-/** Requests submitted through the website, waiting for staff to accept (→ New Request) or reject. */
-function WebsiteRequestsQueue({ onTotalChange }: { onTotalChange: (total: number) => void }) {
-  const { can } = useAuth();
-  const navigate = useNavigate();
-  const canReview = can(MODULE_KEYS.newRequest, 'update');
-
-  const [requests, setRequests] = useState<ApiRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
-
-  const loadRequests = async (currentPage = page, currentLimit = limit) => {
-    try {
-      setLoading(true);
-      setError('');
-      const res = await requestsService.getPendingWebRequests({ page: currentPage, limit: currentLimit });
-      setRequests(res.data);
-      setTotal(res.count || 0);
-      onTotalChange(res.count || 0);
-      setTotalPages(res.pagination?.totalPages || 1);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load website requests.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadRequests(page, limit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit]);
-
-  const handleReview = async ({ request, decision }: PendingReview) => {
-    setReviewingId(request._id);
-    try {
-      if (decision === 'accept') {
-        const res = await requestsService.acceptWebRequest(request._id);
-        toast.success(`${request.requestNumber} accepted as job ${res.data.jobNumber}. It is now in New Request.`);
-      } else {
-        await requestsService.rejectWebRequest(request._id);
-        toast.info(`${request.requestNumber} rejected.`);
-      }
-      // Step back a page if the last row on this page was just removed.
-      if (requests.length === 1 && page > 1) setPage(page - 1);
-      else await loadRequests();
-    } catch (err: any) {
-      toast.error(err.message || `Failed to ${decision} request.`);
-      await loadRequests();
-    } finally {
-      setReviewingId(null);
-    }
-  };
-
-  const noPermission = canReview ? undefined : 'You do not have permission to review requests';
-
-  // Kept to three stacked columns so the table fits beside the side panel on laptop screens.
-  const columns: Column<ApiRequest>[] = [
-    {
-      key: 'number', header: 'Request', primary: true, nowrap: true,
-      cell: r => (
-        <div className={s.cellStack}>
-          <span>{r.requestNumber}</span>
-          <span className={s.cellSub}>Received {formatDate(r.createdAt)}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'vessel', header: 'Vessel',
-      cell: r => (
-        <div className={s.cellStack}>
-          <span className={s.cellStrong}>{r.vesselName || '—'}</span>
-          <span className={s.cellSub}>{surveySummary(r)}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'company', header: 'Company',
-      cell: r => (
-        <div className={s.cellStack}>
-          <span>{r.companyName || '—'}</span>
-          {r.companyEmail && <span className={s.cellSub}>{r.companyEmail}</span>}
-        </div>
-      ),
-    },
-  ];
-
+function AddWidgetsDrawer({ open, onClose, access, placed, onAdd }: {
+  open: boolean; onClose: () => void; access: WidgetAccess; placed: Set<string>; onAdd: (def: WidgetDef) => void;
+}) {
+  const available = WIDGETS.filter(w => w.available(access));
   return (
-    <section className={s.queue} aria-labelledby="web-requests-title">
-      <div className={s.queueHeader}>
-        <div>
-          <div className={s.queueTitleRow}>
-            <h2 id="web-requests-title" className={s.queueTitle}>Website requests</h2>
-            {total > 0 && <Badge tone="warning">{total} waiting</Badge>}
-          </div>
-          <p className={s.queueDescription}>Accepted requests get a job number and move to New Request.</p>
-        </div>
-      </div>
-
-      <DataTable
-        caption="Website requests awaiting review"
-        columns={columns}
-        rows={requests}
-        getRowId={r => r._id}
-        loading={loading}
-        error={error}
-        onRetry={() => loadRequests()}
-        onRowClick={r => navigate(`/new-request/${r._id}`)}
-        empty={{ title: 'All caught up', description: 'No website requests are waiting for review.', icon: <Inbox /> }}
-        rowActions={r => {
-          const busy = reviewingId === r._id;
-          return (
-            <>
-              <Button size="sm" variant="dangerGhost" disabled={!canReview || busy} title={noPermission}
-                onClick={() => setPendingReview({ request: r, decision: 'reject' })}>
-                Reject
-              </Button>
-              <Button size="sm" variant="primary" disabled={!canReview} loading={busy} title={noPermission}
-                onClick={() => setPendingReview({ request: r, decision: 'accept' })}>
-                Accept
-              </Button>
-            </>
-          );
-        }}
-        footer={
-          <Pagination
-            page={page}
-            limit={limit}
-            total={total}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            onLimitChange={value => { setLimit(value); setPage(1); }}
-          />
-        }
-      />
-
-      <ConfirmDialog
-        open={!!pendingReview}
-        title={pendingReview?.decision === 'accept' ? 'Accept website request?' : 'Reject website request?'}
-        message={
-          pendingReview?.decision === 'accept'
-            ? `${pendingReview.request.requestNumber} (${pendingReview.request.vesselName}) will be given a job number and moved to New Request.`
-            : `${pendingReview?.request.requestNumber} (${pendingReview?.request.vesselName}) will be rejected and removed from this list.`
-        }
-        confirmText={pendingReview?.decision === 'accept' ? 'Accept' : 'Reject'}
-        destructive={pendingReview?.decision === 'reject'}
-        onConfirm={() => {
-          const review = pendingReview;
-          setPendingReview(null);
-          if (review) handleReview(review);
-        }}
-        onCancel={() => setPendingReview(null)}
-      />
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ side lists */
-
-function ListSkeleton() {
-  return (
-    <ul className={s.list} aria-busy="true">
-      {[0, 1, 2].map(i => (
-        <li key={i} className={s.row}>
-          <span className={s.rowMain}>
-            <Skeleton width="55%" height={14} />
-            <Skeleton width="35%" height={12} style={{ marginTop: 6 }} />
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function RecentFirstEntries({ load, basePath }: { load: Load<{ data: ApiFirstEntry[] }>; basePath: string }) {
-  const rows = load.data?.data ?? [];
-  return (
-    <Section
-      title="Recent first entries"
-      padding="none"
-      actions={<ButtonLink to={`${basePath}?tab=first-entry`} size="sm" variant="ghost" iconRight={<ChevronRight />}>View all</ButtonLink>}
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title="Add widgets"
+      description="Widgets for the modules your role can access. Added widgets go to the end of your dashboard."
+      footer={<Button variant="primary" onClick={onClose}>Done</Button>}
     >
-      {load.loading && rows.length === 0 ? <ListSkeleton />
-        : load.error ? <ErrorState compact message={load.error} onRetry={load.reload} />
-        : rows.length === 0 ? <EmptyState compact icon={<Ship />} title="No first entries yet" />
-        : (
-          <ul className={s.list}>
-            {rows.map(entry => {
-              const vessel = typeof entry.vessel === 'object' ? entry.vessel : null;
-              const request = typeof entry.request === 'object' ? entry.request : null;
-              const uqms = vessel?.uqmsNumber;
-              const tone: Tone = uqms ? 'success' : 'warning';
-              return (
-                <li key={entry._id}>
-                  <Link to={`${basePath}/edit/${entry._id}`} className={s.row}>
+      {WIDGET_GROUPS.map(group => {
+        const items = available.filter(w => w.group === group);
+        if (items.length === 0) return null;
+        return (
+          <section key={group} className={s.pickerGroup} aria-labelledby={`widgets-${group}`}>
+            <h3 id={`widgets-${group}`} className={s.pickerGroupTitle}>{group}</h3>
+            <ul className={s.pickerList}>
+              {items.map(w => {
+                const isPlaced = placed.has(w.id);
+                return (
+                  <li key={w.id} className={s.pickerItem}>
+                    <span className={s.pickerIcon} aria-hidden="true">{w.icon}</span>
                     <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{vessel?.vesselName || 'Unknown vessel'}</span>
-                      <span className={s.rowSub}>{[request?.requestNumber, formatDate(entry.createdAt)].filter(Boolean).join(' · ')}</span>
+                      <span className={s.pickerTitle}>{w.title}</span>
+                      <span className={s.pickerDescription}>{w.description}</span>
                     </span>
-                    <Badge tone={tone} dot title={uqms ? undefined : 'Schedule II documents not attached yet'}>{uqms || 'No Schedule II'}</Badge>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-    </Section>
-  );
-}
-
-function PendingLeaves({ load, rows, total, href }: { load: Load<unknown>; rows: any[]; total: number; href: string }) {
-  return (
-    <Section
-      title="Leave to approve"
-      padding="none"
-      actions={<ButtonLink to={href} size="sm" variant="ghost" iconRight={<ChevronRight />}>{total > rows.length ? `All ${total}` : 'Open leaves'}</ButtonLink>}
-    >
-      {load.loading && rows.length === 0 ? <ListSkeleton />
-        : load.error ? <ErrorState compact message={load.error} onRetry={load.reload} />
-        : rows.length === 0 ? <EmptyState compact icon={<CalendarClock />} title="Nothing to approve" />
-        : (
-          <ul className={s.list}>
-            {rows.map(req => (
-              <li key={req._id}>
-                <Link to={href} className={s.row}>
-                  <span className={s.rowMain}>
-                    <span className={s.rowTitle}>{[req.employee?.firstName, req.employee?.lastName].filter(Boolean).join(' ') || 'Employee'}</span>
-                    <span className={s.rowSub}>
-                      {req.leaveType?.name || 'Leave'} · {formatDate(req.startDate)}
-                      {req.endDate && req.endDate !== req.startDate ? ` – ${formatDate(req.endDate)}` : ''}
-                    </span>
-                  </span>
-                  <Badge className="tabular">{req.totalDays} {req.totalDays === 1 ? 'day' : 'days'}</Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-    </Section>
+                    {isPlaced
+                      ? <Badge tone="success" dot>Added</Badge>
+                      : <Button size="sm" icon={<Plus />} onClick={() => onAdd(w)} aria-label={`Add ${w.title}`}>Add</Button>}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
+    </Drawer>
   );
 }

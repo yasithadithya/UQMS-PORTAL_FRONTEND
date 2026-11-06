@@ -90,6 +90,9 @@ export interface ApiSurveyType {
   code: string;
   name: string;
   description?: string;
+  /** V2: main survey types this sub type belongs to; a sub type can sit under several (empty = not mapped yet). */
+  mainTypes?: string[];
+  sector?: 'marine' | 'industrial' | 'both';
   createdAt?: string;
   updatedAt?: string;
 }
@@ -240,6 +243,8 @@ export interface ApiScheduleII {
   _id: string;
   firstEntry: string;
   documents: ApiScheduleIIDocument[];
+  /** V2: proof of MSS submission. */
+  mssProofDocuments?: ApiScheduleIIDocument[];
   status: string;
   emailSent?: boolean;
   createdAt?: string;
@@ -806,3 +811,208 @@ export type QuotableRequest = Pick<
   ApiRequest,
   '_id' | 'requestNumber' | 'jobNumber' | 'rfsDocNo' | 'vesselName' | 'vesselCode' | 'companyName' | 'contactPersonName' | 'companyEmail' | 'registerdAddress' | 'invoicingAddress' | 'status' | 'createdAt'
 >;
+
+// ---------------------------------------------------------------------------
+// V2: jobs, approvals, previous documents
+// ---------------------------------------------------------------------------
+
+export type ApiJobStatus =
+  | 'allocated' | 'booked' | 'in-progress' | 'submitted' | 'surveyor-approved' | 'pending-authorization' | 'completed';
+
+export interface ApiJobPerson {
+  _id: string;
+  fullName?: string;
+  nameWithInitials?: string;
+  username?: string;
+  email?: string;
+}
+
+export interface ApiJobDocument {
+  _id?: string;
+  name: string;
+  key: string;
+  url?: string;
+  contentType?: string;
+  size?: number;
+  uploadedAt?: string;
+}
+
+export interface ApiJobLinks {
+  firstEntryId?: string;
+  scheduleIIId?: string;
+  bookingId?: string;
+  surveyReportId?: string;
+  fullReportId?: string;
+  equipmentRecordId?: string;
+  finalReportId?: string;
+  certificateId?: string;
+  dockingCertId?: string;
+}
+
+export interface ApiJobAccess {
+  isMember: boolean;
+  isLeadSurveyor: boolean;
+  canEdit: boolean;
+  lockedReason: string | null;
+  canReview: boolean;
+  canSubmit: boolean;
+  /** The lead surveyor sees the "Submit for manager approval" button while the job is open. */
+  showSubmitToManager: boolean;
+  canSubmitToManager: boolean;
+  submitToManagerBlockedReason: string | null;
+  canAuthorize: boolean;
+}
+
+export interface ApiJob {
+  _id: string;
+  request: string | ApiRequest;
+  requestNumber: string;
+  jobNumber?: string;
+  quotationNumber?: string;
+  vessel: string;
+  vesselName: string;
+  vesselCode?: string;
+  uqmsNumber?: string;
+  /** First Entry jobs: survey report number, issued at Surveyor Allocation. */
+  reportNumber?: string;
+  sector: 'marine' | 'industrial';
+  mainSurveyType: string;
+  surveyTypes: Array<ApiSurveyType | string>;
+  surveyor: ApiJobPerson | string;
+  assistantSurveyors: Array<ApiJobPerson | string>;
+  mssProofRequired: boolean;
+  firstEntry?: string;
+  booking?: string;
+  surveyReport?: string;
+  supportingDocuments: ApiJobDocument[];
+  status: ApiJobStatus;
+  statusHistory: { from?: string | null; to: string; byName?: string; at: string; reason?: string }[];
+  allocatedAt?: string;
+  completedAt?: string;
+  legacy?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  links?: ApiJobLinks;
+  /** Only on GET /jobs/:id. */
+  access?: ApiJobAccess;
+  mssProofUploaded?: boolean;
+  /** Only on GET /jobs/:id: the documents the surveyor signs before the job goes to the manager. */
+  documents?: {
+    surveyReport: ApiJobDocumentState;
+    dockingCert: ApiJobDocumentState;
+    certificate: ApiJobDocumentState;
+  };
+}
+
+export interface ApiJobDocumentState {
+  id?: string;
+  /** Whether the job needs this document. */
+  required: boolean;
+  /** Survey report only: finalized ("Approved"), which it must be before signing. */
+  finalized?: boolean;
+  signed: boolean;
+}
+
+export interface ApiAllocatableSurveyor {
+  _id: string;
+  fullName?: string;
+  nameWithInitials?: string;
+  username?: string;
+  roleName: string;
+}
+
+export type ApiAllocationQueueItem = ApiRequest & { acceptedQuotationNumber?: string };
+
+export interface ApiJobReportItem {
+  category: string;
+  name: string;
+  docType?: SignableDocType | 'daily-visit';
+  docId?: string;
+  /** Daily visit reports: the visit the report covers. */
+  visit?: string;
+  key?: string;
+  url?: string;
+  contentType?: string;
+  signed?: boolean;
+  generatedAt?: string;
+}
+
+/** pending = waiting for approval (level 1); approved = waiting for acceptance (level 2); accepted = in effect. */
+export type ApiApprovalStatus = 'pending' | 'approved' | 'accepted' | 'rejected';
+
+export interface ApiApprovalHistoryEntry {
+  action: 'submitted' | 'approved' | 'accepted' | 'rejected';
+  stage?: 'approval' | 'acceptance';
+  byName?: string;
+  at: string;
+  comment?: string;
+}
+
+export interface ApiApprovalRequest {
+  _id: string;
+  entityType: 'checklist-question';
+  entityId?: string;
+  operation: 'create' | 'update' | 'delete';
+  summary: string;
+  payload: Record<string, unknown>;
+  before?: Record<string, unknown> | null;
+  status: ApiApprovalStatus;
+  requestComment?: string;
+  requestedByName?: string;
+  approvedByName?: string;
+  approvalComment?: string;
+  /** Date of approval. */
+  requestDate?: string;
+  acceptedByName?: string;
+  acceptanceComment?: string;
+  /** Date of acceptance: when the change took effect. */
+  effectiveDate?: string;
+  rejectedStage?: 'approval' | 'acceptance';
+  rejectedByName?: string;
+  rejectedAt?: string;
+  rejectionComment?: string;
+  /** Revision the change gave the record (0 = first issue). */
+  revision?: number;
+  history?: ApiApprovalHistoryEntry[];
+  resultId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  /** Readable field-by-field changes (IDs already turned into names by the server). */
+  changes?: ApiApprovalChange[];
+}
+
+export interface ApiApprovalChange {
+  key: string;
+  label: string;
+  list: boolean;
+  before: string[];
+  after: string[];
+  added: string[];
+  removed: string[];
+  changed: boolean;
+  empty?: string;
+}
+
+export interface ApiPreviousDocument {
+  _id: string;
+  uqmsNumber: string;
+  vesselName: string;
+  vesselCode?: string;
+  remarks?: string;
+  documents: ApiJobDocument[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** UQMS Rules & Guidelines and Flag Instructions documents. `library` is the screen's module key. */
+export interface ApiLibraryDocument {
+  _id: string;
+  library: string;
+  title: string;
+  referenceNumber?: string;
+  issueDate?: string | null;
+  remarks?: string;
+  documents: ApiJobDocument[];
+  createdAt?: string;
+  updatedAt?: string;
+}

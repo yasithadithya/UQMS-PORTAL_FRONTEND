@@ -33,14 +33,28 @@ import type {
   ApiQuotation
 } from '@/api';
 
-export default function CreateFirstEntry() {
+/**
+ * V2 reporting workspace embeds this page as the "Preliminary Data" section: the request, quotation and
+ * Schedule II are handled elsewhere (Surveyor Allocation and the Schedule II section), so they are hidden.
+ */
+export interface FirstEntryEmbedProps {
+  firstEntryId: string;
+  readOnly?: boolean;
+  onSaved?: () => void;
+}
+
+const EMBED_HIDDEN = ['fe-request', 'fe-quotation', 'fe-schedule'];
+
+export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEmbedProps } = {}) {
   const navigate = useNavigate();
   const unsaved = useUnsavedChanges();
-  const { id, module } = useParams<{ id?: string; module?: string }>(); // FirstEntry ID if editing
+  const params = useParams<{ id?: string; module?: string }>();
+  const id = embedded?.firstEntryId ?? params.id; // FirstEntry ID if editing
+  const { module } = params;
   const activeModule = module || 'reporting';
   const isEdit = !!id;
   const { can, modules } = useAuth();
-  const canSave = can(MODULE_KEYS.marineEntries, isEdit ? 'update' : 'create');
+  const canSave = !embedded?.readOnly && can(MODULE_KEYS.marineEntries, isEdit ? 'update' : 'create');
 
   // Metadata Dropdowns
   const [requests, setRequests] = useState<ApiRequest[]>([]);
@@ -403,7 +417,7 @@ export default function CreateFirstEntry() {
 
     const isScheduleIIAttached = attachedDocuments.length > 0;
 
-    if (!isQuotationCompleted || !isScheduleIIAttached) {
+    if (!embedded && (!isQuotationCompleted || !isScheduleIIAttached)) {
       // Trigger warning dialog
       setShowWarningModal(true);
     } else {
@@ -516,7 +530,10 @@ export default function CreateFirstEntry() {
       if (!finalFirstEntryId) throw new Error('First Entry could not be verified.');
 
       // Save/Update Schedule II documents
-      if (attachedDocuments.length > 0) {
+      // Embedded (V2): Schedule II has its own section, so it is never touched from here.
+      if (embedded) {
+        // nothing
+      } else if (attachedDocuments.length > 0) {
         if (existingScheduleIIId) {
           await firstEntryService.updateScheduleII(existingScheduleIIId, {
             status: 'attached',
@@ -539,7 +556,8 @@ export default function CreateFirstEntry() {
 
       toast.success(isEdit ? 'First Entry updated successfully!' : 'First Entry created successfully!');
       unsaved.allowNavigation();
-      navigate(`/${activeModule}/marine/first-entry?tab=first-entry`);
+      if (embedded) embedded.onSaved?.();
+      else navigate(`/${activeModule}/marine/first-entry?tab=first-entry`);
     } catch (err: any) {
       toast.error('Failed to save entries: ' + err.message);
     } finally {
@@ -604,7 +622,8 @@ export default function CreateFirstEntry() {
   };
 
   const listPath = `/${activeModule}/marine/first-entry?tab=first-entry`;
-  const locked = !!uqmsNumber;
+  // V2: preliminary data is filled after the UQMS number is issued, so it stays editable there.
+  const locked = !embedded && !!uqmsNumber;
   const numberValue = (v: string): number | '' => (v !== '' ? Number(v) : '');
 
   const sisterShipOptions = allVessels
@@ -619,7 +638,7 @@ export default function CreateFirstEntry() {
     { id: 'fe-build', label: 'Build & owners' },
     { id: 'fe-quotation', label: 'Quotation' },
     { id: 'fe-schedule', label: 'Schedule II' },
-  ];
+  ].filter(sec => !embedded || !EMBED_HIDDEN.includes(sec.id));
 
   if (initialLoading) {
     return <LoadingBlock label="Loading first entry…" />;
@@ -627,15 +646,19 @@ export default function CreateFirstEntry() {
 
   return (
     <div className="animate-in">
-      <PageHeader
-        back={{ href: listPath, label: 'First entries' }}
-        title={isEdit ? 'Edit first entry' : 'Create first entry'}
-        description="Vessel particulars, quotation status and Schedule II documents. Fields marked * are required."
-        meta={uqmsNumber ? <Badge tone="success" dot>{uqmsNumber}</Badge> : isEdit ? <Badge tone="warning" dot>No UQMS number yet</Badge> : undefined}
-      />
+      {!embedded && (
+        <PageHeader
+          back={{ href: listPath, label: 'First entries' }}
+          title={isEdit ? 'Edit first entry' : 'Create first entry'}
+          description="Vessel particulars, quotation status and Schedule II documents. Fields marked * are required."
+          meta={uqmsNumber ? <Badge tone="success" dot>{uqmsNumber}</Badge> : isEdit ? <Badge tone="warning" dot>No UQMS number yet</Badge> : undefined}
+        />
+      )}
 
       <FormWithNav nav={<SectionNav sections={SECTIONS} />}>
         <form onSubmit={handleSaveClick} onChangeCapture={unsaved.markDirty} noValidate>
+        <fieldset disabled={!!embedded?.readOnly} className={s.fieldsetReset}>
+          {!embedded && (
           <FormSection id="fe-request" title="Request" description="Only printed requests that haven't been converted yet are listed.">
             <div className={s.narrow}>
               <SearchableSelect
@@ -652,6 +675,7 @@ export default function CreateFirstEntry() {
               {!errors.request && locked && <p className={s.hint}>Locked: the UQMS number has been generated for this vessel.</p>}
             </div>
           </FormSection>
+          )}
 
           <FormSection id="fe-vessel" title="Vessel" description={locked ? 'Registry fields are locked once the UQMS number is generated.' : undefined}>
             <FormGrid columns={3}>
@@ -861,6 +885,7 @@ export default function CreateFirstEntry() {
             </FormGrid>
           </FormSection>
 
+          {!embedded && (<>
           <FormSection
             id="fe-quotation"
             title="Quotation"
@@ -944,14 +969,18 @@ export default function CreateFirstEntry() {
               </ul>
             )}
           </FormSection>
+          </>)}
+        </fieldset>
 
+          {!embedded?.readOnly && (
           <StickyActionBar dirty={unsaved.dirty}>
-            <ButtonLink to={listPath}>Cancel</ButtonLink>
+            {!embedded && <ButtonLink to={listPath}>Cancel</ButtonLink>}
             <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
               title={canSave ? undefined : 'You do not have permission to save this record.'}>
-              {isEdit ? 'Save changes' : 'Create first entry'}
+              {embedded ? 'Save preliminary data' : isEdit ? 'Save changes' : 'Create first entry'}
             </Button>
           </StickyActionBar>
+          )}
         </form>
       </FormWithNav>
 

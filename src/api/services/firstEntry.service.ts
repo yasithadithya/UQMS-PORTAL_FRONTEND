@@ -77,6 +77,7 @@ export const firstEntryService = {
     firstEntryId: string;
     status?: string;
     documents?: ApiScheduleIIDocument[];
+    mssProofDocuments?: ApiScheduleIIDocument[];
   }) => {
     return request<{ success: boolean; message: string; data: ApiScheduleII }>('/first-entries/schedule2', {
       method: 'POST',
@@ -89,6 +90,7 @@ export const firstEntryService = {
   updateScheduleII: (scheduleId: string, payload: Partial<{
     status?: string;
     documents?: ApiScheduleIIDocument[];
+    mssProofDocuments?: ApiScheduleIIDocument[];
   }>) => {
     return request<{ success: boolean; message: string; data: ApiScheduleII }>(`/first-entries/schedule2/${scheduleId}`, {
       method: 'PUT',
@@ -205,6 +207,10 @@ export const firstEntryService = {
   /** The generated (stored) Daily Visit Report PDF, including its signature stamp once signed. */
   getDailyReportPdfBlob: (id: string) => {
     return requestBlob(`/first-entry-full-reports/${id}/daily-report-pdf`);
+  },
+  /** Daily Visit Report for one visit, generated on demand from the checklist items recorded on it. */
+  getDailyVisitReportPdf: (id: string, visit: string) => {
+    return requestBlob(`/first-entry-full-reports/${id}/visit-report-pdf?visit=${encodeURIComponent(visit)}`);
   },
   addGeneralRemark: (reportId: string, text: string) => {
     return request<{ success: boolean; message: string; data: ApiFirstEntryFullReport }>(`/first-entry-full-reports/${reportId}/remarks`, {

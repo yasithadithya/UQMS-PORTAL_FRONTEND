@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import {
   Badge, Button, ButtonLink, Checkbox, Field, FormGrid, FormSection, FormWithNav, IconButton, Input, LoadingBlock, PageHeader,
@@ -28,14 +28,31 @@ import type {
   ApiRequest
 } from '@/api';
 
-export default function CreateFirstEntrySurveyBooking() {
+/**
+ * V2 job mode: the booking is made from a job, so the vessel and request are fixed, the allocated
+ * surveyors are pre-assigned on new visits, and saving hands the booking back to the job page.
+ */
+export interface BookingJobProps {
+  bookingId?: string;
+  vesselId: string;
+  requestId: string;
+  /** Issued at Surveyor Allocation; the booking takes this report number. */
+  reportNumber?: string;
+  surveyorIds: string[];
+  readOnly?: boolean;
+  onSaved: (bookingId: string) => void;
+}
+
+export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJobProps } = {}) {
   const navigate = useNavigate();
   const unsaved = useUnsavedChanges();
-  const { id, module } = useParams<{ id?: string; module?: string }>(); // Booking ID if editing
+  const params = useParams<{ id?: string; module?: string }>();
+  const id = job ? job.bookingId : params.id; // Booking ID if editing
+  const { module } = params;
   const activeModule = module || 'reporting';
   const isEdit = !!id;
   const { can } = useAuth();
-  const canSave = can(MODULE_KEYS.marineBookings, isEdit ? 'update' : 'create');
+  const canSave = !job?.readOnly && can(MODULE_KEYS.marineBookings, isEdit ? 'update' : 'create');
 
   // Metadata Dropdowns
   const [vessels, setVessels] = useState<ApiVessel[]>([]);
@@ -57,7 +74,7 @@ export default function CreateFirstEntrySurveyBooking() {
   const [shipName, setShipName] = useState('');
   const [requestedBy, setRequestedBy] = useState('');
   const [portOfSurvey, setPortOfSurvey] = useState('');
-  const [reportNo, setReportNo] = useState('');
+  const [reportNo, setReportNo] = useState(job?.reportNumber ?? '');
   const [portOfRegistry, setPortOfRegistry] = useState('');
   const [flag, setFlag] = useState('');
   const [shipType, setShipType] = useState('');
@@ -100,6 +117,11 @@ export default function CreateFirstEntrySurveyBooking() {
         if (sTypesRes.success) setSurveyTypes(sTypesRes.data);
         if (usersRes.success) setUsers(usersRes.data);
         if (requestsRes.success) setRequests(requestsRes.data);
+        // Job mode: the job's request may not be on the first page of requests.
+        if (job && requestsRes.success && !requestsRes.data.some(r => r._id === job.requestId)) {
+          const jobRequest = await requestsService.getRequestById(job.requestId).catch(() => null);
+          if (jobRequest?.success) setRequests(prev => [...prev, jobRequest.data]);
+        }
 
         if (isEdit && id) {
           const bookingRes = await firstEntryService.getFirstEntrySurveyBookingById(id);
@@ -221,7 +243,7 @@ export default function CreateFirstEntrySurveyBooking() {
     if (isFieldEditable('shipName')) setShipName('');
     if (isFieldEditable('requestedBy')) setRequestedBy('');
     if (isFieldEditable('portOfSurvey')) setPortOfSurvey('');
-    if (isFieldEditable('reportNo')) setReportNo('');
+    if (isFieldEditable('reportNo')) setReportNo(job?.reportNumber ?? '');
     if (isFieldEditable('portOfRegistry')) setPortOfRegistry('');
     if (isFieldEditable('flag')) setFlag('');
     if (isFieldEditable('shipType')) setShipType('');
@@ -279,6 +301,7 @@ export default function CreateFirstEntrySurveyBooking() {
 
   const handleRequestToggle = (requestId: string) => {
     if (!isFieldEditable('requestIds')) return; // read-only check
+    if (job && requestId !== job.requestId) return; // a job booking covers only its own request
 
     let updatedRequestIds = [];
     if (selectedRequestIds.includes(requestId)) {
@@ -328,7 +351,8 @@ export default function CreateFirstEntrySurveyBooking() {
       status: 'scheduled',
       isLastVisitDate: false,
       isLastVist: false,
-      surveyorAssignments: []
+      // Job mode: the allocated surveyors are assigned to each new visit.
+      surveyorAssignments: (job?.surveyorIds ?? []).map(surveyorId => ({ surveyorId, currency: 'USD', specialAttendanceFees: 0 })),
     };
     setVisitDetails([...visitDetails, newVisit]);
   };
@@ -474,28 +498,43 @@ export default function CreateFirstEntrySurveyBooking() {
       }
 
       if (res.success) {
-        toast.success(isEdit ? 'Survey Booking updated successfully!' : 'Survey Booking created successfully!');
+        toast.success(isEdit ? 'Visit plan updated successfully!' : 'Visit plan created successfully!');
         unsaved.allowNavigation();
-        navigate(`/${activeModule}/marine/first-entry?tab=survey`);
+        if (job) job.onSaved(res.data._id);
+        else navigate(`/${activeModule}/marine/first-entry?tab=survey`);
       } else {
-        toast.error(res.message || 'Failed to save booking.');
+        toast.error(res.message || 'Failed to save the visit plan.');
       }
     } catch (err: any) {
-      toast.error('Error saving survey booking: ' + err.message);
+      toast.error('Error saving visit plan: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Job mode, new booking: select the job's vessel and request once the lookups have loaded.
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (!job || isEdit || initialLoading || presetApplied.current) return;
+    if (!vessels.some(v => v._id === job.vesselId) || !requests.some(r => r._id === job.requestId)) return;
+    presetApplied.current = true;
+    handleVesselChange(job.vesselId);
+    handleRequestToggle(job.requestId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, isEdit, initialLoading, vessels, requests]);
+
   if (initialLoading) {
-    return <LoadingBlock label="Loading survey booking…" />;
+    return <LoadingBlock label="Loading visit plan…" />;
   }
 
   const listPath = `/${activeModule}/marine/first-entry?tab=survey`;
   const clearError = (key: 'shipName' | 'portOfSurvey' | 'shipBuilder' | 'engineBuilder') =>
     setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
   const numberValue = (v: string): number | '' => (v !== '' ? Number(v) : '');
-  const requestsEditable = isFieldEditable('requestIds');
+  // A job booking's vessel and request are fixed by the job, so they're never editable here.
+  const vesselEditable = !job && isFieldEditable('vesselId');
+  const shipNameEditable = !job && isFieldEditable('shipName');
+  const requestsEditable = !job && isFieldEditable('requestIds');
   const surveysEditable = isFieldEditable('surveysRequested');
 
   const SECTIONS = [
@@ -508,34 +547,37 @@ export default function CreateFirstEntrySurveyBooking() {
 
   return (
     <div className="animate-in">
-      <PageHeader
-        back={{ href: listPath, label: 'Survey bookings' }}
-        title={isEdit ? 'Edit survey booking' : 'Book survey'}
-        description={isEdit
-          ? 'Fields that already have a value are locked. Visits and surveyor assignments can always be changed.'
-          : 'Link the vessel and its requests, then plan visits and assign surveyors. Fields marked * are required.'}
-        meta={<Badge tone={reportNo ? 'accent' : 'neutral'} title="Report number">{reportNo || (isEdit ? 'No report no.' : 'Report no. assigned on save')}</Badge>}
-      />
+      {!job && (
+        <PageHeader
+          back={{ href: listPath, label: 'Visit planning' }}
+          title={isEdit ? 'Edit visit plan' : 'Plan visits'}
+          description={isEdit
+            ? 'Fields that already have a value are locked. Visits and surveyor assignments can always be changed.'
+            : 'Link the vessel and its requests, then plan visits and assign surveyors. Fields marked * are required.'}
+          meta={<Badge tone={reportNo ? 'accent' : 'neutral'} title="Report number">{reportNo || (isEdit ? 'No report no.' : 'Report no. assigned on save')}</Badge>}
+        />
+      )}
 
       <FormWithNav nav={<SectionNav sections={SECTIONS} />}>
         <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty} noValidate>
+        <fieldset disabled={!!job?.readOnly} className={s.fieldsetReset}>
           <FormSection id="sb-vessel" title="Vessel" description="Choosing a registered vessel fills in its registry, tonnage and engine details.">
             <FormGrid columns={2}>
-              <Field label="Registered vessel" hint="Optional: leave empty for an unlisted vessel">
+              <Field label="Registered vessel" hint={job ? 'Set by the job' : 'Optional: leave empty for an unlisted vessel'}>
                 <div className={s.inline}>
-                  <Select value={selectedVesselId} onChange={e => handleVesselChange(e.target.value)} disabled={!isFieldEditable('vesselId')}>
+                  <Select value={selectedVesselId} onChange={e => handleVesselChange(e.target.value)} disabled={!vesselEditable}>
                     <option value="">Unlisted vessel (enter manually)</option>
                     {vessels.map(v => (
                       <option key={v._id} value={v._id}>{v.vesselName} {v.uqmsNumber ? `(${v.uqmsNumber})` : ''}</option>
                     ))}
                   </Select>
-                  {selectedVesselId && isFieldEditable('vesselId') && (
+                  {selectedVesselId && vesselEditable && (
                     <IconButton label="Clear vessel" icon={<X />} variant="secondary" onClick={handleRemoveVessel} />
                   )}
                 </div>
               </Field>
               <Field label="Ship name" required error={errors.shipName}>
-                <Input placeholder="e.g. MV Apollo" value={shipName} disabled={!isFieldEditable('shipName')}
+                <Input placeholder="e.g. MV Apollo" value={shipName} disabled={!shipNameEditable}
                   onChange={e => { setShipName(e.target.value); clearError('shipName'); }} />
               </Field>
             </FormGrid>
@@ -544,7 +586,7 @@ export default function CreateFirstEntrySurveyBooking() {
           <FormSection
             id="sb-requests"
             title="Requests"
-            description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this booking.`}
+            description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this visit plan.`}
           >
             {relevantRequests.length === 0 ? (
               <p className={s.empty}>
@@ -771,13 +813,16 @@ export default function CreateFirstEntrySurveyBooking() {
             )}
           </FormSection>
 
+        </fieldset>
+          {!job?.readOnly && (
           <StickyActionBar dirty={unsaved.dirty}>
-            <ButtonLink to={listPath}>Cancel</ButtonLink>
+            {!job && <ButtonLink to={listPath}>Cancel</ButtonLink>}
             <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
               title={canSave ? undefined : 'You do not have permission to save this record.'}>
-              {isEdit ? 'Save changes' : 'Book survey'}
+              {isEdit ? 'Save changes' : 'Save visit plan'}
             </Button>
           </StickyActionBar>
+          )}
         </form>
       </FormWithNav>
       {unsaved.dialog}

@@ -83,7 +83,7 @@ export default function MarineModulePage() {
     const setTabError = { 'first-entry': setError, survey: setSurveyError, reports: setReportsError, certificates: setCertificatesError }[tab];
     const failMessage = {
       'first-entry': 'Failed to fetch entries',
-      survey: 'Failed to fetch survey bookings',
+      survey: 'Failed to fetch visit plans',
       reports: 'Failed to fetch survey reports',
       certificates: 'Failed to fetch certificates',
     }[tab];
@@ -131,7 +131,7 @@ export default function MarineModulePage() {
 
   const DELETE_ACTIONS: Record<MarineTab, { run: (id: string) => Promise<{ success: boolean; message?: string }>; done: string }> = {
     'first-entry': { run: firstEntryService.deleteFirstEntry, done: 'First Entry deleted.' },
-    survey: { run: firstEntryService.deleteFirstEntrySurveyBooking, done: 'Survey booking deleted.' },
+    survey: { run: firstEntryService.deleteFirstEntrySurveyBooking, done: 'Visit plan deleted.' },
     reports: { run: firstEntryService.deleteFirstEntrySurveyReport, done: 'Survey report deleted.' },
     certificates: { run: firstEntryService.deleteScccosCertificate, done: 'Certificate deleted.' },
   };
@@ -163,7 +163,7 @@ export default function MarineModulePage() {
   });
 
   const handleDeleteSurveyBooking = (id: string) => setPendingDelete({
-    kind: 'survey', id, title: 'Delete Survey Booking?', message: 'This cannot be undone.',
+    kind: 'survey', id, title: 'Delete visit plan?', message: 'This cannot be undone.',
   });
 
   const handleDeleteReport = (id: string) => setPendingDelete({
@@ -218,7 +218,7 @@ export default function MarineModulePage() {
 
   const CREATE: Partial<Record<MarineTab, { label: string; to: string }>> = {
     'first-entry': { label: 'Create first entry', to: `${basePath}/create` },
-    survey: { label: 'Book survey', to: `${basePath}/survey-booking/create` },
+    survey: { label: 'Plan visits', to: `${basePath}/survey-booking/create` },
     reports: { label: 'Create survey report', to: `${basePath}/survey-report/create` },
   };
   const create = canOnTab(activeTab, 'create') ? CREATE[activeTab] : undefined;
@@ -228,7 +228,7 @@ export default function MarineModulePage() {
 
   const DESCRIPTIONS: Record<MarineTab, string> = {
     'first-entry': 'Vessels registered against accepted requests, with quotations and Schedule II documents.',
-    survey: 'Survey bookings, planned visits and surveyor assignments.',
+    survey: 'Visit planning: planned visits and the surveyors attending.',
     reports: 'Survey reports, full reports and certificates of survey.',
     certificates: 'Small Craft Code Certificates of Survey issued for SSC vessels.',
   };
@@ -442,7 +442,7 @@ export default function MarineModulePage() {
 
       {activeTab === 'survey' && (
         <DataTable
-          caption="Survey bookings"
+          caption="Visit plans"
           columns={bookingColumns}
           rows={surveyBookings}
           getRowId={b => b._id}
@@ -452,8 +452,8 @@ export default function MarineModulePage() {
           onRowClick={b => navigate(`${basePath}/survey-booking/edit/${b._id}`)}
           empty={{
             icon: <CalendarCheck />,
-            title: 'No survey bookings yet',
-            description: 'Book a survey visit for a registered first entry vessel.',
+            title: 'No visit plans yet',
+            description: 'Plan the survey visits for a registered first entry vessel.',
             action: createButton,
           }}
           rowActions={b => (
@@ -479,7 +479,7 @@ export default function MarineModulePage() {
           empty={{
             icon: <FileText />,
             title: 'No survey reports yet',
-            description: 'Create a survey report from a completed survey booking.',
+            description: 'Create a survey report from a completed visit plan.',
             action: createButton,
           }}
           rowActions={r => (

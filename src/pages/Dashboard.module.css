@@ -1,23 +1,147 @@
-/* Queue on the left, side lists on the right from 1280px; stacked below that. */
-.columns,
-.single {
+/* ----- Widget grid: 12 columns. sm = quarter, md = half, lg = full width; narrower screens stack. ----- */
+.grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-6);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-4);
   align-items: start;
 }
 
-@media (min-width: 1280px) {
-  .columns {
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-  }
+.cell {
+  grid-column: span 12;
+  min-width: 0;
+  position: relative;
 }
 
-.side {
+/* Phones and tablets: two tiles per row, everything else full width. */
+.sm { grid-column: span 6; }
+.md,
+.lg { grid-column: span 12; }
+
+@media (min-width: 1024px) {
+  .sm { grid-column: span 3; }
+  .md { grid-column: span 6; }
+}
+
+/* ----- Customize mode ----- */
+.editHint {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-accent-muted);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.editing {
+  padding: var(--space-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  cursor: grab;
+}
+
+.editing .content {
+  opacity: .85;
+}
+
+.dragging {
+  opacity: .4;
+}
+
+.dropTarget {
+  border-color: var(--color-accent);
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--color-accent-muted);
+}
+
+.toolbar {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
   min-width: 0;
+}
+
+.grip {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.toolbarTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content {
+  min-width: 0;
+}
+
+/* ----- Widget picker (drawer) ----- */
+.pickerGroup + .pickerGroup {
+  margin-top: var(--space-6);
+}
+
+.pickerGroupTitle {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pickerList {
+  list-style: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.pickerItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.pickerItem + .pickerItem {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.pickerIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+}
+
+.pickerIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pickerTitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.pickerDescription {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
 }
 
 /* ----- Website requests queue ----- */
@@ -62,12 +186,13 @@
   color: var(--color-text-tertiary);
 }
 
-/* ----- Side lists ----- */
+/* ----- List widgets ----- */
 .list {
   list-style: none;
 }
 
-.list li + li .row {
+.list li + li .row,
+.list li.row + li.row {
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -110,8 +235,47 @@ a.row:hover {
   white-space: nowrap;
 }
 
+.rowSubWrap {
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
 @media (min-width: 768px) {
   .row {
     padding: var(--space-3) var(--space-6);
   }
+}
+
+/* ----- Bar rows (jobs by type, departments) ----- */
+.bar + .bar {
+  margin-top: var(--space-3);
+}
+
+.barHead {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.barTrack {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+/* ----- Quick actions ----- */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }

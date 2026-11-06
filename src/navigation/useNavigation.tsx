@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Blocks, Briefcase, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship,
-  UserCog, Users, Wallet,
+  Anchor, BadgeCheck, Blocks, BookOpenCheck, Briefcase, CheckSquare, FileSearch, FolderArchive, UserCheck, ClipboardList, Factory, FileBarChart, FilePlus2, History, LayoutDashboard, LayoutGrid, ListChecks, Settings2, ShieldCheck, Ship, SlidersHorizontal,
+  UserCog, Users, Wallet, Scale, ScrollText, BookMarked, Flag, FileText, Newspaper, Landmark,
 } from 'lucide-react';
 import type { ApiModule } from '@/api';
 import { useAuth } from '@/context/AuthContext';
@@ -50,8 +50,12 @@ export const ADMIN_PAGES: { name: string; navLabel: string; href: string; desc: 
   { name: 'Role Management', navLabel: 'Roles & permissions', href: '/roles', desc: 'Configure granular module permissions', module: MODULE_KEYS.adminRoles, icon: <ShieldCheck /> },
   { name: 'Module Management', navLabel: 'Modules', href: '/modules', desc: 'Create and edit system modules', module: MODULE_KEYS.adminModules, icon: <Blocks /> },
   { name: 'Checklist Management', navLabel: 'Checklists', href: '/checklist-management', desc: 'Manage survey checklist questions and criteria', module: MODULE_KEYS.adminMasterData, icon: <ListChecks /> },
+  { name: 'Survey Configuration', navLabel: 'Survey configuration', href: '/survey-configuration', desc: 'Survey types and the main survey types they belong to', module: MODULE_KEYS.adminSurveyConfig, icon: <SlidersHorizontal /> },
   { name: 'Audit Log', navLabel: 'Audit log', href: '/audit-log', desc: 'History of overrides and controlled changes', module: MODULE_KEYS.adminAuditLog, icon: <History /> },
 ];
+
+/** QMS → Revision history lives at /<qms>/revision-history. */
+export const QMS_HISTORY_SLUG = 'revision-history';
 
 /* ------------------------------------------------------------------ icons */
 
@@ -67,6 +71,22 @@ const ICONS: Record<string, ReactNode> = {
   industrial: <Factory />,
   checklists: <ClipboardList />,
   jobs: <Briefcase />,
+  'surveyor-allocation': <UserCheck />,
+  'view-report': <FileSearch />,
+  authorization: <BadgeCheck />,
+  approvals: <CheckSquare />,
+  ships: <Anchor />,
+  qms: <BookOpenCheck />,
+  'qms.checklist': <ListChecks />,
+  'previous-docs': <FolderArchive />,
+  'uqms-rules': <Scale />,
+  'uqms-rules.rules': <ScrollText />,
+  'uqms-rules.guidelines': <BookMarked />,
+  'flag-instructions': <Flag />,
+  'flag-instructions.marine-shipping-notice': <FileText />,
+  'flag-instructions.marine-news': <Newspaper />,
+  'flag-instructions.gazette': <Landmark />,
+  'flag-instructions.msn': <FileText />,
 };
 
 /** Icon for a module: by stable key first, then by name, then a generic grid. */
@@ -231,6 +251,14 @@ export function useNavigation(): Navigation {
             adminLinks.push({ kind: 'link', id: '/dev/ui', label: 'UI kit', to: '/dev/ui', trail, isActive: loc => loc.pathname === '/dev/ui' });
           }
           if (adminLinks.length) sections.unshift({ id: 'admin-pages', items: adminLinks });
+        }
+
+        if (mod.key === MODULE_KEYS.qms) {
+          const to = `${path}/${QMS_HISTORY_SLUG}`;
+          sections.push({
+            id: 'qms-history',
+            items: [{ kind: 'link', id: to, label: 'Revision history', to, trail, isActive: loc => underPath(loc.pathname, to) }],
+          });
         }
 
         const allLinks = sections.flatMap(s => s.items);

@@ -5,7 +5,7 @@ export type MarineTab = 'first-entry' | 'survey' | 'reports' | 'certificates';
 /** The First Entry page's tabs; `navLabel` is the wording used in the sidebar and command palette. */
 export const MARINE_TABS: { id: MarineTab; label: string; navLabel: string }[] = [
   { id: 'first-entry', label: 'First Entry', navLabel: 'First entries' },
-  { id: 'survey', label: 'Surveys', navLabel: 'Survey bookings' },
+  { id: 'survey', label: 'Surveys', navLabel: 'Visit planning' },
   { id: 'reports', label: 'Survey Reports', navLabel: 'Survey reports' },
   { id: 'certificates', label: 'Certificates', navLabel: 'Certificates' },
 ];

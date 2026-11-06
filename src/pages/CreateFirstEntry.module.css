@@ -133,3 +133,12 @@
   font-size: var(--text-sm);
   color: var(--color-text-tertiary);
 }
+
+/* V2 embedded mode: a fieldset that only exists to disable every control when read-only. */
+.fieldsetReset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: contents;
+}

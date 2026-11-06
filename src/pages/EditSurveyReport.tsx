@@ -201,10 +201,16 @@ const defaultInspections = [
   'Sea inlets and discharge arrangements were verified as far as practicable and found to be in satisfactory condition.'
 ];
 
-export default function EditSurveyReport() {
-  const { can } = useAuth();
+/** V2: embedded in the "Report Generation" section of the reporting workspace. */
+export default function EditSurveyReport({ embedded }: { embedded?: { surveyReportId: string; readOnly?: boolean; onChanged?: () => void } } = {}) {
+  const { can: canRaw } = useAuth();
   const navigate = useNavigate();
-  const { id, module } = useParams<{ id: string; module?: string }>(); // FirstEntrySurveyReport ID
+  const params = useParams<{ id: string; module?: string }>();
+  const id = embedded?.surveyReportId ?? params.id; // FirstEntrySurveyReport ID
+  const { module } = params;
+  const readOnly = !!embedded?.readOnly;
+  // Read-only (V2 locked job): every write permission check fails, so the save and finalize buttons are disabled.
+  const can = (key: Parameters<typeof canRaw>[0], action = 'read') => (readOnly && action !== 'read' ? false : canRaw(key, action));
   const activeModule = module || 'reporting';
 
   // Loading and action states
@@ -722,6 +728,7 @@ export default function EditSurveyReport() {
     const approved = await handleSave('Approved', remarks);
     if (approved) {
       toast.success('Report finalized and approved!');
+      embedded?.onChanged?.();
     }
   };
 
@@ -738,17 +745,19 @@ export default function EditSurveyReport() {
 
   return (
     <div className={`animate-in ${s.page}`}>
-      <PageHeader
-        back={{ href: `/${activeModule}/marine/first-entry/survey-report/edit/${id}`, label: 'Survey report' }}
-        title="Final survey report"
-        description="Part C. Fill in the highlighted blanks; the printed report uses exactly this layout and wording."
-        meta={
-          <>
-            <StatusBadge status={status} />
-            {isSigned && <Badge tone="success" icon={<CheckCircle2 />}>Signed</Badge>}
-          </>
-        }
-      />
+      {!embedded && (
+        <PageHeader
+          back={{ href: `/${activeModule}/marine/first-entry/survey-report/edit/${id}`, label: 'Survey report' }}
+          title="Final survey report"
+          description="Part C. Fill in the highlighted blanks; the printed report uses exactly this layout and wording."
+          meta={
+            <>
+              <StatusBadge status={status} />
+              {isSigned && <Badge tone="success" icon={<CheckCircle2 />}>Signed</Badge>}
+            </>
+          }
+        />
+      )}
 
       <Card className={s.summary}>
         <dl className={s.facts}>
@@ -1594,7 +1603,7 @@ export default function EditSurveyReport() {
           <Button variant="primary" icon={<PenLine />} onClick={() => setShowSignModal(true)}>
             {isSigned ? 'View signed report' : 'View & sign'}
           </Button>
-        ) : (
+        ) : readOnly ? null : (
           <>
             <Button
               icon={<Save />}
@@ -1637,7 +1646,7 @@ export default function EditSurveyReport() {
       {showSignModal && existingReportId && (
         <SignableDocumentModal
           isOpen
-          onClose={() => setShowSignModal(false)}
+          onClose={() => { setShowSignModal(false); embedded?.onChanged?.(); }}
           title={`Survey Report — ${vessel?.vesselName || 'Vessel'}`}
           docType="survey-report"
           docId={existingReportId}

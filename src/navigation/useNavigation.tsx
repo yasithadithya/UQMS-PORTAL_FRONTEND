@@ -118,9 +118,12 @@ export function useNavigation(): Navigation {
   return useMemo(() => {
     let firstEntryPath: string | null = null;
 
+    // Manual Surveys is opened from the View Report page, not the sidebar.
+    const inSidebar = (m: ApiModule) => isNavigable(m) && m.key !== MODULE_KEYS.previousDocs && canAccessModule(m._id);
+
     const childrenOf = (id: string) =>
       modules
-        .filter(m => isNavigable(m) && getParentId(m) === id && canAccessModule(m._id))
+        .filter(m => inSidebar(m) && getParentId(m) === id)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
     /** Links for a module's own in-page tabs (First Entry, HR), or null when it has none. */
@@ -234,7 +237,7 @@ export function useNavigation(): Navigation {
 
     if (modulesLoaded) {
       const top = modules
-        .filter(m => !getParentId(m) && isNavigable(m) && canAccessModule(m._id))
+        .filter(m => !getParentId(m) && inSidebar(m))
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       for (const mod of top) {

@@ -1,7 +1,7 @@
 import { useParams, useLocation, Link, Navigate } from 'react-router-dom';
 import type { Sector } from '@/config/surveyCategories';
-import { ChevronRight, Construction, History } from 'lucide-react';
-import { Button, Card, EmptyState, ErrorState, PageHeader, Skeleton } from '@/ui';
+import { ChevronRight, Construction, FolderArchive, History } from 'lucide-react';
+import { Button, ButtonLink, Card, EmptyState, ErrorState, PageHeader, Skeleton } from '@/ui';
 import { ADMIN_PAGES, moduleIcon } from '@/navigation/useNavigation';
 import { useAuth } from '@/context/AuthContext';
 import { AccessDenied, NotFound } from '@/components/StatusPage';
@@ -24,6 +24,9 @@ import DocumentLibraryPage from './v2/DocumentLibraryPage';
 import QmsRevisionHistoryPage from './v2/QmsRevisionHistoryPage';
 import { QMS_HISTORY_SLUG } from '@/navigation/useNavigation';
 import s from './GenericModulePage.module.css';
+
+/** Manual Surveys opens at /<view-report>/manual-surveys. */
+const MANUAL_SURVEYS_SLUG = 'manual-surveys';
 
 /** My Jobs sector sub-modules. */
 const SECTOR_BY_MODULE_KEY: Record<string, Sector> = {
@@ -130,6 +133,37 @@ export default function GenericModulePage() {
         const screen = V2_SCREENS[v2Module.key];
         const basePath = `/${normalizedModule}`;
         const sub = pathSegments[1];
+        const viewReportModule = modules.find(m => m.key === MODULE_KEYS.viewReport);
+        const canSeeViewReport = !!viewReportModule && canAccessModule(viewReportModule._id);
+
+        // Manual Surveys lives inside View Report (/view-report/manual-surveys).
+        if (v2Module.key === MODULE_KEYS.viewReport) {
+            const canManual = can(MODULE_KEYS.previousDocs);
+            if (sub === MANUAL_SURVEYS_SLUG) {
+                if (pathSegments.length > 2) return <NotFound />;
+                if (!canManual) return <AccessDenied />;
+                return <PreviousDocsPage breadcrumbs={[{ label: v2Module.name, href: basePath }, { label: 'Manual Surveys' }]} />;
+            }
+            if (!sub) {
+                return (
+                    <JobListPage
+                        scope="completed"
+                        basePath={basePath}
+                        title="View Report"
+                        description="Completed, manager-approved survey reports. Read only."
+                        actions={canManual && (
+                            <ButtonLink to={`${basePath}/${MANUAL_SURVEYS_SLUG}`} icon={<FolderArchive />}>Manual surveys</ButtonLink>
+                        )}
+                    />
+                );
+            }
+        }
+
+        // Old Manual Surveys URL: send people to its new home under View Report when they can open it.
+        if (v2Module.key === MODULE_KEYS.previousDocs && !sub && canSeeViewReport) {
+            return <Navigate to={`/${toSlug(viewReportModule!.name)}/${MANUAL_SURVEYS_SLUG}`} replace />;
+        }
+
         if (sub) {
             if (!screen.job || pathSegments.length > 2) return <NotFound />;
             return <JobPage key={sub} jobId={sub} backHref={basePath} backLabel={v2Module.name} mode={screen.job} />;

@@ -14,7 +14,7 @@ import s from './v2.module.css';
 type Draft = { _id?: string; uqmsNumber: string; vesselName: string; vesselCode: string; remarks: string; documents: ApiJobDocument[] };
 const EMPTY: Draft = { uqmsNumber: '', vesselName: '', vesselCode: '', remarks: '', documents: [] };
 
-export default function PreviousDocsPage() {
+export default function PreviousDocsPage({ breadcrumbs }: { breadcrumbs?: { label: string; href?: string }[] } = {}) {
   const { can } = useAuth();
   const canCreate = can(MODULE_KEYS.previousDocs, 'create');
   const canUpdate = can(MODULE_KEYS.previousDocs, 'update');
@@ -88,6 +88,7 @@ export default function PreviousDocsPage() {
   return (
     <div className="animate-in">
       <PageHeader
+        breadcrumbs={breadcrumbs}
         title="Manual Surveys"
         description="Documents from surveys done before the portal and new surveys done manually, filed by UQMS number and vessel."
         actions={canCreate && <Button variant="primary" icon={<Plus />} onClick={() => setDraft({ ...EMPTY })}>Add documents</Button>}

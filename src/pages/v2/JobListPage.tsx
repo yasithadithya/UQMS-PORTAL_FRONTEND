@@ -15,8 +15,8 @@ import s from './v2.module.css';
  * share this filtered job list.
  */
 export default function JobListPage({
-  scope, basePath, title, description,
-}: { scope: 'completed' | 'authorization'; basePath: string; title: string; description: string }) {
+  scope, basePath, title, description, actions,
+}: { scope: 'completed' | 'authorization'; basePath: string; title: string; description: string; actions?: React.ReactNode }) {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ search: '', sector: '', mainSurveyType: '', surveyTypeId: '', surveyorId: '', from: '', to: '' });
   const [page, setPage] = useState(1);
@@ -70,7 +70,7 @@ export default function JobListPage({
 
   return (
     <div className="animate-in">
-      <PageHeader title={title} description={description} />
+      <PageHeader title={title} description={description} actions={actions} />
       <Card>
         <div className={s.filters}>
           <Field label="Sector">

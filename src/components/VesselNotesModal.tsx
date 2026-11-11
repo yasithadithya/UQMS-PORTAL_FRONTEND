@@ -5,6 +5,7 @@ import s from './VesselNotesModal.module.css';
 import { toast } from 'react-toastify';
 import { notesService } from '@/api';
 import type { ApiNoteItem } from '@/api';
+import { notifyError } from '@/utils/notify';
 
 interface VesselNotesModalProps {
   isOpen: boolean;
@@ -48,7 +49,7 @@ function VesselNotesDialog({
           setNotesList(formatted);
         }
       } catch (err: any) {
-        toast.error('Failed to load notes: ' + err.message);
+        notifyError(err, 'Could not load notes.');
       } finally {
         setLoading(false);
       }
@@ -123,14 +124,14 @@ function VesselNotesDialog({
       setSaving(true);
       const res = await notesService.updateNotesByVesselId(vesselId, notesList);
       if (res.success) {
-        toast.success('Vessel notes saved successfully!');
+        toast.success('Vessel notes saved.');
         if (onSaveSuccess) onSaveSuccess();
         onClose();
       } else {
-        toast.error(res.message || 'Failed to save notes.');
+        toast.error(res.message || 'Could not save notes.');
       }
     } catch (err: any) {
-      toast.error('Error saving notes: ' + err.message);
+      notifyError(err, 'Could not save notes.');
     } finally {
       setSaving(false);
     }

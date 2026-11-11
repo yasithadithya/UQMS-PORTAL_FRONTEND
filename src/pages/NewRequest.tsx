@@ -50,7 +50,7 @@ export default function NewRequestPage() {
       setTotal(res.count || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch (err: any) {
-      if (seq === requestSeq.current) setError(err.message || 'Failed to load requests.');
+      if (seq === requestSeq.current) setError(err.message || 'Could not load requests.');
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }

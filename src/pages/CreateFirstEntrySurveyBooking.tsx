@@ -1,16 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Plus, Trash2, UserPlus, X } from 'lucide-react';
+import { Plus, Trash2, UserPlus, X } from 'lucide-react';
 import {
   Badge, Button, ButtonLink, Checkbox, Field, FormGrid, FormSection, FormWithNav, IconButton, Input, LoadingBlock, PageHeader,
   SectionNav, Select, StickyActionBar,
 } from '@/ui';
 import s from './CreateFirstEntrySurveyBooking.module.css';
+import SearchableMultiSelect from '@/components/SearchableMultiSelect';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
 import { normalizeBuildDateText } from '@/utils/date';
+import { notifyError } from '@/utils/notify';
 import {
   vesselsService,
   operationsService,
@@ -177,7 +179,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
           }
         }
       } catch (err: any) {
-        toast.error('Error loading lookup options: ' + err.message);
+        notifyError(err, 'Could not load lookup options.');
       } finally {
         setInitialLoading(false);
       }
@@ -341,7 +343,11 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
   };
 
   // Visit details logic
+  // Once a visit is marked as the last one, no further visits can be planned.
+  const hasLastVisit = visitDetails.some(v => !!v.isLastVisitDate || !!v.isLastVist);
+
   const addVisitRow = () => {
+    if (hasLastVisit) return;
     const newVisit: ApiVisitDetail = {
       visitNo: `Visit ${visitDetails.length + 1}`,
       visitDate: '',
@@ -417,16 +423,6 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
     setVisitDetails(updated);
   };
 
-  // Survey requested tags
-  const handleSurveyRequestedToggle = (code: string) => {
-    if (!isFieldEditable('surveysRequested')) return; // read-only check
-    
-    if (surveysRequested.includes(code)) {
-      setSurveysRequested(surveysRequested.filter(c => c !== code));
-    } else {
-      setSurveysRequested([...surveysRequested, code]);
-    }
-  };
 
   type BookingErrors = Partial<Record<'shipName' | 'portOfSurvey' | 'shipBuilder' | 'engineBuilder', string>> & { visitDates?: number[] };
   const [errors, setErrors] = useState<BookingErrors>({});
@@ -498,15 +494,15 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
       }
 
       if (res.success) {
-        toast.success(isEdit ? 'Visit plan updated successfully!' : 'Visit plan created successfully!');
+        toast.success(isEdit ? 'Visit plan updated.' : 'Visit plan created.');
         unsaved.allowNavigation();
         if (job) job.onSaved(res.data._id);
         else navigate(`/${activeModule}/marine/first-entry?tab=survey`);
       } else {
-        toast.error(res.message || 'Failed to save the visit plan.');
+        toast.error(res.message || 'Could not save the visit plan.');
       }
     } catch (err: any) {
-      toast.error('Error saving visit plan: ' + err.message);
+      notifyError(err, 'Could not save visit plan.');
     } finally {
       setLoading(false);
     }
@@ -561,7 +557,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
       <FormWithNav nav={<SectionNav sections={SECTIONS} />}>
         <form onSubmit={handleSubmit} onChangeCapture={unsaved.markDirty} noValidate>
         <fieldset disabled={!!job?.readOnly} className={s.fieldsetReset}>
-          <FormSection id="sb-vessel" title="Vessel" description="Choosing a registered vessel fills in its registry, tonnage and engine details.">
+          <FormSection id="sb-vessel" collapsible={!!job} defaultOpen={!job} title="Vessel" description="Choosing a registered vessel fills in its registry, tonnage and engine details.">
             <FormGrid columns={2}>
               <Field label="Registered vessel" hint={job ? 'Set by the job' : 'Optional: leave empty for an unlisted vessel'}>
                 <div className={s.inline}>
@@ -585,6 +581,8 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
 
           <FormSection
             id="sb-requests"
+            collapsible={!!job}
+            defaultOpen={!job}
             title="Requests"
             description={`Survey requests for ${shipName || 'this ship'}. Selecting a request adds its surveys to this visit plan.`}
           >
@@ -624,7 +622,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
             )}
           </FormSection>
 
-          <FormSection id="sb-details" title="Particulars">
+          <FormSection id="sb-details" collapsible={!!job} title="Particulars">
             <FormGrid columns={3}>
               <Field label="Port of survey" required error={errors.portOfSurvey}>
                 <Input placeholder="e.g. Colombo" value={portOfSurvey} disabled={!isFieldEditable('portOfSurvey')}
@@ -650,7 +648,7 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
                 <Input value={duallyClassWith} disabled={!isFieldEditable('duallyClassWith')} onChange={e => setDuallyClassWith(e.target.value)} />
               </Field>
               <Field label="UQMS number">
-                <Input value={uqmsNo} disabled={!isFieldEditable('uqmsNo')} onChange={e => setUqmsNo(e.target.value)} />
+                <Input value={uqmsNo} disabled readOnly />
               </Field>
               <Field label="Official no.">
                 <Input value={officialNo} disabled={!isFieldEditable('officialNo')} onChange={e => setOfficialNo(e.target.value)} />
@@ -659,7 +657,11 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
                 <Input value={callSign} disabled={!isFieldEditable('callSign')} onChange={e => setCallSign(e.target.value)} />
               </Field>
               <Field label="Ship type">
-                <Input placeholder="e.g. Container ship" value={shipType} disabled={!isFieldEditable('shipType')} onChange={e => setShipType(e.target.value)} />
+                <Select placeholder="Select ship type" value={shipType} disabled={!isFieldEditable('shipType')} onChange={e => setShipType(e.target.value)}>
+                  {vesselTypes.map(vt => <option key={vt._id} value={vt.name}>{vt.group} - {vt.name}</option>)}
+                  {/* Keep a value saved earlier that isn't in the list, so it isn't silently lost. */}
+                  {shipType && !vesselTypes.some(vt => vt.name === shipType) && <option value={shipType}>{shipType}</option>}
+                </Select>
               </Field>
               <Field label="Flag">
                 <Input value={flag} disabled={!isFieldEditable('flag')} onChange={e => setFlag(e.target.value)} />
@@ -695,36 +697,41 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
             </FormGrid>
           </FormSection>
 
-          <FormSection id="sb-surveys" title="Surveys requested" description="Filled in from the selected requests; adjust if needed.">
+          <FormSection id="sb-surveys" collapsible={!!job} title="Surveys requested" description="Filled in from the selected requests; adjust if needed.">
             {surveyTypes.length === 0 ? (
               <p className={s.empty}>No survey types are configured yet.</p>
             ) : (
-              <div className={s.chips} role="group" aria-label="Surveys requested">
-                {surveyTypes.map(st => {
-                  const on = surveysRequested.includes(st.code);
-                  return (
-                    <button
-                      type="button"
-                      key={st._id}
-                      className={`${s.chip} ${on ? s.chipOn : ''}`}
-                      aria-pressed={on}
-                      disabled={!surveysEditable}
-                      onClick={() => { handleSurveyRequestedToggle(st.code); unsaved.markDirty(); }}
-                    >
-                      {on && <Check aria-hidden="true" />}
-                      {st.name} <span className={s.chipCode}>{st.code}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <SearchableMultiSelect
+                value={surveysRequested}
+                options={surveyTypes.map(st => ({ id: st.code, label: `${st.code} - ${st.name}` }))}
+                placeholder="Select surveys"
+                searchPlaceholder="Search surveys..."
+                disabled={!surveysEditable}
+                onChange={value => {
+                  if (!isFieldEditable('surveysRequested')) return;
+                  setSurveysRequested(value);
+                  unsaved.markDirty();
+                }}
+              />
             )}
           </FormSection>
 
           <FormSection
             id="sb-visits"
+            collapsible={!!job}
             title="Visits"
             description="Plan each visit and assign surveyors. Mark the final visit as the last visit."
-            actions={<Button size="sm" icon={<Plus />} onClick={() => { addVisitRow(); unsaved.markDirty(); }}>Add visit</Button>}
+            actions={
+              <Button
+                size="sm"
+                icon={<Plus />}
+                disabled={hasLastVisit}
+                title={hasLastVisit ? 'The last visit is already marked. Untick “This is the last visit” to add another.' : undefined}
+                onClick={() => { addVisitRow(); unsaved.markDirty(); }}
+              >
+                Add visit
+              </Button>
+            }
           >
             {visitDetails.length === 0 ? (
               <p className={s.empty}>No visits planned yet. Use “Add visit” to plan the first one.</p>
@@ -789,7 +796,14 @@ export default function CreateFirstEntrySurveyBooking({ job }: { job?: BookingJo
                                   onChange={e => updateSurveyorAssignmentField(visitIdx, assignIdx, 'surveyorId', e.target.value)}
                                 >
                                   <option value="">Choose surveyor</option>
-                                  {users.map(u => <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>)}
+                                  {users
+                                    .filter(u => {
+                                      if (!job) return true;
+                                      // A job's visits can only use its own surveyor and assistants (plus any already saved).
+                                      const current = typeof assignment.surveyorId === 'object' ? (assignment.surveyorId as any)?._id : assignment.surveyorId;
+                                      return job.surveyorIds.includes(u._id) || u._id === current;
+                                    })
+                                    .map(u => <option key={u._id} value={u._id}>{u.fullName || u.username} ({u.username})</option>)}
                                 </Select>
                               </Field>
                               <Field label="Currency">

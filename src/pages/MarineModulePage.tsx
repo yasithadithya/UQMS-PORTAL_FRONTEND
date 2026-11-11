@@ -15,6 +15,7 @@ import { resolveModuleTrail } from '@/utils/modules';
 import { Badge, Button, ButtonLink, ConfirmDialog, DataTable, Menu, PageHeader, StatusBadge, Tabs, type Column, type MenuItem } from '@/ui';
 import s from './MarineModulePage.module.css';
 import SignableDocumentModal from '@/components/ESignature/SignableDocumentModal';
+import { notifyError } from '@/utils/notify';
 
 type PendingDelete = { kind: MarineTab; id: string; title: string; message: string } | null;
 
@@ -153,7 +154,7 @@ export default function MarineModulePage() {
       if (kind === activeTab && rowsOnPage[kind] <= 1 && page > 1) setPage(page - 1);
       else reloadActiveTab();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed.');
+      notifyError(err, 'Delete failed.');
     }
   };
 
@@ -178,13 +179,13 @@ export default function MarineModulePage() {
     try {
       saveBlob(await firstEntryService.getScccosFinalBlob(id), `scc_certificate_${certificateNumber.replace(/\s+/g, '_')}.pdf`);
     } catch (err: any) {
-      toast.error('Failed to download certificate: ' + err.message);
+      notifyError(err, 'Could not download certificate.');
     }
   };
 
   const handlePreviewCertificate = (id: string) => {
     previewPdfInNewTab(() => firstEntryService.getScccosFinalBlob(id))
-      .catch((err: any) => toast.error('Failed to open certificate: ' + err.message));
+      .catch((err: any) => notifyError(err, 'Could not open certificate.'));
   };
 
   const handleViewCos = async (reportId: string) => {
@@ -193,10 +194,10 @@ export default function MarineModulePage() {
       if (res.success && res.data) {
         setViewingCertificate(res.data);
       } else {
-        toast.error('Could not find the certificate record for this Survey Report.');
+        toast.error('Could not find the certificate record for this survey report.');
       }
     } catch (err: any) {
-      toast.error('Failed to retrieve certificate: ' + err.message);
+      notifyError(err, 'Could not load certificate.');
     }
   };
 

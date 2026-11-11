@@ -17,6 +17,7 @@ import type { SignableDocType } from '@/api';
 import s from './FirstEntryFullReportPage.module.css';
 import { formatDate, formatDateTime, formatSigningDate } from '@/utils/date';
 import { MODULE_KEYS } from '@/utils/permissions';
+import { notifyError } from '@/utils/notify';
 
 /** A stored document opened in the signing viewer. */
 type OpenSignableDocument = {
@@ -59,7 +60,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
 
@@ -142,12 +143,12 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       if (res.success) {
         setReport(res.data);
         setNewRemarkText('');
-        toast.success('Remark added successfully.');
+        toast.success('Remark added.');
       } else {
-        toast.error(res.message || 'Failed to add remark.');
+        toast.error(res.message || 'Could not add remark.');
       }
     } catch (err: any) {
-      toast.error('Error adding remark: ' + err.message);
+      notifyError(err, 'Could not add remark.');
     } finally {
       setPostingRemark(false);
     }
@@ -163,12 +164,12 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         setReport(res.data);
         setEditingRemarkId(null);
         setEditingRemarkText('');
-        toast.success('Remark updated successfully.');
+        toast.success('Remark updated.');
       } else {
-        toast.error(res.message || 'Failed to update remark.');
+        toast.error(res.message || 'Could not update remark.');
       }
     } catch (err: any) {
-      toast.error('Error updating remark: ' + err.message);
+      notifyError(err, 'Could not update remark.');
     } finally {
       setUpdatingRemark(false);
     }
@@ -183,10 +184,10 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         setReport(res.data);
         toast.success(res.message || 'Remark status updated.');
       } else {
-        toast.error(res.message || 'Failed to update remark status.');
+        toast.error(res.message || 'Could not update remark status.');
       }
     } catch (err: any) {
-      toast.error('Error updating remark status: ' + err.message);
+      notifyError(err, 'Could not update remark status.');
     }
   };
 
@@ -201,12 +202,12 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       if (res.success) {
         setReport(res.data);
         setNewCommentTexts((prev) => ({ ...prev, [remarkId]: '' }));
-        toast.success('Comment added successfully.');
+        toast.success('Comment added.');
       } else {
-        toast.error(res.message || 'Failed to add comment.');
+        toast.error(res.message || 'Could not add comment.');
       }
     } catch (err: any) {
-      toast.error('Error adding comment: ' + err.message);
+      notifyError(err, 'Could not add comment.');
     } finally {
       setPostingCommentId(null);
     }
@@ -222,12 +223,12 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         setReport(res.data);
         setEditingCommentId(null);
         setEditingCommentText('');
-        toast.success('Comment updated successfully.');
+        toast.success('Comment updated.');
       } else {
-        toast.error(res.message || 'Failed to update comment.');
+        toast.error(res.message || 'Could not update comment.');
       }
     } catch (err: any) {
-      toast.error('Error updating comment: ' + err.message);
+      notifyError(err, 'Could not update comment.');
     } finally {
       setUpdatingComment(false);
     }
@@ -251,21 +252,6 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
-
-        // Expand all groups by default
-        const uniqueCategories = Array.from(
-          new Set(
-            (res.data.checklist || []).map((item) => {
-              const questionObj = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
-              return questionObj?.qCategory || 'General';
-            })
-          )
-        );
-        const initialExpanded: Record<string, boolean> = {};
-        uniqueCategories.forEach((name) => {
-          initialExpanded[name] = true;
-        });
-        setExpandedGroups(initialExpanded);
       }
 
       // Check if Docking Survey Cert exists
@@ -283,7 +269,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         // Full report does not exist yet. Let's try to generate it.
         await generateFullReport();
       } else {
-        toast.error('Failed to load Full Report: ' + err.message);
+        notifyError(err, 'Could not load full report.');
       }
     } finally {
       setLoading(false);
@@ -296,27 +282,13 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       if (!id) return;
       const res = await firstEntryService.triggerFullReportGeneration(id);
       if (res.success) {
-        toast.info('Full report generated successfully.');
+        toast.info('Full report generated.');
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
-
-        const uniqueCategories = Array.from(
-          new Set(
-            (res.data.checklist || []).map((item) => {
-              const questionObj = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
-              return questionObj?.qCategory || 'General';
-            })
-          )
-        );
-        const initialExpanded: Record<string, boolean> = {};
-        uniqueCategories.forEach((name) => {
-          initialExpanded[name] = true;
-        });
-        setExpandedGroups(initialExpanded);
       }
     } catch (err: any) {
-      toast.error('Failed to generate Full Report: ' + err.message);
+      notifyError(err, 'Could not generate full report.');
       if (!embedded) navigate(`${basePath}?tab=reports`);
     }
   };
@@ -366,13 +338,9 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
     return { total, completed, percentage };
   }, [checklist]);
 
-  // Expand / collapse accordions
-  const toggleGroup = (groupName: string) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [groupName]: !prev[groupName],
-    }));
-  };
+  // The category whose questions are open in the pop-up.
+  const categoryNames = useMemo(() => Object.keys(groupedChecklist), [groupedChecklist]);
+  const openCategoryIndex = openCategory ? categoryNames.indexOf(openCategory) : -1;
 
   // Checklist actions
   const handleCheckedChange = (originalIndex: number, isChecked: boolean) => {
@@ -395,6 +363,22 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       next[originalIndex] = {
         ...next[originalIndex],
         comment,
+        surveyorName: currentUser?.username,
+        surveyorId: currentUser?.id,
+        updatedDate: new Date().toISOString(),
+      };
+      return next;
+    });
+  };
+
+  // Yes = Satisfactory, No = Unsatisfactory. Either answer marks the item as checked.
+  const handleAnswer = (originalIndex: number, yes: boolean) => {
+    setChecklist((prev) => {
+      const next = [...prev];
+      next[originalIndex] = {
+        ...next[originalIndex],
+        isChecked: true,
+        comment: yes ? 'Satisfactory' : 'Unsatisfactory',
         surveyorName: currentUser?.username,
         surveyorId: currentUser?.id,
         updatedDate: new Date().toISOString(),
@@ -486,12 +470,12 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
           };
           return next;
         });
-        toast.success(`Uploaded ${file.name} successfully.`);
+        toast.success(`Uploaded ${file.name}.`);
       } else {
         toast.error(res.message || 'File upload failed.');
       }
     } catch (err: any) {
-      toast.error('Error uploading file: ' + err.message);
+      notifyError(err, 'Could not upload file.');
     } finally {
       setUploadingQuestionId(null);
     }
@@ -518,14 +502,14 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       setSaving(true);
       const res = await firstEntryService.updateFirstEntryFullReport(report._id, { checklist });
       if (res.success) {
-        toast.success('Full survey checklist saved successfully.');
+        toast.success('Full survey checklist saved.');
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
       } else {
-        toast.error(res.message || 'Failed to save checklist.');
+        toast.error(res.message || 'Could not save checklist.');
       }
     } catch (err: any) {
-      toast.error('Error saving checklist: ' + err.message);
+      notifyError(err, 'Could not save checklist.');
     } finally {
       setSaving(false);
     }
@@ -551,13 +535,13 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       if (!id) return;
       const res = await firstEntryService.triggerFullReportGeneration(id);
       if (res.success) {
-        toast.success('Checklist regenerated successfully.');
+        toast.success('Checklist regenerated.');
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
       }
     } catch (err: any) {
-      toast.error('Error regenerating checklist: ' + err.message);
+      notifyError(err, 'Could not regenerate checklist.');
     } finally {
       setLoading(false);
     }
@@ -566,7 +550,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
   const handlePreviewDailyReport = async () => {
     if (!report || previewLoading) return;
     if (hasChanges) {
-      toast.warn('Please save your changes before generating the checklist preview.');
+      toast.warn('Save your changes before generating the checklist preview.');
       return;
     }
 
@@ -577,7 +561,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       setPreviewUrl(url);
       setShowPreviewModal(true);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load the checklist PDF preview.');
+      notifyError(err, 'Could not load the checklist PDF preview.');
     } finally {
       setPreviewLoading(false);
     }
@@ -589,16 +573,16 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       setGeneratingPdf(true);
       const res = await firstEntryService.generateDailyReportPdf(report._id);
       if (res.success) {
-        toast.success('Survey Checklist PDF generated successfully.');
+        toast.success('Survey checklist PDF generated.');
         setReport(res.data);
         setOriginalChecklist(res.data.checklist || []);
         setChecklist(res.data.checklist || []);
         handleClosePreview();
       } else {
-        toast.error(res.message || 'Failed to generate PDF.');
+        toast.error(res.message || 'Could not generate PDF.');
       }
     } catch (err: any) {
-      toast.error('Error generating the checklist PDF: ' + err.message);
+      notifyError(err, 'Could not generate the checklist PDF.');
     } finally {
       setGeneratingPdf(false);
     }
@@ -618,7 +602,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
   const handleOpenVisitReport = async (label: string) => {
     if (!report || visitReportLoading) return;
     if (hasChanges) {
-      toast.warn('Please save your changes before opening the daily visit report.');
+      toast.warn('Save your changes before opening the daily visit report.');
       return;
     }
     try {
@@ -626,7 +610,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
       const blob = await firstEntryService.getDailyVisitReportPdf(report._id, label);
       setVisitReport({ label, url: URL.createObjectURL(blob) });
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load the daily visit report.');
+      notifyError(err, 'Could not load the daily visit report.');
     } finally {
       setVisitReportLoading(null);
     }
@@ -665,7 +649,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         toast.error('Could not find the certificate record.');
       }
     } catch (err: any) {
-      toast.error('Failed to retrieve certificate: ' + err.message);
+      notifyError(err, 'Could not load certificate.');
     }
   };
 
@@ -686,7 +670,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         toast.error('Could not find the certificate record.');
       }
     } catch (err: any) {
-      toast.error('Failed to retrieve certificate: ' + err.message);
+      notifyError(err, 'Could not load certificate.');
     }
   };
 
@@ -708,7 +692,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
   }
 
   return (
-    <div className={s.container}>
+    <div className={`${s.container} ${embedded ? s.containerEmbedded : ''}`}>
       {!embedded && (
         <PageHeader
           back={{ href: `${basePath}?tab=reports`, label: 'Survey reports' }}
@@ -718,8 +702,38 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
         />
       )}
 
+      {/* Inside a job: just the progress and the generate button. The generated files are under Reports. */}
+      {embedded && (
+        <div className={s.compactBar}>
+          <span className={s.compactProgressText}>
+            {progressStats.completed} / {progressStats.total} checked ({progressStats.percentage}%)
+          </span>
+          <div
+            className={`${s.progressBarBg} ${s.compactProgressBar}`}
+            role="progressbar"
+            aria-label="Checklist progress"
+            aria-valuenow={progressStats.percentage}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className={s.progressBarFill} style={{ width: `${progressStats.percentage}%` }} />
+          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<Eye />}
+            onClick={handlePreviewDailyReport}
+            loading={previewLoading}
+            disabled={generatingPdf || !!report.eSignature || readOnly}
+            title={report.eSignature ? 'The checklist is signed and locked. An administrator must revoke the signature to regenerate it.' : undefined}
+          >
+            {report.dailyReportPdfGeneratedAt ? 'Regenerate checklist' : 'Preview & generate checklist'}
+          </Button>
+        </div>
+      )}
+
       {/* Header Info Panel */}
-      <div className={s.headerCard}>
+      {!embedded && <div className={s.headerCard}>
         <div className={s.progressWrap}>
           <div className={s.progressText}>
             Progress: {progressStats.completed} / {progressStats.total} ({progressStats.percentage}%)
@@ -736,7 +750,8 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
           </div>
         </div>
 
-        <div className={s.infoGrid}>
+        {/* Inside a job the vessel details are already in the job header. */}
+        {!embedded && <div className={s.infoGrid}>
           <div className={s.infoItem}>
             <span className={s.infoLabel}>Vessel Name</span>
             <span className={s.infoValue}>{vessel?.vesselName || 'N/A'}</span>
@@ -757,7 +772,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
               {surveyReport?.anniversaryDate ? formatDate(surveyReport.anniversaryDate) : 'N/A'}
             </span>
           </div>
-        </div>
+        </div>}
         <div className={s.reportRow}>
           <div className={s.reportInfo}>
             {report.dailyReportPdfGeneratedAt ? (
@@ -830,53 +845,73 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
             ))}
           </div>
         </div>
-      </div>
+      </div>}
 
-      <fieldset disabled={readOnly} className={s.fieldsetReset}>
-      {/* Checklist Sections grouped by Question Category */}
+      {/* Checklist Sections grouped by Question Category. Kept outside the read-only fieldset so the
+          section cards can still be opened to view; the pop-up has its own read-only guard. */}
       {Object.keys(groupedChecklist).length === 0 ? (
         <Card padding="none">
           <EmptyState
             icon={<ClipboardList />}
             title="No checklist questions"
             description="No checklist questions match this report's survey category, boat type, area of operation or vessel code."
-            action={<Button icon={<RefreshCw />} onClick={handleRegenerate}>Reload questions</Button>}
+            action={<Button icon={<RefreshCw />} onClick={handleRegenerate} disabled={readOnly}>Reload questions</Button>}
           />
         </Card>
       ) : (
-        Object.entries(groupedChecklist).map(([qCategory, items]) => {
-          const isOpen = expandedGroups[qCategory] !== false;
-          const count = items.length;
+        <>
+          <div className={s.categoryBar}>
+            <h2 className={s.categoryBarTitle}>Checklist sections</h2>
+            <Button size="sm" variant="ghost" icon={<RefreshCw />} onClick={handleRegenerate} disabled={readOnly}>Regenerate</Button>
+          </div>
+          <div className={s.categoryGrid}>
+            {categoryNames.map((qCategory) => {
+              const items = groupedChecklist[qCategory];
+              const checked = items.filter(i => i.isChecked).length;
+              const unsatisfactory = items.filter(i => i.comment === 'Unsatisfactory').length;
+              const pct = items.length ? Math.round((checked / items.length) * 100) : 0;
+              return (
+                <button
+                  key={qCategory}
+                  type="button"
+                  className={`${s.categoryCard} ${pct === 100 ? s.categoryCardDone : ''}`}
+                  onClick={() => setOpenCategory(qCategory)}
+                >
+                  <span className={s.categoryName}>{qCategory}</span>
+                  <span className={s.categoryMeta}>
+                    {checked} / {items.length} checked
+                    {unsatisfactory > 0 && <span className={s.categoryWarn}>{unsatisfactory} unsatisfactory</span>}
+                  </span>
+                  <span className={s.categoryProgress} aria-hidden="true">
+                    <span style={{ width: `${pct}%` }} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-          return (
-            <div key={qCategory} className={s.surveyGroup}>
-              <div className={s.groupHeader} onClick={() => toggleGroup(qCategory)}>
-                <span className={s.groupTitle}>
-                  <svg
-                    className={`${s.chevron} ${isOpen ? s.chevronOpen : ''}`}
-                    width="16"
-                    height="16"
-                    viewBox="0 0 10 6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="2 2 5 5 8 2" />
-                  </svg>
-                  {qCategory}
-                  <span className={s.groupCount}>{count} Items</span>
-                </span>
-                <Button size="sm" variant="ghost" icon={<RefreshCw />} onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}>
-                  Regenerate
-                </Button>
-              </div>
-
-              {isOpen && (
-                <div className={s.groupBody}>
-                  <div className={s.questionsList}>
-                    {items.map((item) => {
+          <Modal
+            open={!!openCategory}
+            onClose={() => setOpenCategory(null)}
+            size="xl"
+            title={openCategory ?? ''}
+            description={openCategory
+              ? `${groupedChecklist[openCategory]?.filter(i => i.isChecked).length ?? 0} of ${groupedChecklist[openCategory]?.length ?? 0} checked · section ${openCategoryIndex + 1} of ${categoryNames.length}`
+              : undefined}
+            footer={
+              <>
+                <Button disabled={openCategoryIndex <= 0} onClick={() => setOpenCategory(categoryNames[openCategoryIndex - 1])}>Previous section</Button>
+                <Button disabled={openCategoryIndex >= categoryNames.length - 1} onClick={() => setOpenCategory(categoryNames[openCategoryIndex + 1])}>Next section</Button>
+                {hasChanges && !readOnly
+                  ? <Button variant="primary" onClick={handleSave} loading={saving} disabled={!canEditReport}>Save changes</Button>
+                  : <Button variant="primary" onClick={() => setOpenCategory(null)}>Done</Button>}
+              </>
+            }
+          >
+                {/* The modal renders outside the page fieldset, so it needs its own read-only guard. */}
+                <fieldset disabled={readOnly} className={s.fieldsetReset}>
+                  <div className={`${s.questionsList} ${s.questionsListModal}`}>
+                    {(openCategory ? groupedChecklist[openCategory] ?? [] : []).map((item) => {
                       const question = typeof item.checklistQuestionId === 'object' ? item.checklistQuestionId : null;
                       const itemKey = item._id || String(item.originalIndex);
                       const isUploadingThis = uploadingQuestionId === itemKey;
@@ -909,17 +944,26 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
                               )}
                             </div>
 
-                            {/* Checked Checkbox */}
-                            <div className={s.statusPills}>
-                              <label className={`${s.checkedLabel} ${isLocked ? s.checkedLocked : ''}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={item.isChecked || false}
-                                  onChange={(e) => handleCheckedChange(item.originalIndex, e.target.checked)}
-                                  disabled={isLocked}
-                                />
-                                <span>Checked</span>
-                              </label>
+                            {/* Yes / No answer: drives the comment (Satisfactory / Unsatisfactory). */}
+                            <div className={s.yesNo} role="group" aria-label="Answer">
+                              <button
+                                type="button"
+                                className={`${s.yesNoBtn} ${item.comment === 'Satisfactory' ? s.yesOn : ''}`}
+                                aria-pressed={item.comment === 'Satisfactory'}
+                                disabled={isLocked}
+                                onClick={() => handleAnswer(item.originalIndex, true)}
+                              >
+                                Yes
+                              </button>
+                              <button
+                                type="button"
+                                className={`${s.yesNoBtn} ${item.comment === 'Unsatisfactory' ? s.noOn : ''}`}
+                                aria-pressed={item.comment === 'Unsatisfactory'}
+                                disabled={isLocked}
+                                onClick={() => handleAnswer(item.originalIndex, false)}
+                              >
+                                No
+                              </button>
                             </div>
                           </div>
 
@@ -1064,18 +1108,17 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
                       );
                     })}
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })
+                </fieldset>
+          </Modal>
+        </>
       )}
 
+      <fieldset disabled={readOnly} className={s.fieldsetReset}>
       {/* Discussion & Remarks Section */}
       <div className={s.discussionCard}>
         <div className={s.discussionHeader}>
           <h2 className={s.discussionTitle}>
-            💬 General Remarks & Discussion
+            General Remarks & Discussion
           </h2>
           <p className={s.discussionSubtitle}>
             A general remark must be added before generating the Survey Checklist PDF. Closed remarks are omitted from the PDF.
@@ -1155,7 +1198,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
                             className={s.actionBtn}
                             onClick={() => handleToggleCloseRemark(rem._id)}
                           >
-                            {rem.isClosed ? '🔓 Reopen Remark' : '🔒 Close Remark'}
+                            {rem.isClosed ? 'Reopen Remark' : 'Close Remark'}
                           </button>
 
                           {isRemarkCreator && editingRemarkId !== rem._id && (
@@ -1167,7 +1210,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
                                 setEditingRemarkText(rem.text);
                               }}
                             >
-                              ✏️ Edit
+                              Edit
                             </button>
                           )}
                         </div>
@@ -1398,7 +1441,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
           booking={booking as any}
           surveyReportId={surveyReport?._id || ''}
           onSuccess={() => {
-            toast.success('SCCCOS Certificate generated successfully.');
+            toast.success('SSC certificate of survey generated.');
           }}
         />
       )}
@@ -1411,7 +1454,7 @@ export default function FirstEntryFullReportPage({ embedded }: { embedded?: Chec
           surveyReportId={surveyReport?._id || ''}
           defaultClient={vessel?.managerName || booking?.managedBy || surveyReport?.managedBy || ''}
           onSuccess={() => {
-            toast.success('Docking Survey Certificate generated successfully.');
+            toast.success('Docking survey certificate generated.');
             setDockingSurveyCertExists(true);
           }}
         />

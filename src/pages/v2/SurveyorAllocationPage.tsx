@@ -19,6 +19,7 @@ import {
 } from '@/config/surveyCategories';
 import { JobStatusBadge, Notice, mainTypeLabel, personName, useModulePath } from './shared';
 import s from './v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 const idOf = (v: unknown): string => (v && typeof v === 'object' ? String((v as { _id?: string })._id ?? '') : String(v ?? ''));
 
@@ -255,7 +256,7 @@ export default function SurveyorAllocationPage() {
       setVesselTypes(vt.data);
       setAreas(ar.data);
       setVesselCodes(vc.data);
-    }).catch((err: any) => toast.error('Could not load lookups: ' + err.message));
+    }).catch((err: any) => notifyError(err, 'Could not load lookups.'));
   }, []);
 
   const unmappedCount = useMemo(() => surveyTypes.filter(t => !t.mainTypes?.length).length, [surveyTypes]);

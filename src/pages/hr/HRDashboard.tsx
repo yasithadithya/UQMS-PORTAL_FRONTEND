@@ -4,6 +4,7 @@ import { hrService } from '../../api';
 import { LoadingBlock, ErrorState, Section, StatCard, StatGrid } from '@/ui';
 import { Badge, formatMoney, formatDate } from './hrShared';
 import s from './hr.module.css';
+import { notifyError } from '@/utils/notify';
 
 /** 4825000 -> "4.83M": keeps large amounts inside a stat tile; the exact figure goes in the hint. */
 const compactNumber = (v?: number) =>
@@ -25,7 +26,7 @@ export default function HRDashboard() {
     hrService.getDashboardStats().then(res => {
       if (res.success) setStats(res.data);
     }).catch((err: any) => {
-      toast.error(err.message || 'Error loading dashboard');
+      notifyError(err, 'Could not load dashboard.');
     }).finally(() => setLoading(false));
   }, []);
 

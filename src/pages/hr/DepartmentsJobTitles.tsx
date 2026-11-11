@@ -5,6 +5,7 @@ import { Badge, Modal, EmptyRow, Field } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function DepartmentsJobTitles() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [jobTitles, setJobTitles] = useState<any[]>([]);
@@ -27,7 +28,7 @@ export default function DepartmentsJobTitles() {
       if (titleRes.success) setJobTitles(titleRes.data || []);
       if (empRes.success) setEmployees(empRes.data?.employees || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading data');
+      notifyError(err, 'Could not load data.');
     } finally {
       setLoading(false);
     }
@@ -36,39 +37,39 @@ export default function DepartmentsJobTitles() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const saveDept = async () => {
-    if (!deptForm.name.trim()) return toast.warn('Department name is required');
+    if (!deptForm.name.trim()) return toast.warn('Department name is required.');
     const payload: any = { name: deptForm.name.trim(), description: deptForm.description };
     payload.headOfDepartment = deptForm.headOfDepartment || null;
     try {
       if (deptForm.editing) {
         await hrService.updateDepartment(deptForm.editing._id, payload);
-        toast.success('Department updated');
+        toast.success('Department updated.');
       } else {
         await hrService.createDepartment(payload);
-        toast.success('Department created');
+        toast.success('Department created.');
       }
       setDeptForm({ ...deptForm, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving department');
+      notifyError(err, 'Could not save department.');
     }
   };
 
   const saveTitle = async () => {
-    if (!titleForm.title.trim()) return toast.warn('Title is required');
+    if (!titleForm.title.trim()) return toast.warn('Title is required.');
     const payload = { title: titleForm.title.trim(), grade: titleForm.grade, description: titleForm.description };
     try {
       if (titleForm.editing) {
         await hrService.updateJobTitle(titleForm.editing._id, payload);
-        toast.success('Job title updated');
+        toast.success('Job title updated.');
       } else {
         await hrService.createJobTitle(payload);
-        toast.success('Job title created');
+        toast.success('Job title created.');
       }
       setTitleForm({ ...titleForm, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving job title');
+      notifyError(err, 'Could not save job title.');
     }
   };
 
@@ -79,10 +80,10 @@ export default function DepartmentsJobTitles() {
     try {
       if (kind === 'dept') await hrService.deleteDepartment(id);
       else await hrService.deleteJobTitle(id);
-      toast.success(kind === 'dept' ? 'Department deleted' : 'Job title deleted');
+      toast.success(kind === 'dept' ? 'Department deleted.' : 'Job title deleted.');
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed');
+      notifyError(err, 'Delete failed.');
     }
   };
 

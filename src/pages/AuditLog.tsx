@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
 import { formatDateTime } from '@/utils/date';
 import { Badge, Button, DataTable, Input, PageHeader, SearchInput, Select, Toolbar, type Column } from '@/ui';
+import { notifyError } from '@/utils/notify';
 
 const OPERATION_LABELS: Record<string, string> = {
   create: 'Created', update: 'Edited', delete: 'Deleted', status: 'Status change', approve: 'Approved', revoke: 'Revoked',
@@ -70,7 +71,7 @@ export default function AuditLogPage() {
       setTotal(res.count || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch (err: any) {
-      if (seq === requestSeq.current) setError(err.message || 'Failed to load the audit log.');
+      if (seq === requestSeq.current) setError(err.message || 'Could not load the audit log.');
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }
@@ -115,7 +116,7 @@ export default function AuditLogPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      toast.error(err.message || 'Export failed.');
+      notifyError(err, 'Export failed.');
     } finally {
       setExporting(false);
     }

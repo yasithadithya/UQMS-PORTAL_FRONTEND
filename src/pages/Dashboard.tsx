@@ -13,6 +13,7 @@ import {
 } from './dashboard/widgets';
 import { useDashboardLayout } from './dashboard/useDashboardLayout';
 import s from './Dashboard.module.css';
+import { notifyError } from '@/utils/notify';
 
 const greetingForHour = (hour: number) => (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening');
 
@@ -77,7 +78,7 @@ export default function DashboardPage() {
       setDraft(null);
       setAdding(false);
     } catch (err: any) {
-      toast.error(err?.message || 'Could not save your dashboard.');
+      notifyError(err, 'Could not save your dashboard.');
     } finally {
       setSaving(false);
     }

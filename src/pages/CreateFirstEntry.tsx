@@ -15,6 +15,7 @@ import {
 import s from './CreateFirstEntry.module.css';
 import SearchableSelect from '@/components/SearchableSelect';
 import { normalizeBuildDateText } from '@/utils/date';
+import { errorText, notifyError } from '@/utils/notify';
 import {
   requestsService,
   vesselsService,
@@ -212,7 +213,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
           }
         }
       } catch (err: any) {
-        toast.error('Error loading page lookup options: ' + err.message);
+        notifyError(err, 'Could not load page lookup options.');
       } finally {
         setInitialLoading(false);
       }
@@ -527,7 +528,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
         setCreatedFirstEntryId(finalFirstEntryId);
       }
 
-      if (!finalFirstEntryId) throw new Error('First Entry could not be verified.');
+      if (!finalFirstEntryId) throw new Error('First entry could not be verified.');
 
       // Save/Update Schedule II documents
       // Embedded (V2): Schedule II has its own section, so it is never touched from here.
@@ -554,12 +555,12 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
         }
       }
 
-      toast.success(isEdit ? 'First Entry updated successfully!' : 'First Entry created successfully!');
+      toast.success(isEdit ? 'First entry updated.' : 'First entry created.');
       unsaved.allowNavigation();
       if (embedded) embedded.onSaved?.();
       else navigate(`/${activeModule}/marine/first-entry?tab=first-entry`);
     } catch (err: any) {
-      toast.error('Failed to save entries: ' + err.message);
+      notifyError(err, 'Could not save entries.');
     } finally {
       savingRef.current = false;
       setLoading(false);
@@ -581,13 +582,13 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
     try {
       const res = await firstEntryService.sendScheduleIIEmail(existingScheduleIIId!);
       if (res.success) {
-        toast.success('Email sent successfully!');
+        toast.success('Email sent.');
         setScheduleEmailSent(true);
       } else {
-        toast.error(res.message || 'Failed to send email.');
+        toast.error(res.message || 'Could not send email.');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error sending email.');
+      notifyError(err, 'Could not send email.');
     } finally {
       setIsSendingEmail(false);
     }
@@ -613,7 +614,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
             unsaved.markDirty();
           }
         } catch (err: any) {
-          toast.error(`Upload failed for ${file.name}: ${err.message}`);
+          toast.error(errorText(err, `Could not upload ${file.name}.`));
         }
       }
     } finally {
@@ -677,7 +678,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
           </FormSection>
           )}
 
-          <FormSection id="fe-vessel" title="Vessel" description={locked ? 'Registry fields are locked once the UQMS number is generated.' : undefined}>
+          <FormSection id="fe-vessel" collapsible={!!embedded} title="Vessel" description={locked ? 'Registry fields are locked once the UQMS number is generated.' : undefined}>
             <FormGrid columns={3}>
               <Field label="Vessel name" required error={errors.vesselName}>
                 <Input placeholder="e.g. Queen Elizabeth" value={vesselName} disabled={locked}
@@ -734,8 +735,8 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
             </FormGrid>
           </FormSection>
 
-          <FormSection id="fe-dimensions" title="Tonnage & dimensions">
-            <FormGrid columns={3}>
+          <FormSection id="fe-dimensions" collapsible={!!embedded} title="Tonnage & dimensions">
+            <FormGrid columns={6}>
               <Field label="Gross tonnage" required error={errors.grossTonnage}>
                 <Input type="number" inputMode="decimal" suffix="GT" value={grossTonnage} disabled={locked}
                   onChange={e => { setGrossTonnage(numberValue(e.target.value)); clearError('grossTonnage'); }} />
@@ -782,9 +783,10 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
 
           <FormSection
             id="fe-machinery"
+            collapsible={!!embedded}
             title="Machinery"
             actions={
-              <Button size="sm" icon={<Plus />} onClick={() => setEngines([...engines, { model: '', quantity: '', totalPower: '', speed: '', rpm: '' }])}>
+              <Button size="sm" icon={<Plus />} onClick={() => { setEngines([...engines, { model: '', quantity: '', totalPower: '', speed: '', rpm: '' }]); unsaved.markDirty(); }}>
                 Add engine
               </Button>
             }
@@ -803,10 +805,10 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
                         icon={<Trash2 />}
                         size="sm"
                         variant="dangerGhost"
-                        onClick={() => setEngines(engines.filter((_, i) => i !== index))}
+                        onClick={() => { setEngines(engines.filter((_, i) => i !== index)); unsaved.markDirty(); }}
                       />
                     )}
-                    <FormGrid columns={3}>
+                    <FormGrid columns={6}>
                       <Field label="Model">
                         <Input value={eng.model} onChange={e => setEngine({ model: e.target.value })} />
                       </Field>
@@ -828,7 +830,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
               })}
             </div>
 
-            <FormGrid columns={3}>
+            <FormGrid columns={4}>
               <Field label="Stroke">
                 <Input value={stroke} onChange={e => setStroke(e.target.value)} />
               </Field>
@@ -856,7 +858,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
             </FormGrid>
           </FormSection>
 
-          <FormSection id="fe-build" title="Build & owners">
+          <FormSection id="fe-build" collapsible={!!embedded} title="Build & owners">
             <FormGrid columns={2}>
               <Field label="Builder">
                 <Input value={builder} onChange={e => setBuilder(e.target.value)} />
@@ -975,7 +977,7 @@ export default function CreateFirstEntry({ embedded }: { embedded?: FirstEntryEm
           {!embedded?.readOnly && (
           <StickyActionBar dirty={unsaved.dirty}>
             {!embedded && <ButtonLink to={listPath}>Cancel</ButtonLink>}
-            <Button type="submit" variant="primary" loading={loading} disabled={!canSave}
+            <Button type="submit" variant="primary" loading={loading} disabled={!canSave || (!!embedded && !unsaved.dirty)}
               title={canSave ? undefined : 'You do not have permission to save this record.'}>
               {embedded ? 'Save preliminary data' : isEdit ? 'Save changes' : 'Create first entry'}
             </Button>

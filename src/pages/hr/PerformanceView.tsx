@@ -6,6 +6,7 @@ import AppraisalForm from './AppraisalForm';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 type Section = 'appraisals' | 'goals' | 'cycles';
 
 export default function PerformanceView() {
@@ -32,7 +33,7 @@ export default function PerformanceView() {
       if (empRes.success) setEmployees(empRes.data?.employees || []);
       if (cycleRes.success) setCycles(cycleRes.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading data');
+      notifyError(err, 'Could not load data.');
     }
   }, []);
 
@@ -46,7 +47,7 @@ export default function PerformanceView() {
       if (goalsRes.success) setGoals(goalsRes.data?.goals || []);
       if (apprRes.success) setAppraisals(apprRes.data?.appraisals || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading data');
+      notifyError(err, 'Could not load data.');
     } finally {
       setLoading(false);
     }
@@ -57,40 +58,40 @@ export default function PerformanceView() {
 
   const saveCycle = async () => {
     const { editing, name, type, periodStart, periodEnd, status } = cycleForm;
-    if (!name || !periodStart || !periodEnd) return toast.warn('Name and period dates are required');
+    if (!name || !periodStart || !periodEnd) return toast.warn('Name and period dates are required.');
     try {
       if (editing) {
         await hrService.updateReviewCycle(editing._id, { name, type, periodStart, periodEnd, status });
-        toast.success('Cycle updated');
+        toast.success('Cycle updated.');
       } else {
         await hrService.createReviewCycle({ name, type, periodStart, periodEnd });
-        toast.success('Cycle created');
+        toast.success('Cycle created.');
       }
       setCycleForm({ ...cycleForm, open: false });
       fetchStatic();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving cycle');
+      notifyError(err, 'Could not save cycle.');
     }
   };
 
   const saveGoal = async () => {
     const f = goalForm;
-    if (!f.employee || !f.title) return toast.warn('Employee and title are required');
+    if (!f.employee || !f.title) return toast.warn('Employee and title are required.');
     const payload: any = { employee: f.employee, title: f.title, kpi: f.kpi, targetValue: f.targetValue, weight: f.weight, progress: f.progress, status: f.status };
     if (f.cycle) payload.cycle = f.cycle;
     if (f.dueDate) payload.dueDate = f.dueDate;
     try {
       if (f.editing) {
         await hrService.updateGoal(f.editing._id, payload);
-        toast.success('Goal updated');
+        toast.success('Goal updated.');
       } else {
         await hrService.createGoal(payload);
-        toast.success('Goal created');
+        toast.success('Goal created.');
       }
       setGoalForm({ ...f, open: false });
       fetchLists();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving goal');
+      notifyError(err, 'Could not save goal.');
     }
   };
 
@@ -98,21 +99,21 @@ export default function PerformanceView() {
     if (!deleteGoalId) return;
     try {
       await hrService.deleteGoal(deleteGoalId);
-      toast.success('Goal deleted');
+      toast.success('Goal deleted.');
       setDeleteGoalId(null);
       fetchLists();
     } catch (err: any) {
-      toast.error(err.message || 'Error deleting goal');
+      notifyError(err, 'Could not delete goal.');
     }
   };
 
   const acknowledge = async (id: string) => {
     try {
       await hrService.acknowledgeAppraisal(id);
-      toast.success('Appraisal acknowledged');
+      toast.success('Appraisal acknowledged.');
       fetchLists();
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      notifyError(err, 'Could not acknowledge the appraisal.');
     }
   };
 

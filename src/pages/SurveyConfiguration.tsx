@@ -15,6 +15,7 @@ import {
   mainTypeFullLabel, mainTypesForSector, type MainSurveyType, type SubTypeSector,
 } from '@/config/surveyCategories';
 import s from './SurveyConfiguration.module.css';
+import { notifyError } from '@/utils/notify';
 
 const SECTOR_LABELS: Record<SubTypeSector, string> = { marine: 'Marine', industrial: 'Industrial', both: 'Marine & industrial' };
 
@@ -228,7 +229,7 @@ export default function SurveyConfigurationPage() {
       setTypes(prev => prev.filter(p => p._id !== deleting._id));
       setDeleting(null);
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setDeleteBusy(false);
     }

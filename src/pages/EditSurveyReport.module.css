@@ -23,3 +23,18 @@
   font-weight: var(--weight-semibold);
   color: var(--color-text-primary);
 }
+
+/* Wraps the paper sheet so a signed/approved report can be locked in one place. */
+.fieldsetReset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* Locked report: inputs read as plain report text rather than greyed-out boxes. */
+.fieldsetReset:disabled :global(.paper-input) {
+  opacity: 1;
+  color: var(--color-text-primary);
+  cursor: default;
+}

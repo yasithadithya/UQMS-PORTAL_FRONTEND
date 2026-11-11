@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
 import AdditionalRemarksModal from './AdditionalRemarksModal';
+import { notifyError } from '@/utils/notify';
 
 interface DockingSurveyModalProps {
   isOpen: boolean;
@@ -140,9 +141,9 @@ function DockingSurveyDialog({
       const blob = await firstEntryService.getDockingSurveyPreviewBlob(payload);
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
-      toast.success('Preview generated successfully.');
+      toast.success('Preview generated.');
     } catch (err: any) {
-      toast.error('Failed to generate preview: ' + err.message);
+      notifyError(err, 'Could not generate preview.');
     } finally {
       setPreviewLoading(false);
     }
@@ -158,15 +159,15 @@ function DockingSurveyDialog({
 
       if (res.success && res.data) {
         // Unsigned certificates are preview only, so nothing is downloaded here.
-        toast.success(`Docking Survey Certificate ${res.data.certificateNumber} created. Open it to preview and sign; download is enabled after signing.`);
+        toast.success(`Docking survey certificate ${res.data.certificateNumber} created. Open it to preview and sign; download is enabled after signing.`);
 
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        toast.error(res.message || 'Failed to create Certificate.');
+        toast.error(res.message || 'Could not create certificate.');
       }
     } catch (err: any) {
-      toast.error('Error creating Certificate: ' + err.message);
+      notifyError(err, 'Could not create certificate.');
     } finally {
       setGenerating(false);
     }

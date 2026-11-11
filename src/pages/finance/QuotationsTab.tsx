@@ -14,6 +14,7 @@ import {
 } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
+import { notifyError } from '@/utils/notify';
 
 /** Every quotation, including revisions, with search, a status filter and pagination. */
 export default function QuotationsTab({ basePath, createButton }: { basePath: string; createButton?: ReactNode }) {
@@ -52,7 +53,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
       setTotal(res.count || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch (err: any) {
-      if (seq === requestSeq.current) setError(err.message || 'Failed to load quotations.');
+      if (seq === requestSeq.current) setError(err.message || 'Could not load quotations.');
     } finally {
       if (seq === requestSeq.current) setLoading(false);
     }
@@ -67,7 +68,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
     try {
       downloadPdf(await quotationsService.getPdfBlob(q._id), q.quotationNumber);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to download the quotation PDF.');
+      notifyError(err, 'Could not download the quotation PDF.');
     }
   };
 
@@ -80,7 +81,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
       setPendingDelete(null);
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete the quotation.');
+      notifyError(err, 'Could not delete the quotation.');
     } finally {
       setDeleting(false);
     }
@@ -162,7 +163,7 @@ export default function QuotationsTab({ basePath, createButton }: { basePath: st
       <ConfirmDialog
         open={!!pendingDelete}
         title="Delete this draft quotation?"
-        message={pendingDelete && `${pendingDelete.quotationNumber} for ${pendingDelete.vesselName || pendingDelete.requestNumber} will be deleted. This can't be undone.`}
+        message={pendingDelete && `${pendingDelete.quotationNumber} for ${pendingDelete.vesselName || pendingDelete.requestNumber} will be deleted. This cannot be undone.`}
         confirmText="Delete"
         destructive
         loading={deleting}

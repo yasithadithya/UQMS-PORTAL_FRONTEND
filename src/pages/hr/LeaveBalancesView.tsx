@@ -6,6 +6,7 @@ import Pagination from '../../components/Pagination';
 import s from './hr.module.css';
 
 import { Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function LeaveBalancesView() {
   const now = new Date();
   const [balances, setBalances] = useState<any[]>([]);
@@ -34,7 +35,7 @@ export default function LeaveBalancesView() {
         setPages(res.data?.pages || 1);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error loading balances');
+      notifyError(err, 'Could not load balances.');
     } finally {
       setLoading(false);
     }

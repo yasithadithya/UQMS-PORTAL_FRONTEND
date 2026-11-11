@@ -26,7 +26,7 @@ export default function PayslipModal({ runId, onClose, selfService = false }: { 
       if (res.success) setData(res.data);
       setLoading(false);
     }).catch(() => {
-      toast.error('Error fetching payslip');
+      toast.error('Could not load payslip.');
       onClose();
     });
   }, [runId]);

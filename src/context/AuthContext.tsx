@@ -294,7 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const onExpired = () => {
       if (!localStorage.getItem('token')) return;
       clearSession();
-      toast.warn('Your session has expired. Please sign in again.', { toastId: 'session-expired' });
+      toast.warn('Your session has expired. Sign in again.', { toastId: 'session-expired' });
     };
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
@@ -423,6 +423,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 //Force deploy comment 20/10/2026
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider.');
   return ctx;
 }

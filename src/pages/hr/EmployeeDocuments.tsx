@@ -5,6 +5,7 @@ import { PageHeader, Badge, Modal, EmptyRow, FilterBar, Field, formatDate } from
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 const CATEGORIES = ['NIC', 'Passport', 'Contract', 'Certificate', 'Medical', 'Other'];
 
 const isExpiringSoon = (d?: string) => {
@@ -29,7 +30,7 @@ export default function EmployeeDocuments() {
   useEffect(() => {
     hrService.getEmployees({ limit: 100 }).then(res => {
       if (res.success) setEmployees(res.data?.employees || []);
-    }).catch(() => toast.error('Failed to load employees'));
+    }).catch(() => toast.error('Could not load employees.'));
   }, []);
 
   const fetchDocuments = useCallback(async () => {
@@ -42,7 +43,7 @@ export default function EmployeeDocuments() {
       const res = await hrService.getEmployeeDocuments(employeeId);
       if (res.success) setDocuments(res.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading documents');
+      notifyError(err, 'Could not load documents.');
     } finally {
       setLoading(false);
     }
@@ -51,8 +52,8 @@ export default function EmployeeDocuments() {
   useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
   const upload = async () => {
-    if (!file) return toast.warn('Choose a file');
-    if (!form.title.trim()) return toast.warn('Title is required');
+    if (!file) return toast.warn('Choose a file.');
+    if (!form.title.trim()) return toast.warn('Title is required.');
     setUploading(true);
     try {
       const fd = new FormData();
@@ -62,13 +63,13 @@ export default function EmployeeDocuments() {
       if (form.expiryDate) fd.append('expiryDate', form.expiryDate);
       if (form.notes) fd.append('notes', form.notes);
       await hrService.uploadEmployeeDocument(employeeId, fd);
-      toast.success('Document uploaded');
+      toast.success('Document uploaded.');
       setUploadOpen(false);
       setForm({ title: '', category: 'Other', expiryDate: '', notes: '' });
       setFile(null);
       fetchDocuments();
     } catch (err: any) {
-      toast.error(err.message || 'Upload failed');
+      notifyError(err, 'Upload failed.');
     } finally {
       setUploading(false);
     }
@@ -78,11 +79,11 @@ export default function EmployeeDocuments() {
     if (!deleteId) return;
     try {
       await hrService.deleteEmployeeDocument(deleteId);
-      toast.success('Document deleted');
+      toast.success('Document deleted.');
       setDeleteId(null);
       fetchDocuments();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed');
+      notifyError(err, 'Delete failed.');
     }
   };
 

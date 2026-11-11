@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { notifyError } from '@/utils/notify';
 import {
   Award, BadgeCheck, Briefcase, Cake, CalendarCheck, CalendarClock, CheckSquare, ChevronRight, FilePlus2, FileSearch, FileText,
   FileWarning, Inbox, Megaphone, PieChart, Plus, ReceiptText, Ship, User, UserCheck, Users, Wallet, Zap,
@@ -315,7 +316,7 @@ function WebRequestsQueue() {
       setTotal(res.count || 0);
       setTotalPages(res.pagination?.totalPages || 1);
     } catch (err: any) {
-      setError(err.message || 'Failed to load website requests.');
+      setError(err.message || 'Could not load website requests.');
     } finally {
       setLoading(false);
     }
@@ -342,7 +343,7 @@ function WebRequestsQueue() {
       if (requests.length === 1 && page > 1) setPage(page - 1);
       else await loadRequests();
     } catch (err: any) {
-      toast.error(err.message || `Failed to ${decision} request.`);
+      notifyError(err, `Could not ${decision} the request.`);
       await loadRequests();
     } finally {
       setReviewingId(null);

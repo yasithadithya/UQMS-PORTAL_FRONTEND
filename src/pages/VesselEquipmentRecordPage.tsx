@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ClipboardList } from 'lucide-react';
-import { Badge, Button, ButtonLink, Card, EmptyState, Field, Input, LoadingBlock, PageHeader, Section, StickyActionBar } from '@/ui';
+import { Badge, Button, ButtonLink, Card, EmptyState, Field, Input, LoadingBlock, Modal, PageHeader, StickyActionBar } from '@/ui';
 import s from './VesselEquipmentRecordPage.module.css';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { toast } from 'react-toastify';
@@ -9,6 +9,7 @@ import { firstEntryService, vesselEquipmentRecordService } from '@/api';
 import type { ApiFirstEntrySurveyReport, ApiVesselEquipmentRecordItem } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
+import { notifyError } from '@/utils/notify';
 
 // Parsers and formatters for structured remarks
 const parseLifeRafts = (val: string) => {
@@ -93,6 +94,8 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
   const [surveyReport, setSurveyReport] = useState<ApiFirstEntrySurveyReport | null>(null);
   const [vesselId, setVesselId] = useState('');
   const [equipmentRecords, setEquipmentRecords] = useState<ApiVesselEquipmentRecordItem[]>([]);
+  // The code group whose items are open in the pop-up.
+  const [openCode, setOpenCode] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,7 +112,7 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
             : reportRes.data.vesselId || '';
           setVesselId(vId);
         } else {
-          toast.error('Survey Report details could not be loaded.');
+          toast.error('Survey report details could not be loaded.');
         }
 
         // Fetch Equipment Records for this Survey Report
@@ -117,10 +120,10 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
         if (recordRes.success && recordRes.data) {
           setEquipmentRecords(recordRes.data.equipmentRecords || []);
         } else {
-          toast.error('Failed to load equipment checklist.');
+          toast.error('Could not load equipment checklist.');
         }
       } catch (err: any) {
-        toast.error('Error loading page data: ' + err.message);
+        notifyError(err, 'Could not load page data.');
       } finally {
         setLoading(false);
       }
@@ -141,6 +144,7 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
 
   // Handle remarks change
   const handleRemarksChange = (index: number, val: string) => {
+    unsaved.markDirty(); // the pop-up is outside the form, so its onChangeCapture won't see this
     const updated = [...equipmentRecords];
     updated[index] = {
       ...updated[index],
@@ -162,11 +166,11 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
     return groups;
   }, [equipmentRecords]);
 
-  // Handle form save
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Handle form save (also called from the pop-up, which sits outside the form)
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!id || !vesselId) {
-      toast.error('Missing required Survey Report or Vessel reference.');
+      toast.error('Missing required survey report or Vessel reference.');
       return;
     }
 
@@ -183,16 +187,16 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
 
       const res = await vesselEquipmentRecordService.saveEquipmentRecord(id, payload);
       if (res.success) {
-        toast.success('Record of Equipment saved successfully!');
+        toast.success('Record of Equipment saved.');
         // Navigate back to the survey report edit page
         unsaved.allowNavigation();
         if (embedded) embedded.onSaved?.();
         else navigate(`/${activeModule}/marine/first-entry/survey-report/edit/${id}`);
       } else {
-        toast.error(res.message || 'Failed to save equipment record.');
+        toast.error(res.message || 'Could not save equipment record.');
       }
     } catch (err: any) {
-      toast.error('Error saving equipment record: ' + err.message);
+      notifyError(err, 'Could not save equipment record.');
     } finally {
       setSaving(false);
     }
@@ -200,7 +204,8 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
 
   /** A small labelled input used by the structured remarks (count, serial number, …). */
   const part = (label: string, value: string, onChange: (v: string) => void) => (
-    <Field label={label} key={label}>
+    // The placeholder names the field, so the visible label is hidden (still read by screen readers).
+    <Field label={label} hideLabel key={label}>
       <Input placeholder={label} value={value} onChange={e => onChange(e.target.value)} />
     </Field>
   );
@@ -284,6 +289,10 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
   const backPath = `/${activeModule}/marine/first-entry/survey-report/edit/${id}`;
   const groups = Object.entries(groupedRecords);
   const answered = equipmentRecords.filter(r => r.status).length;
+  const codes = groups.map(([code]) => code);
+  const openIndex = openCode ? codes.indexOf(openCode) : -1;
+  const openItems = openCode ? groupedRecords[openCode] ?? [] : [];
+  const readOnly = !!embedded?.readOnly;
 
   return (
     <div className="animate-in">
@@ -296,17 +305,59 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
         meta={equipmentRecords.length > 0 && <Badge tone={answered === equipmentRecords.length ? 'success' : 'neutral'}>{answered}/{equipmentRecords.length} answered</Badge>}
       />}
 
-      <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty} className={s.form}>
-        <fieldset disabled={!!embedded?.readOnly} className={s.fieldsetReset}>
+      <form onSubmit={handleSave} onChangeCapture={unsaved.markDirty} className={`${s.form} ${embedded ? s.formEmbedded : ''}`}>
         {groups.length === 0 ? (
           <Card padding="none">
             <EmptyState icon={<ClipboardList />} title="No equipment questions yet" description="Equipment questions are set up by an administrator in master data." />
           </Card>
         ) : (
-          groups.map(([codeRefNo, items]) => (
-            <Section key={codeRefNo} title={<><Badge tone="accent">Code {codeRefNo}</Badge> Recommended equipment</>} padding="none">
+          // Cards stay clickable in read-only mode so the answers can still be viewed.
+          <div className={s.codeGrid}>
+            {groups.map(([codeRefNo, items]) => {
+              const done = items.filter(i => i.record.status).length;
+              const missing = items.filter(i => i.record.status === 'Not Provided').length;
+              const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+              return (
+                <button
+                  key={codeRefNo}
+                  type="button"
+                  className={`${s.codeCard} ${pct === 100 ? s.codeCardDone : ''}`}
+                  onClick={() => setOpenCode(codeRefNo)}
+                >
+                  <span className={s.codeCardTitle}><Badge tone="accent">Code {codeRefNo}</Badge></span>
+                  <span className={s.codeCardMeta}>
+                    {done} / {items.length} answered
+                    {missing > 0 && <span className={s.codeCardWarn}>{missing} not provided</span>}
+                  </span>
+                  <span className={s.codeCardProgress} aria-hidden="true"><span style={{ width: `${pct}%` }} /></span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <Modal
+          open={!!openCode}
+          onClose={() => setOpenCode(null)}
+          size="xl"
+          title={<>Code {openCode} · Recommended equipment</>}
+          description={openCode
+            ? `${openItems.filter(i => i.record.status).length} of ${openItems.length} answered · group ${openIndex + 1} of ${codes.length}`
+            : undefined}
+          footer={
+            <>
+              <Button disabled={openIndex <= 0} onClick={() => setOpenCode(codes[openIndex - 1])}>Previous code</Button>
+              <Button disabled={openIndex >= codes.length - 1} onClick={() => setOpenCode(codes[openIndex + 1])}>Next code</Button>
+              {unsaved.dirty && !readOnly
+                ? <Button variant="primary" loading={saving} disabled={!canSave} onClick={() => handleSave()}>Save record</Button>
+                : <Button variant="primary" onClick={() => setOpenCode(null)}>Done</Button>}
+            </>
+          }
+        >
+          {/* The pop-up renders outside the form, so it has its own read-only guard. */}
+          <fieldset disabled={readOnly} className={s.fieldsetReset}>
               <ul className={s.items}>
-                {items.map(({ originalIndex, record }) => (
+                {openItems.map(({ originalIndex, record }) => (
                   <li key={record.questionId._id} className={s.item}>
                     <p className={s.question}>{record.questionId.description}</p>
                     <div className={s.segmented} role="radiogroup" aria-label={`Status: ${record.questionId.description}`}>
@@ -330,10 +381,8 @@ export default function VesselEquipmentRecordPage({ embedded }: { embedded?: Rep
                   </li>
                 ))}
               </ul>
-            </Section>
-          ))
-        )}
-        </fieldset>
+          </fieldset>
+        </Modal>
 
         {!embedded?.readOnly && (
           <StickyActionBar dirty={unsaved.dirty}>

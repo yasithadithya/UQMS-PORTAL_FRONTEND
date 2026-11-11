@@ -11,6 +11,7 @@ import {
 } from '@/ui';
 import { FEE_CATEGORY_LABELS, formatCurrency } from './financeFormat';
 import s from './finance.module.css';
+import { notifyError } from '@/utils/notify';
 
 const UNITS: FeeUnit[] = ['visit', 'trip', 'hour', 'lump sum'];
 
@@ -76,7 +77,7 @@ export default function FeeStructureTab() {
       const res = await feeItemsService.getFeeItems();
       setItems(res.data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load the fee structure.');
+      setError(err.message || 'Could not load the fee structure.');
     } finally {
       setLoading(false);
     }
@@ -128,7 +129,7 @@ export default function FeeStructureTab() {
       setEditing(null);
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save the fee item.');
+      notifyError(err, 'Could not save the fee item.');
     } finally {
       setSaving(false);
     }
@@ -143,7 +144,7 @@ export default function FeeStructureTab() {
       setPendingDelete(null);
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete the fee item.');
+      notifyError(err, 'Could not delete the fee item.');
     } finally {
       setDeleting(false);
     }

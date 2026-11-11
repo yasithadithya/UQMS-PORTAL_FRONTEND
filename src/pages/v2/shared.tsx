@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ExternalLink, FileText, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { errorText } from '@/utils/notify';
 import { Badge, IconButton, buttonClassName } from '@/ui';
 import DragDropFileUpload from '@/components/DragDropFileUpload';
 import { useAuth } from '@/context/AuthContext';
@@ -71,7 +72,7 @@ export function DocumentList({
           const res = await jobsService.uploadFile(file, uploadPrefix);
           await onAdd({ name: file.name, key: res.data.key, url: res.data.url, contentType: res.data.contentType, size: res.data.size });
         } catch (err: any) {
-          toast.error(`Upload failed for ${file.name}: ${err.message}`);
+          toast.error(errorText(err, `Could not upload ${file.name}.`));
         }
       }
     } finally {

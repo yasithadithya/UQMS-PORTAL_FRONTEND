@@ -5,6 +5,7 @@ import { PageHeader, Badge, Modal, EmptyRow, Field } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function LeaveTypesManagement() {
   const [types, setTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,7 @@ export default function LeaveTypesManagement() {
       const res = await hrService.getLeaveTypes();
       if (res.success) setTypes(res.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading leave types');
+      notifyError(err, 'Could not load leave types.');
     } finally {
       setLoading(false);
     }
@@ -42,19 +43,19 @@ export default function LeaveTypesManagement() {
   };
 
   const save = async () => {
-    if (!form.name) return toast.warn('Name is required');
+    if (!form.name) return toast.warn('Name is required.');
     try {
       if (editing) {
         await hrService.updateLeaveType(editing._id, form);
-        toast.success('Leave type updated');
+        toast.success('Leave type updated.');
       } else {
         await hrService.createLeaveType(form);
-        toast.success('Leave type created');
+        toast.success('Leave type created.');
       }
       setFormOpen(false);
       fetchTypes();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving leave type');
+      notifyError(err, 'Could not save leave type.');
     }
   };
 
@@ -62,11 +63,11 @@ export default function LeaveTypesManagement() {
     if (!deleteId) return;
     try {
       await hrService.deleteLeaveType(deleteId);
-      toast.success('Leave type deleted');
+      toast.success('Leave type deleted.');
       setDeleteId(null);
       fetchTypes();
     } catch (err: any) {
-      toast.error(err.message || 'Error deleting leave type');
+      notifyError(err, 'Could not delete leave type.');
       setDeleteId(null);
     }
   };
@@ -75,9 +76,9 @@ export default function LeaveTypesManagement() {
     setInitConfirm(false);
     try {
       await hrService.initializeLeaveBalances(initYear);
-      toast.success(`Leave balances initialized for ${initYear} (all active employees)`);
+      toast.success(`Leave balances initialized for ${initYear} (all active employees).`);
     } catch (err: any) {
-      toast.error(err.message || 'Error initializing balances');
+      notifyError(err, 'Could not initialize balances.');
     }
   };
 

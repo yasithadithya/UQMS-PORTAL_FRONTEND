@@ -6,6 +6,7 @@ import PayslipModal from './PayslipModal';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
+import { notifyError } from '@/utils/notify';
 type Section = 'profile' | 'attendance' | 'leaves' | 'payslips' | 'reviews' | 'trainings';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -48,7 +49,7 @@ export default function MyHRView() {
       if (res.success) setProfile(res.data);
     }).catch((err: any) => {
       if (/linked/i.test(err.message || '')) setNotLinked(true);
-      else toast.error(err.message || 'Error loading profile');
+      else notifyError(err, 'Could not load profile.');
     }).finally(() => setLoading(false));
 
     hrService.getMyAnnouncements().then(res => {
@@ -100,10 +101,10 @@ export default function MyHRView() {
     try {
       if (dir === 'in') await hrService.myClockIn();
       else await hrService.myClockOut();
-      toast.success(dir === 'in' ? 'Clocked in' : 'Clocked out');
+      toast.success(dir === 'in' ? 'Clocked in.' : 'Clocked out.');
       fetchAttendance();
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      notifyError(err, dir === 'in' ? 'Could not clock in.' : 'Could not clock out.');
     } finally {
       setClockLoading(false);
     }
@@ -111,15 +112,15 @@ export default function MyHRView() {
 
   const applyLeave = async () => {
     const f = applyForm;
-    if (!f.leaveType || !f.startDate || !f.endDate) return toast.warn('Leave type and dates are required');
+    if (!f.leaveType || !f.startDate || !f.endDate) return toast.warn('Leave type and dates are required.');
     try {
       await hrService.submitMyLeaveRequest(f);
-      toast.success('Leave request submitted');
+      toast.success('Leave request submitted.');
       setApplyOpen(false);
       setApplyForm({ leaveType: '', startDate: '', endDate: '', reason: '' });
       fetchLeaves();
     } catch (err: any) {
-      toast.error(err.message || 'Error submitting request');
+      notifyError(err, 'Could not submit request.');
     }
   };
 
@@ -127,11 +128,11 @@ export default function MyHRView() {
     if (!cancelId) return;
     try {
       await hrService.cancelMyLeaveRequest(cancelId);
-      toast.success('Request cancelled');
+      toast.success('Request cancelled.');
       setCancelId(null);
       fetchLeaves();
     } catch (err: any) {
-      toast.error(err.message || 'Error cancelling request');
+      notifyError(err, 'Could not cancel request.');
       setCancelId(null);
     }
   };
@@ -140,13 +141,13 @@ export default function MyHRView() {
     if (!ackId) return;
     try {
       await hrService.acknowledgeMyAppraisal(ackId, ackComments || undefined);
-      toast.success('Appraisal acknowledged');
+      toast.success('Appraisal acknowledged.');
       setAckId(null);
       setAckComments('');
       const res = await hrService.getMyAppraisals();
       if (res.success) setAppraisals(res.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      notifyError(err, 'Could not acknowledge the appraisal.');
     }
   };
 

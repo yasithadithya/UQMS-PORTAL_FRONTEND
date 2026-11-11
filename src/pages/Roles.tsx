@@ -146,13 +146,13 @@ export default function RolesPage() {
         try {
             const res = editingRole ? await updateRole(editingRole._id, payload) : await addRole(payload);
             if (!res.success) {
-                setFormError(res.error || (editingRole ? 'Failed to update role' : 'Failed to create role'));
+                setFormError(res.error || (editingRole ? 'Could not update role.' : 'Could not create role.'));
                 return;
             }
             toast.success(editingRole ? 'Role updated.' : 'Role added.');
             setShowModal(false);
         } catch (err: any) {
-            setFormError(err.message || 'An error occurred');
+            setFormError(err.message || 'An error occurred.');
         } finally {
             setSaving(false);
         }
@@ -165,7 +165,7 @@ export default function RolesPage() {
         setDeleting(false);
         setDeleteTarget(null);
         if (!res.success) {
-            toast.error(res.error || 'Failed to delete role. Users might be assigned to it.');
+            toast.error(res.error || 'Could not delete role. Users might be assigned to it.');
         } else {
             toast.success('Role deleted.');
         }
@@ -315,7 +315,7 @@ export default function RolesPage() {
             <ConfirmDialog
                 open={!!deleteTarget}
                 title={`Delete the ${deleteTarget?.roleName ?? ''} role?`}
-                message="This can't be undone."
+                message="This cannot be undone."
                 confirmText="Delete role"
                 destructive
                 loading={deleting}

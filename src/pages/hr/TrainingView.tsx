@@ -5,6 +5,7 @@ import { PageHeader, Badge, Modal, EmptyRow, Field, formatDate } from './hrShare
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function TrainingView() {
   const [programs, setPrograms] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -33,7 +34,7 @@ export default function TrainingView() {
       if (sessRes.success) setSessions(sessRes.data || []);
       if (empRes.success) setEmployees(empRes.data?.employees || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading training data');
+      notifyError(err, 'Could not load training data.');
     } finally {
       setLoading(false);
     }
@@ -46,7 +47,7 @@ export default function TrainingView() {
       const res = await hrService.getSessionEnrollments(sessionId);
       if (res.success) setEnrollments(res.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading enrollments');
+      notifyError(err, 'Could not load enrollments.');
     }
   }, []);
 
@@ -56,20 +57,20 @@ export default function TrainingView() {
 
   const saveProgram = async () => {
     const f = programForm;
-    if (!f.name.trim()) return toast.warn('Program name is required');
+    if (!f.name.trim()) return toast.warn('Program name is required.');
     const payload = { name: f.name.trim(), description: f.description, category: f.category, provider: f.provider, durationHours: f.durationHours || undefined };
     try {
       if (f.editing) {
         await hrService.updateTrainingProgram(f.editing._id, payload);
-        toast.success('Program updated');
+        toast.success('Program updated.');
       } else {
         await hrService.createTrainingProgram(payload);
-        toast.success('Program created');
+        toast.success('Program created.');
       }
       setProgramForm({ ...f, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving program');
+      notifyError(err, 'Could not save program.');
     }
   };
 
@@ -77,65 +78,65 @@ export default function TrainingView() {
     if (!deleteProgramId) return;
     try {
       await hrService.deleteTrainingProgram(deleteProgramId);
-      toast.success('Program deleted');
+      toast.success('Program deleted.');
       setDeleteProgramId(null);
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed');
+      notifyError(err, 'Delete failed.');
       setDeleteProgramId(null);
     }
   };
 
   const saveSession = async () => {
     const f = sessionForm;
-    if (!f.program || !f.startDate) return toast.warn('Program and start date are required');
+    if (!f.program || !f.startDate) return toast.warn('Program and start date are required.');
     const payload: any = { program: f.program, startDate: f.startDate, trainer: f.trainer, location: f.location, status: f.status };
     if (f.endDate) payload.endDate = f.endDate;
     if (f.capacity > 0) payload.capacity = f.capacity;
     try {
       if (f.editing) {
         await hrService.updateTrainingSession(f.editing._id, payload);
-        toast.success('Session updated');
+        toast.success('Session updated.');
       } else {
         await hrService.createTrainingSession(payload);
-        toast.success('Session scheduled');
+        toast.success('Session scheduled.');
       }
       setSessionForm({ ...f, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving session');
+      notifyError(err, 'Could not save session.');
     }
   };
 
   const enroll = async () => {
-    if (!enrollSession || !enrollEmployeeId) return toast.warn('Select an employee');
+    if (!enrollSession || !enrollEmployeeId) return toast.warn('Select an employee.');
     try {
       await hrService.enrollInSession(enrollSession._id, enrollEmployeeId);
-      toast.success('Employee enrolled');
+      toast.success('Employee enrolled.');
       setEnrollEmployeeId('');
       fetchEnrollments(enrollSession._id);
     } catch (err: any) {
-      toast.error(err.message || 'Error enrolling employee');
+      notifyError(err, 'Could not enrol employee.');
     }
   };
 
   const setEnrollmentStatus = async (enrollment: any, status: string) => {
     try {
       await hrService.updateEnrollment(enrollment._id, { status });
-      toast.success('Enrollment updated');
+      toast.success('Enrollment updated.');
       fetchEnrollments(enrollSession!._id);
     } catch (err: any) {
-      toast.error(err.message || 'Error updating enrollment');
+      notifyError(err, 'Could not update enrollment.');
     }
   };
 
   const removeEnrollment = async (id: string) => {
     try {
       await hrService.deleteEnrollment(id);
-      toast.success('Enrollment removed');
+      toast.success('Enrollment removed.');
       fetchEnrollments(enrollSession!._id);
     } catch (err: any) {
-      toast.error(err.message || 'Error removing enrollment');
+      notifyError(err, 'Could not remove enrollment.');
     }
   };
 

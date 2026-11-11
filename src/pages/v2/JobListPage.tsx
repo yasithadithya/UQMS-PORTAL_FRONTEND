@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileCheck2 } from 'lucide-react';
+import { FileCheck2, Search } from 'lucide-react';
 import { Card, DataTable, Field, Input, PageHeader, SearchInput, Select, Toolbar, type Column } from '@/ui';
 import Pagination from '@/components/Pagination';
 import { jobsService, operationsService } from '@/api';
@@ -33,7 +33,19 @@ export default function JobListPage({
     jobsService.getSurveyors().then(r => setSurveyors(r.data)).catch(() => undefined);
   }, []);
 
+  // View Report lists nothing until the user searches or sets a filter.
+  const needsSearch = scope === 'completed';
+  const hasQuery = !!filters.search.trim() || Object.entries(filters).some(([k, v]) => k !== 'search' && !!v);
+  const waitingForSearch = needsSearch && !hasQuery;
+
   const load = useCallback(async () => {
+    if (waitingForSearch) {
+      setJobs([]);
+      setMeta(m => ({ ...m, page: 1, totalPages: 1, total: 0 }));
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -45,7 +57,7 @@ export default function JobListPage({
     } finally {
       setLoading(false);
     }
-  }, [scope, filters, page, limit]);
+  }, [scope, filters, page, limit, waitingForSearch]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -113,7 +125,9 @@ export default function JobListPage({
         error={error}
         onRetry={load}
         onRowClick={j => navigate(`${basePath}/${j._id}`)}
-        empty={{ icon: <FileCheck2 />, title: scope === 'completed' ? 'No completed reports' : 'Nothing waiting for approval' }}
+        empty={waitingForSearch
+          ? { icon: <Search />, title: 'Search to find a report', description: 'Enter a vessel, UQMS number, vessel code, job or request, or use the filters above.' }
+          : { icon: <FileCheck2 />, title: scope === 'completed' ? 'No matching reports' : 'Nothing waiting for approval' }}
         footer={meta.total > limit && (
           <Pagination page={meta.page} limit={limit} total={meta.total} totalPages={meta.totalPages} onPageChange={setPage} onLimitChange={setLimit} />
         )}

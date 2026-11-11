@@ -5,6 +5,7 @@ import { Modal, Field } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, Input, Select } from '@/ui';
+import { errorText, notifyError } from '@/utils/notify';
 const toDateInput = (d?: string | Date | null) => (d ? new Date(d).toISOString().split('T')[0] : '');
 
 export default function EmployeeForm({ employee, onClose, onSaved }: { employee?: any, onClose: () => void, onSaved: () => void }) {
@@ -63,7 +64,7 @@ export default function EmployeeForm({ employee, onClose, onSaved }: { employee?
       if (deptRes.success) setDepartments(deptRes.data);
       if (jobRes.success) setJobTitles(jobRes.data);
       if (empRes.success) setManagers((empRes.data?.employees || []).filter((e: any) => e._id !== employee?._id));
-    }).catch(() => toast.error('Failed to load form data'));
+    }).catch(() => toast.error('Could not load form data.'));
   }, [employee?._id]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -99,14 +100,14 @@ export default function EmployeeForm({ employee, onClose, onSaved }: { employee?
         try {
           await hrService.uploadPhoto(savedId, fd);
         } catch (err: any) {
-          toast.warn(`Employee saved, but photo upload failed: ${err.message}`);
+          toast.warn(errorText(err, "The employee was saved, but the photo could not be uploaded."));
         }
       }
 
-      toast.success(employee?._id ? 'Employee updated' : 'Employee created');
+      toast.success(employee?._id ? 'Employee updated.' : 'Employee created.');
       onSaved();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving employee');
+      notifyError(err, 'Could not save employee.');
     } finally {
       setLoading(false);
     }

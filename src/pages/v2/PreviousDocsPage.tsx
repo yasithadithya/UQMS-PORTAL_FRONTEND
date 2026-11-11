@@ -10,6 +10,7 @@ import type { ApiJobDocument, ApiPreviousDocument, ApiVesselCode } from '@/api';
 import { formatDate } from '@/utils/date';
 import { DocumentList } from './shared';
 import s from './v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 type Draft = { _id?: string; uqmsNumber: string; vesselName: string; vesselCode: string; remarks: string; documents: ApiJobDocument[] };
 const EMPTY: Draft = { uqmsNumber: '', vesselName: '', vesselCode: '', remarks: '', documents: [] };
@@ -69,7 +70,7 @@ export default function PreviousDocsPage({ breadcrumbs }: { breadcrumbs?: { labe
       setDraft(null);
       load();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setSaving(false);
     }
@@ -150,7 +151,7 @@ export default function PreviousDocsPage({ breadcrumbs }: { breadcrumbs?: { labe
         open={!!deleteId}
         destructive
         title="Delete these documents?"
-        message="The record and its document list are removed. This can't be undone."
+        message="The record and its document list are removed. This cannot be undone."
         confirmText="Delete"
         onCancel={() => setDeleteId(null)}
         onConfirm={async () => {
@@ -159,7 +160,7 @@ export default function PreviousDocsPage({ breadcrumbs }: { breadcrumbs?: { labe
             toast.success('Deleted.');
             load();
           } catch (err: any) {
-            toast.error(err.message);
+            notifyError(err);
           } finally {
             setDeleteId(null);
           }

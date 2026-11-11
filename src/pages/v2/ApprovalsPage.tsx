@@ -9,6 +9,7 @@ import type { ApiApprovalRequest, ApiApprovalStatus } from '@/api';
 import { formatDate, formatDateTime } from '@/utils/date';
 import { ChangeFacts, Changes, ENTITY_LABELS, OP_LABELS, OP_TONES, Timeline, revisionText } from './QmsChange';
 import s from './v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 const TABS: { value: ApiApprovalStatus; label: string; empty: string }[] = [
   { value: 'pending', label: 'Awaiting approval', empty: 'Nothing waiting for approval' },
@@ -73,7 +74,7 @@ export default function ApprovalsPage() {
       setOpen(null);
       load();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setBusy(null);
     }

@@ -12,6 +12,7 @@ import AdditionalRemarksModal from '@/components/AdditionalRemarksModal';
 import { formatSigningDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
+import { notifyError } from '@/utils/notify';
 
 interface IFireRow {
   location: string;
@@ -306,6 +307,8 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
   const [eSignature, setESignature] = useState<ApiESignature | null>(null);
   const [showSignModal, setShowSignModal] = useState(false);
   const isSigned = !!eSignature;
+  // Signed or approved reports are final, as is everything in a read-only job.
+  const locked = readOnly || isSigned || status === 'Approved';
 
   const [totalPersonsOnboard, setTotalPersonsOnboard] = useState(0);
   const [maxPassengers, setMaxPassengers] = useState(0);
@@ -517,7 +520,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
         }
 
       } catch (err: any) {
-        toast.error('Error loading report data: ' + err.message);
+        notifyError(err, 'Could not load report data.');
       } finally {
         setLoading(false);
       }
@@ -610,7 +613,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
       if (exists && existingReportId) {
         const res = await surveyReportService.updateSurveyReport(existingReportId, reportPayload);
         if (!res.success) {
-          toast.error(res.message || 'Failed to save Survey Report parameters.');
+          toast.error(res.message || 'Could not save survey report parameters.');
           return null;
         }
       } else {
@@ -620,7 +623,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
           setExistingReportId(res.data._id);
           savedId = res.data._id;
         } else {
-          toast.error(res.message || 'Failed to create Survey Report.');
+          toast.error(res.message || 'Could not create survey report.');
           return null;
         }
       }
@@ -665,15 +668,15 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
       });
 
       if (recordRes.success) {
-        toast.success(`Survey parameters and Record of Equipment saved successfully!`);
+        toast.success(`Survey parameters and Record of Equipment saved.`);
         setStatus(reportStatus);
       } else {
-        toast.error('Failed to sync equipment record updates.');
+        toast.error('Could not sync equipment record updates.');
       }
 
       return savedId;
     } catch (err: any) {
-      toast.error('Error saving: ' + err.message);
+      notifyError(err, 'Could not save.');
       return null;
     } finally {
       setSaving(false);
@@ -716,9 +719,9 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      toast.success('PDF generated and downloaded successfully!');
+      toast.success('PDF generated and downloaded.');
     } catch (err: any) {
-      toast.error('Error downloading PDF: ' + err.message);
+      notifyError(err, 'Could not download PDF.');
     } finally {
       setDownloading(false);
     }
@@ -727,7 +730,7 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
   const handleFinalize = async (remarks: string) => {
     const approved = await handleSave('Approved', remarks);
     if (approved) {
-      toast.success('Report finalized and approved!');
+      toast.success('Report finalized and approved.');
       embedded?.onChanged?.();
     }
   };
@@ -759,16 +762,20 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
         />
       )}
 
-      <Card className={s.summary}>
-        <dl className={s.facts}>
-          <div><dt>Vessel</dt><dd>{vessel?.vesselName?.toUpperCase() || '—'}</dd></div>
-          <div><dt>Vessel code</dt><dd>{vessel?.vesselCode || 'SSC'}</dd></div>
-          <div><dt>UQMS no.</dt><dd>{vessel?.uqmsNumber || '—'}</dd></div>
-          <div><dt>Owner</dt><dd>{vessel?.registeredOwnerName || '—'}</dd></div>
-        </dl>
-      </Card>
+      {/* Inside a job the vessel details are already in the job header. */}
+      {!embedded && (
+        <Card className={s.summary}>
+          <dl className={s.facts}>
+            <div><dt>Vessel</dt><dd>{vessel?.vesselName?.toUpperCase() || '—'}</dd></div>
+            <div><dt>Vessel code</dt><dd>{vessel?.vesselCode || 'SSC'}</dd></div>
+            <div><dt>UQMS no.</dt><dd>{vessel?.uqmsNumber || '—'}</dd></div>
+            <div><dt>Owner</dt><dd>{vessel?.registeredOwnerName || '—'}</dd></div>
+          </dl>
+        </Card>
+      )}
 
-      {/* WYSIWYG A4 Page Layout */}
+      {/* WYSIWYG A4 Page Layout. Locked once approved or signed (or when the job is read-only). */}
+      <fieldset disabled={locked} className={s.fieldsetReset}>
       <div className="paper-sheet">
         
         {/* Header */}
@@ -1596,8 +1603,9 @@ export default function EditSurveyReport({ embedded }: { embedded?: { surveyRepo
         </div>
 
       </div>
+      </fieldset>
 
-      <StickyActionBar status={status === 'Approved' ? 'Approved: the report can no longer be edited' : 'Draft'}>
+      <StickyActionBar status={isSigned ? 'Signed: the report can no longer be edited' : status === 'Approved' ? 'Approved: the report can no longer be edited' : 'Draft'}>
         <Button icon={<FileDown />} onClick={handlePreviewPdf} loading={downloading}>Preview PDF</Button>
         {status === 'Approved' && existingReportId ? (
           <Button variant="primary" icon={<PenLine />} onClick={() => setShowSignModal(true)}>

@@ -5,6 +5,7 @@ import { PageHeader, FilterBar, Field, formatMoney, formatDate } from './hrShare
 import s from './hr.module.css';
 
 import { Button, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 interface AllowanceRow {
   name: string;
   amount: number;
@@ -25,7 +26,7 @@ export default function SalaryStructures() {
   useEffect(() => {
     hrService.getEmployees({ limit: 100, status: 'Active' }).then(res => {
       if (res.success) setEmployees(res.data?.employees || []);
-    }).catch(() => toast.error('Failed to load employees'));
+    }).catch(() => toast.error('Could not load employees.'));
   }, []);
 
   const fetchStructure = useCallback(async () => {
@@ -58,16 +59,16 @@ export default function SalaryStructures() {
   };
 
   const save = async () => {
-    if (!employeeId) return toast.warn('Select an employee');
-    if (!basicSalary || basicSalary <= 0) return toast.warn('Basic salary must be greater than zero');
-    if (allowances.some(a => !a.name.trim())) return toast.warn('Every allowance needs a name');
+    if (!employeeId) return toast.warn('Select an employee.');
+    if (!basicSalary || basicSalary <= 0) return toast.warn('Basic salary must be greater than zero.');
+    if (allowances.some(a => !a.name.trim())) return toast.warn('Every allowance needs a name.');
     setSaving(true);
     try {
       await hrService.setSalaryStructure({ employeeId, basicSalary, allowances, effectiveFrom });
-      toast.success('Salary structure saved (previous structure deactivated)');
+      toast.success('Salary structure saved (previous structure deactivated).');
       fetchStructure();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving salary structure');
+      notifyError(err, 'Could not save salary structure.');
     } finally {
       setSaving(false);
     }

@@ -27,6 +27,7 @@ import {
   LoadingBlock, Modal, PageHeader, Section, Select, StatusBadge, StickyActionBar, buttonClassName, type Tone,
 } from '@/ui';
 import s from './RequestDetails.module.css';
+import { errorText, notifyError } from '@/utils/notify';
 
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -359,7 +360,7 @@ export default function RequestDetailsPage() {
         try {
           await requestsService.uploadRequestSignedPdf(request._id, pendingSignedPdf);
         } catch (err: any) {
-          toast.error(err.message || 'Request fields saved, but signed PDF upload failed.');
+          toast.warning(errorText(err, 'The request was saved, but the signed PDF could not be uploaded.'));
         }
       }
 
@@ -371,7 +372,7 @@ export default function RequestDetailsPage() {
             overriding ? overrideReason.trim() : undefined
           );
         } catch (err: any) {
-          toast.error(err.message || 'Request fields saved, but document upload failed.');
+          toast.warning(errorText(err, 'The request was saved, but the documents could not be uploaded.'));
         }
       }
 
@@ -382,7 +383,7 @@ export default function RequestDetailsPage() {
       setPendingSignedPdf(null);
       setEditing(false);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to save request.');
+      notifyError(err, 'Could not save request.');
     } finally {
       setSaving(false);
     }
@@ -400,7 +401,7 @@ export default function RequestDetailsPage() {
           setRequest(updated.data);
           setForm(requestToForm(updated.data));
         } catch (err: any) {
-          toast.error(err.message || 'Failed to delete signed PDF.');
+          notifyError(err, 'Could not delete signed PDF.');
         }
       },
     });
@@ -415,7 +416,7 @@ export default function RequestDetailsPage() {
       setRequest(updated.data);
       setForm(requestToForm(updated.data));
     } catch (err: any) {
-      toast.error(err.message || 'Failed to upload signed PDF.');
+      notifyError(err, 'Could not upload signed PDF.');
     } finally {
       setSaving(false);
     }
@@ -433,7 +434,7 @@ export default function RequestDetailsPage() {
           setRequest(updated.data);
           setForm(requestToForm(updated.data));
         } catch (err: any) {
-          toast.error(err.message || 'Failed to delete document.');
+          notifyError(err, 'Could not delete document.');
         }
       },
     });
@@ -461,7 +462,7 @@ export default function RequestDetailsPage() {
           setRequest(res.data);
           setForm(requestToForm(res.data));
         } catch (err: any) {
-          toast.error(err.message || `Failed to ${decision} request.`);
+          notifyError(err, `Could not ${decision} the request.`);
         } finally {
           setReviewing(false);
         }
@@ -485,7 +486,7 @@ export default function RequestDetailsPage() {
       showPdfInWindow(previewWindow, pdfUrl, `Print ${request.requestNumber}`, request.status !== 'print');
     } catch (err: any) {
       previewWindow?.close();
-      toast.error(err.message || 'Failed to print request PDF.');
+      notifyError(err, 'Could not print request PDF.');
     } finally {
       setPrintingPdf(false);
     }
@@ -500,7 +501,7 @@ export default function RequestDetailsPage() {
       setPreviewUrl(url);
       setShowPreviewModal(true);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load PDF preview.');
+      notifyError(err, 'Could not load PDF preview.');
     } finally {
       setPreviewLoading(false);
     }
@@ -528,7 +529,7 @@ export default function RequestDetailsPage() {
       handleClosePreview();
     } catch (err: any) {
       printWindow?.close();
-      toast.error(err.message || 'Failed to print PDF.');
+      notifyError(err, 'Could not print PDF.');
     } finally {
       setPrintingPdf(false);
     }
@@ -550,7 +551,7 @@ export default function RequestDetailsPage() {
       handleClosePreview();
     } catch (err: any) {
       printWindow?.close();
-      toast.error(err.message || 'Failed to print and send PDF.');
+      notifyError(err, 'Could not print and send PDF.');
     } finally {
       setSendingEmail(false);
     }

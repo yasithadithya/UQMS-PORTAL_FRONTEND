@@ -1,7 +1,7 @@
 import { cosVariantFor } from '@/config/certificateVariants';
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Eye, FileDown, FileText, RefreshCw } from 'lucide-react';
-import { Button, EmptyState, Field, Input, Modal, Textarea } from '@/ui';
+import { Button, ConfirmDialog, EmptyState, Field, Input, Modal, Textarea } from '@/ui';
 import d from './DocumentFormModal.module.css';
 import { toast } from 'react-toastify';
 import { firstEntryService } from '@/api';
@@ -9,6 +9,7 @@ import { usersService } from '@/api/services/users.service';
 import type { ApiFirstEntrySurveyBooking } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import AdditionalRemarksModal from './AdditionalRemarksModal';
+import { notifyError } from '@/utils/notify';
 
 interface ScccosModalProps {
   isOpen: boolean;
@@ -70,9 +71,16 @@ function ScccosDialog({
   const [generating, setGenerating] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const allStatusFixed = [hull, machinery, lsa, ffa, navigation, radio].every(
-    status => status === 'Satisfactory' || status === 'N/A'
-  );
+  // Findings still not satisfactory. The certificate can be issued anyway, but they're named on it as outstanding.
+  const [confirmOutstanding, setConfirmOutstanding] = useState(false);
+  const outstanding = [
+    { label: 'Hull', status: hull },
+    { label: 'Machinery', status: machinery },
+    { label: 'LSA', status: lsa },
+    { label: 'FFA', status: ffa },
+    { label: 'Navigational equipment', status: navigation },
+    { label: 'Radio installations', status: radio },
+  ].filter(f => f.status === 'Not Satisfactory').map(f => f.label);
 
   // Clean up Object URL on unmount/re-open
   useEffect(() => {
@@ -119,17 +127,17 @@ function ScccosDialog({
       const blob = await firstEntryService.getScccosPreviewBlob(payload);
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
-      toast.success('Preview generated successfully.');
+      toast.success('Preview generated.');
     } catch (err: any) {
-      toast.error('Failed to generate preview: ' + err.message);
+      notifyError(err, 'Could not generate preview.');
     } finally {
       setPreviewLoading(false);
     }
   };
 
   const handleRequestGenerate = () => {
-    if (!allStatusFixed) {
-      toast.error('Cannot generate PDF: All statuses must be fixed (Satisfactory or N/A).');
+    if (outstanding.length) {
+      setConfirmOutstanding(true);
       return;
     }
     setRemarksOpen(true);
@@ -150,10 +158,10 @@ function ScccosDialog({
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        toast.error(res.message || 'Failed to create Certificate.');
+        toast.error(res.message || 'Could not create certificate.');
       }
     } catch (err: any) {
-      toast.error('Error creating Certificate: ' + err.message);
+      notifyError(err, 'Could not create certificate.');
     } finally {
       setGenerating(false);
     }
@@ -198,8 +206,6 @@ function ScccosDialog({
               icon={<FileDown />}
               onClick={handleRequestGenerate}
               loading={generating}
-              disabled={!allStatusFixed}
-              title={allStatusFixed ? undefined : 'Every finding must be Satisfactory or N/A first'}
             >
               Save & generate PDF
             </Button>
@@ -241,10 +247,11 @@ function ScccosDialog({
                   </li>
                 ))}
               </ul>
-              {!allStatusFixed && (
+              {outstanding.length > 0 && (
                 <p className={d.warning} role="status">
                   <AlertTriangle aria-hidden="true" />
-                  Every finding must be Satisfactory or N/A before the certificate can be generated.
+                  {outstanding.length === 1 ? '1 finding is' : `${outstanding.length} findings are`} not satisfactory ({outstanding.join(', ')}).
+                  {' '}The certificate can still be generated, but it will name {outstanding.length === 1 ? 'it' : 'them'} as outstanding instead of certifying full compliance.
                 </p>
               )}
             </section>
@@ -266,6 +273,15 @@ function ScccosDialog({
           </div>
         </div>
       </Modal>
+      <ConfirmDialog
+        open={confirmOutstanding}
+        title="Generate with outstanding findings?"
+        message={`${outstanding.join(', ')} ${outstanding.length === 1 ? 'is' : 'are'} not satisfactory. The certificate will list ${outstanding.length === 1 ? 'it' : 'them'} as outstanding rather than certifying that the vessel fully complies. Continue?`}
+        confirmText="Generate anyway"
+        cancelText="Go back"
+        onConfirm={() => { setConfirmOutstanding(false); setRemarksOpen(true); }}
+        onCancel={() => setConfirmOutstanding(false)}
+      />
       <AdditionalRemarksModal
         isOpen={remarksOpen}
         initialValue={additionalRemarks}

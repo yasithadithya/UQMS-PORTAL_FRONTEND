@@ -21,6 +21,7 @@ import {
 } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
+import { notifyError } from '@/utils/notify';
 
 type Line = {
   key: number;
@@ -136,7 +137,7 @@ export default function QuotationForm() {
         const feesPromise = feeItemsService.getFeeItems({ active: true });
         vesselCodesService.getVesselCodes()
           .then(res => { if (!cancelled) setVesselCodes(res.data); })
-          .catch(() => { if (!cancelled) toast.error('Failed to load vessel codes.'); });
+          .catch(() => { if (!cancelled) toast.error('Could not load vessel codes.'); });
         if (id || revisingId) {
           const [fees, res] = await Promise.all([feesPromise, quotationsService.getQuotation((id || revisingId)!)]);
           if (cancelled) return;
@@ -151,7 +152,7 @@ export default function QuotationForm() {
           setLines([]);
         }
       } catch (err: any) {
-        if (!cancelled) toast.error(err.message || 'Failed to load the quotation.');
+        if (!cancelled) notifyError(err, 'Could not load the quotation.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -346,7 +347,7 @@ export default function QuotationForm() {
       unsaved.allowNavigation();
       navigate(`${listPath}/${savedId}`);
     } catch (err: any) {
-      toast.error('Failed to save the quotation: ' + (err.message || 'unknown error'));
+      notifyError(err, 'Could not save the quotation.');
     } finally {
       savingRef.current = false;
       setSaving(null);
@@ -643,9 +644,6 @@ export default function QuotationForm() {
             <ButtonLink to={backHref}>Cancel</ButtonLink>
             {isEdit ? (
               <>
-                {source?.status === 'draft' && (
-                  <Button onClick={() => save('sent')} loading={saving === 'sent'} disabled={!canSave || !!locked || !!saving}>Save & mark sent</Button>
-                )}
                 <Button type="submit" variant="primary" loading={saving === 'draft'} disabled={!canSave || !!locked || !!saving}
                   title={canSave ? undefined : 'You do not have permission to edit quotations.'}>
                   Save changes
@@ -653,7 +651,6 @@ export default function QuotationForm() {
               </>
             ) : (
               <>
-                <Button onClick={() => save('sent')} loading={saving === 'sent'} disabled={!canSave || !!saving}>Save & mark sent</Button>
                 <Button type="submit" variant="primary" loading={saving === 'draft'} disabled={!canSave || !!saving}
                   title={canSave ? undefined : 'You do not have permission to create quotations.'}>
                   Save draft

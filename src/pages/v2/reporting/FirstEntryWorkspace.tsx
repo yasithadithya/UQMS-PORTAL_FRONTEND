@@ -20,6 +20,7 @@ import { cosVariantFor, scheduleIILabelFor } from '@/config/certificateVariants'
 import { formatDateTime } from '@/utils/date';
 import { DocumentList, JobStatusBadge, Notice, personName } from '../shared';
 import s from '../v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 type SectionId = 'preliminary' | 'schedule' | 'checklist' | 'supporting' | 'reports-gen' | 'certificate' | 'status' | 'narrative' | 'summary';
 
@@ -107,7 +108,7 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
     }
     firstEntryService.getScheduleIIById(scheduleId)
       .then(res => setSchedule(res.data))
-      .catch((err: any) => toast.error(err.message))
+      .catch((err: any) => notifyError(err))
       .finally(() => setLoading(false));
   }, [scheduleId]);
 
@@ -127,7 +128,7 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
       }
       onChanged();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     }
   };
 
@@ -149,7 +150,7 @@ function ScheduleIISection({ job, readOnly, onChanged }: { job: ApiJob; readOnly
                 setSchedule({ ...schedule, emailSent: true });
                 toast.success(`${scheduleLabel} emailed to the DSSC.`);
               } catch (err: any) {
-                toast.error(err.message);
+                notifyError(err);
               } finally {
                 setEmailing(false);
               }
@@ -204,7 +205,7 @@ function SupportingDocumentsSection({ job, readOnly, onJob }: { job: ApiJob; rea
           try {
             onJob((await jobsService.addDocument(job._id, doc)).data);
           } catch (err: any) {
-            toast.error(err.message);
+            notifyError(err);
           }
         }}
         onRemove={async doc => {
@@ -212,7 +213,7 @@ function SupportingDocumentsSection({ job, readOnly, onJob }: { job: ApiJob; rea
           try {
             onJob((await jobsService.removeDocument(job._id, doc._id)).data);
           } catch (err: any) {
-            toast.error(err.message);
+            notifyError(err);
           }
         }}
       />
@@ -237,6 +238,8 @@ function ReportGenerationSection({
   const canSign = can(MODULE_KEYS.jobsReporting, 'approve') || can(MODULE_KEYS.marineCertificates, 'sign-on-behalf');
   const open = job.status !== 'completed' && job.status !== 'pending-authorization';
   const signLabel = (signed?: boolean) => (signed || !canSign || !open ? 'View PDF' : 'View & sign');
+  // A signed survey report is final: neither it nor the equipment record it draws on can be edited.
+  const reportLocked = readOnly || !!docs?.surveyReport.signed;
   const signedBadge = (signed?: boolean) => (
     <Badge tone={signed ? 'success' : 'warning'}>{signed ? 'Signed' : 'Not signed'}</Badge>
   );
@@ -255,7 +258,7 @@ function ReportGenerationSection({
                 <p className={s.hint}>Recommended equipment for the vessel, grouped by code.</p>
                 <div className={s.cardActions}>
                   <Button size="sm" variant={panel === 'equipment' ? 'primary' : 'secondary'} onClick={() => setPanel(panel === 'equipment' ? null : 'equipment')}>
-                    {panel === 'equipment' ? 'Close' : readOnly ? 'View' : 'Fill in'}
+                    {panel === 'equipment' ? 'Close' : reportLocked ? 'View' : 'Fill in'}
                   </Button>
                 </div>
               </div>
@@ -272,7 +275,7 @@ function ReportGenerationSection({
                 )}
                 <div className={s.cardActions}>
                   <Button size="sm" variant={panel === 'final' ? 'primary' : 'secondary'} onClick={() => setPanel(panel === 'final' ? null : 'final')}>
-                    {panel === 'final' ? 'Close' : readOnly || docs?.surveyReport.finalized ? 'View' : 'Fill in'}
+                    {panel === 'final' ? 'Close' : reportLocked || docs?.surveyReport.finalized ? 'View' : 'Fill in'}
                   </Button>
                   {job.links?.finalReportId && (
                     <Button size="sm" icon={<PenLine />} onClick={() => setSigning({ title: `Survey report — ${job.vesselName}`, docType: 'survey-report', id: job.links!.finalReportId! })}>
@@ -305,9 +308,9 @@ function ReportGenerationSection({
       </div>
 
       {panel === 'equipment' && (
-        <VesselEquipmentRecordPage embedded={{ surveyReportId, readOnly, onSaved: () => { setPanel(null); onChanged(); } }} />
+        <VesselEquipmentRecordPage embedded={{ surveyReportId, readOnly: reportLocked, onSaved: () => { setPanel(null); onChanged(); } }} />
       )}
-      {panel === 'final' && <EditSurveyReport embedded={{ surveyReportId, readOnly, onChanged }} />}
+      {panel === 'final' && <EditSurveyReport embedded={{ surveyReportId, readOnly: reportLocked, onChanged }} />}
 
       <DockingSurveyModal
         isOpen={dockingOpen}
@@ -631,7 +634,7 @@ export default function FirstEntryWorkspace({
   const sectionItems = SECTIONS.map(x => (x.value === 'schedule' ? { ...x, label: `2. ${scheduleIILabelFor(job.vesselCode)}` } : x));
 
   return (
-    <div className={s.stack}>
+    <div className={s.stackTight}>
       <div className={s.row} style={{ justifyContent: 'space-between' }}>
         <Tabs
           label="Workspace"
@@ -679,7 +682,7 @@ export default function FirstEntryWorkspace({
             loadBooking();
             toast.success('Last visit unmarked.');
           } catch (err: any) {
-            toast.error(err.message);
+            notifyError(err);
           } finally {
             setUnmarking(false);
             setConfirmUnmark(false);

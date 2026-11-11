@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { AlertTriangle, CalendarCheck, Check, CheckCircle2, ClipboardList, Construction, History, Lock, Send, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, Check, CheckCircle2, ChevronDown, ClipboardList, Construction, History, Lock, Send, XCircle } from 'lucide-react';
 import { Badge, Button, Card, EmptyState, ErrorState, Field, LoadingBlock, Modal, PageHeader, Section, Tabs, Textarea } from '@/ui';
 import CreateFirstEntrySurveyBooking from '@/pages/CreateFirstEntrySurveyBooking';
 import { jobsService } from '@/api';
@@ -11,6 +11,7 @@ import { formatDate, formatDateTime } from '@/utils/date';
 import FirstEntryWorkspace, { type WorkspaceWorkflow } from './reporting/FirstEntryWorkspace';
 import { JobStatusBadge, Notice, mainTypeLabel, personName, surveyTypeLabel } from './shared';
 import s from './v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 /** How the page is opened: working on the job, viewing a completed one, or authorizing it as manager. */
 export type JobPageMode = 'work' | 'view' | 'authorize';
@@ -38,7 +39,7 @@ function DecisionModal({
       await onDecide(decision, reason.trim());
       onClose();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setBusy(null);
     }
@@ -67,6 +68,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [decision, setDecision] = useState<'review' | 'authorize' | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false); // collapsed by default
   const [params, setParams] = useSearchParams();
 
   const load = useCallback(async () => {
@@ -91,7 +93,10 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
   const implemented = IMPLEMENTED_MAIN_TYPES.includes(job.mainSurveyType as MainSurveyType);
   const started = !!job.links?.surveyReportId;
   const stage = params.get('stage') === 'booking' || !started ? 'booking' : 'reporting';
-  const lastRejection = [...(job.statusHistory || [])].reverse().find(h => h.reason && h.to === 'in-progress');
+  const lastRejection = [...(job.statusHistory || [])].reverse().find(
+    // Only real send-backs from review, not the "Reporting started" step.
+    h => h.reason && h.to === 'in-progress' && ['submitted', 'surveyor-approved', 'pending-authorization'].includes(h.from || ''),
+  );
 
   const run = async (key: string, action: () => Promise<{ data: ApiJob; message?: string }>) => {
     setBusy(key);
@@ -101,7 +106,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
       if (res.message) toast.success(res.message);
       await load();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setBusy(null);
     }
@@ -164,18 +169,14 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
 
       <div className={s.stack}>
         <Card>
-          <dl className={s.facts}>
+          <dl className={`${s.facts} ${s.factsCompact}`}>
             <div><dt>UQMS no.</dt><dd className={s.mono}>{job.uqmsNumber || '—'}</dd></div>
             {job.mainSurveyType === 'first-entry' && <div><dt>Report no.</dt><dd className={s.mono}>{job.reportNumber || '—'}</dd></div>}
-            <div><dt>Request no.</dt><dd className={s.mono}>{job.requestNumber}</dd></div>
-            <div><dt>Quotation</dt><dd className={s.mono}>{job.quotationNumber || '—'}</dd></div>
-            <div><dt>Vessel code</dt><dd>{job.vesselCode || '—'}</dd></div>
             <div><dt>Surveys</dt><dd>{job.surveyTypes.map(surveyTypeLabel).join(', ') || '—'}</dd></div>
             <div><dt>Surveyors</dt><dd>{surveyorNames}</dd></div>
-            <div><dt>MSS proof</dt><dd>{job.mssProofRequired ? (job.mssProofUploaded ? 'Required · uploaded' : 'Required · missing') : 'Not required'}</dd></div>
             <div><dt>Surveyor booked</dt><dd>{job.allocatedAt ? formatDate(job.allocatedAt) : '—'}</dd></div>
           </dl>
-          <ol className={s.steps} style={{ marginTop: 'var(--space-4)' }} aria-label="Job progress">
+          <ol className={s.steps} style={{ marginTop: 'var(--space-3)' }} aria-label="Job progress">
             {STAGES.map(st => {
               const done = st.reached.includes(job.status);
               const current = job.status === st.key || (st.key === 'in-progress' && ['submitted', 'surveyor-approved'].includes(job.status));
@@ -256,8 +257,24 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
           </>
         )}
 
-        <Section title={<span className={s.row}><History aria-hidden="true" width={16} height={16} />History</span>}>
-          <ul className={s.history}>
+        <Section
+          title={
+            <button
+              type="button"
+              className={s.historyToggle}
+              aria-expanded={historyOpen}
+              aria-controls="job-history"
+              onClick={() => setHistoryOpen(o => !o)}
+            >
+              <ChevronDown aria-hidden="true" width={16} height={16} className={`${s.historyChevron} ${historyOpen ? s.historyChevronOpen : ''}`} />
+              <History aria-hidden="true" width={16} height={16} />
+              History
+              <span className={s.muted}>({job.statusHistory?.length ?? 0})</span>
+            </button>
+          }
+        >
+          {historyOpen ? (
+          <ul className={s.history} id="job-history">
             {[...(job.statusHistory || [])].reverse().map((h, i) => (
               <li key={i}>
                 <JobStatusBadge status={h.to} />
@@ -267,6 +284,7 @@ export default function JobPage({ jobId, backHref, backLabel, mode }: { jobId: s
               </li>
             ))}
           </ul>
+          ) : null}
         </Section>
       </div>
 

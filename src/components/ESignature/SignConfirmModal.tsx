@@ -5,6 +5,7 @@ import type { ApiSignatureStatus, SignableDocType } from '@/api';
 import { Button, Field, Input, Modal, Select } from '@/ui';
 import { formatSigningDate } from '@/utils/date';
 import s from './ESignature.module.css';
+import { notifyError } from '@/utils/notify';
 
 interface SignConfirmModalProps {
   docType: SignableDocType;
@@ -46,7 +47,7 @@ export default function SignConfirmModal({
       toast.success(res.message || `${documentLabel} signed electronically.`);
       onSigned(res.data);
     } catch (err: any) {
-      toast.error('Failed to sign: ' + err.message);
+      notifyError(err, 'Could not sign.');
       setSigning(false);
     }
   };

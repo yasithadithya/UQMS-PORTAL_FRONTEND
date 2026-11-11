@@ -5,6 +5,7 @@ import { Badge, Modal, Field, formatDate } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 type Section = 'checklists' | 'templates';
 
 interface TemplateItem {
@@ -39,7 +40,7 @@ export default function OnboardingView() {
       if (empRes.success) setEmployees(empRes.data?.employees || []);
       if (clRes.success) setChecklists(clRes.data?.checklists || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading checklists');
+      notifyError(err, 'Could not load checklists.');
     } finally {
       setLoading(false);
     }
@@ -49,33 +50,33 @@ export default function OnboardingView() {
 
   const saveTemplate = async () => {
     const f = templateForm;
-    if (!f.name.trim()) return toast.warn('Template name is required');
-    if (f.items.length === 0 || f.items.some(i => !i.title.trim())) return toast.warn('Add at least one item; every item needs a title');
+    if (!f.name.trim()) return toast.warn('Template name is required.');
+    if (f.items.length === 0 || f.items.some(i => !i.title.trim())) return toast.warn('Add at least one item; every item needs a title.');
     try {
       if (f.editing) {
         await hrService.updateChecklistTemplate(f.editing._id, { name: f.name, type: f.type, items: f.items });
-        toast.success('Template updated');
+        toast.success('Template updated.');
       } else {
         await hrService.createChecklistTemplate({ name: f.name, type: f.type, items: f.items });
-        toast.success('Template created');
+        toast.success('Template created.');
       }
       setTemplateForm({ ...f, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving template');
+      notifyError(err, 'Could not save template.');
     }
   };
 
   const startChecklist = async () => {
     const f = startForm;
-    if (!f.employeeId || !f.templateId) return toast.warn('Employee and template are required');
+    if (!f.employeeId || !f.templateId) return toast.warn('Employee and template are required.');
     try {
       await hrService.createEmployeeChecklist({ employeeId: f.employeeId, templateId: f.templateId, startDate: f.startDate });
-      toast.success('Checklist started');
+      toast.success('Checklist started.');
       setStartForm({ ...f, open: false });
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error starting checklist');
+      notifyError(err, 'Could not start checklist.');
     }
   };
 
@@ -84,7 +85,7 @@ export default function OnboardingView() {
       await hrService.updateChecklistTask(checklist._id, taskIndex, patch);
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Error updating task');
+      notifyError(err, 'Could not update task.');
     }
   };
 
@@ -92,11 +93,11 @@ export default function OnboardingView() {
     if (!deleteTemplateId) return;
     try {
       const res = await hrService.deleteChecklistTemplate(deleteTemplateId);
-      toast.success(res.message || 'Template deleted');
+      toast.success(res.message || 'Template deleted.');
       setDeleteTemplateId(null);
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed');
+      notifyError(err, 'Delete failed.');
       setDeleteTemplateId(null);
     }
   };
@@ -105,11 +106,11 @@ export default function OnboardingView() {
     if (!deleteChecklistId) return;
     try {
       await hrService.deleteEmployeeChecklist(deleteChecklistId);
-      toast.success('Checklist deleted');
+      toast.success('Checklist deleted.');
       setDeleteChecklistId(null);
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Delete failed');
+      notifyError(err, 'Delete failed.');
     }
   };
 

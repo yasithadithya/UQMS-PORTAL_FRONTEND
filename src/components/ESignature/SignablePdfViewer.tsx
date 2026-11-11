@@ -12,6 +12,7 @@ import AnnotationLayer, { type AnnotationTool } from './AnnotationLayer';
 import { formatSigningDate } from '@/utils/date';
 import SignConfirmModal from './SignConfirmModal';
 import s from './ESignature.module.css';
+import { notifyError } from '@/utils/notify';
 
 /** pdf.js is large, so it is loaded the first time a document is opened. */
 const loadPdfJs = async () => {
@@ -98,7 +99,7 @@ export default function SignablePdfViewer({
       setPdfBlob(blob);
       setPdf(doc);
     } catch (err: any) {
-      setError(err.message || 'Failed to load the document.');
+      setError(err.message || 'Could not load the document.');
     } finally {
       setLoading(false);
     }
@@ -137,7 +138,7 @@ export default function SignablePdfViewer({
       applyStatus(res.data);
       await load();
     } catch (err: any) {
-      toast.error('Failed to revoke signature: ' + err.message);
+      notifyError(err, 'Could not revoke signature.');
     } finally {
       setRevoking(false);
     }
@@ -150,7 +151,7 @@ export default function SignablePdfViewer({
       // The issued copy, with annotations drawn in by the server.
       saveBlob(await fetchPdfRef.current(), downloadFileName);
     } catch (err: any) {
-      toast.error('Failed to download: ' + err.message);
+      notifyError(err, 'Could not download.');
     } finally {
       setDownloading(false);
     }
@@ -188,7 +189,7 @@ export default function SignablePdfViewer({
       setSelected(null);
       toast.success('Changes to the document saved.');
     } catch (err: any) {
-      toast.error('Failed to save: ' + err.message);
+      notifyError(err, 'Could not save.');
     } finally {
       setSavingAnnotations(false);
     }

@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { ChevronDown } from 'lucide-react';
 import s from './Form.module.css';
 
 /** Responsive grid for fields: 1 column on phones, `columns` from tablet up. */
-export function FormGrid({ columns = 2, children, className }: { columns?: 1 | 2 | 3; children: ReactNode; className?: string }) {
+export function FormGrid({ columns = 2, children, className }: { columns?: 1 | 2 | 3 | 4 | 6; children: ReactNode; className?: string }) {
   return <div className={clsx(s.grid, s[`cols${columns}`], className)}>{children}</div>;
 }
 
@@ -14,23 +15,60 @@ type FormSectionProps = {
   description?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  /** Lets the user expand/collapse the section by clicking its header. */
+  collapsible?: boolean;
+  /** Starting state when collapsible. */
+  defaultOpen?: boolean;
 };
 
+/** Event SectionNav fires so a collapsed section opens before it's scrolled to. */
+const OPEN_SECTION_EVENT = 'formsection:open';
+
 /** A titled group of fields inside a long form. */
-export function FormSection({ id, title, description, actions, children }: FormSectionProps) {
+export function FormSection({ id, title, description, actions, children, collapsible, defaultOpen = true }: FormSectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const isOpen = !collapsible || open;
+  const bodyId = useId();
+  const ref = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!collapsible || !el) return;
+    const onOpen = () => setOpen(true);
+    el.addEventListener(OPEN_SECTION_EVENT, onOpen);
+    return () => el.removeEventListener(OPEN_SECTION_EVENT, onOpen);
+  }, [collapsible]);
+
+
   return (
-    <section id={id} className={s.section} aria-labelledby={id ? `${id}-title` : undefined}>
+    <section
+      id={id}
+      className={clsx(s.section, collapsible && !isOpen && s.sectionCollapsed)}
+      aria-labelledby={id ? `${id}-title` : undefined}
+      ref={ref}
+      // A hidden field that fails validation opens its section so the error is visible.
+      onInvalidCapture={collapsible ? () => setOpen(true) : undefined}
+    >
       <header className={s.sectionHeader}>
         <div className={s.sectionHeading}>
-          <h2 id={id ? `${id}-title` : undefined} className={s.sectionTitle}>{title}</h2>
-          {description && <p className={s.sectionDescription}>{description}</p>}
+          <h2 id={id ? `${id}-title` : undefined} className={s.sectionTitle}>
+            {collapsible ? (
+              <button type="button" className={s.sectionToggle} aria-expanded={isOpen} aria-controls={bodyId} onClick={() => setOpen(o => !o)}>
+                <ChevronDown className={clsx(s.sectionChevron, isOpen && s.sectionChevronOpen)} aria-hidden="true" />
+                {title}
+              </button>
+            ) : title}
+          </h2>
+          {description && <p className={clsx(s.sectionDescription, collapsible && s.sectionDescriptionIndent)}>{description}</p>}
         </div>
-        {actions && <div className={s.sectionActions}>{actions}</div>}
+        {actions && isOpen && <div className={s.sectionActions}>{actions}</div>}
       </header>
-      <div className={s.sectionBody}>{children}</div>
+      {/* Kept mounted when collapsed so field state and validation still work. */}
+      <div id={bodyId} className={s.sectionBody} hidden={!isOpen}>{children}</div>
     </section>
   );
 }
+
 
 type StickyActionBarProps = {
   children: ReactNode;
@@ -83,7 +121,9 @@ export function SectionNav({ sections }: SectionNavProps) {
               aria-current={active === sec.id ? 'location' : undefined}
               onClick={(e) => {
                 e.preventDefault();
-                document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const target = document.getElementById(sec.id);
+                target?.dispatchEvent(new CustomEvent(OPEN_SECTION_EVENT));
+                target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 setActive(sec.id);
               }}
             >

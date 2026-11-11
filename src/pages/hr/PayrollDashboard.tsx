@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { MODULE_KEYS } from '../../utils/permissions';
 
 import { Button, ConfirmDialog, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function PayrollDashboard({ basePath }: { basePath: string }) {
   const { can } = useAuth();
   const canGenerate = can(MODULE_KEYS.hrPayroll, 'create');
@@ -44,7 +45,7 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
         setPages(res.data?.pages || 1);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error loading payroll runs');
+      notifyError(err, 'Could not load payroll runs.');
     } finally {
       setLoading(false);
     }
@@ -65,13 +66,13 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
           const results: any[] = Array.isArray(res.data) ? res.data : [];
           const ok = results.filter(r => r.status === 'Success').length;
           const failed = results.filter(r => r.status === 'Failed');
-          toast.success(`Payroll generated: ${ok} succeeded, ${results.length - ok - failed.length} skipped, ${failed.length} failed`);
+          toast.success(`Payroll generated: ${ok} succeeded, ${results.length - ok - failed.length} skipped, ${failed.length} failed.`);
           if (failed.length > 0) {
             toast.warn(`Failed: ${failed.map(f => `${f.employeeId} (${f.error})`).join('; ')}`);
           }
           fetchRuns();
         } catch (err: any) {
-          toast.error(err.message || 'Error generating payroll');
+          notifyError(err, 'Could not generate payroll.');
         } finally {
           setGenerateLoading(false);
         }
@@ -86,10 +87,10 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
       action: async () => {
         try {
           await hrService.approvePayrollRun(id);
-          toast.success('Payroll approved');
+          toast.success('Payroll approved.');
           fetchRuns();
         } catch (err: any) {
-          toast.error(err.message || 'Error approving payroll');
+          notifyError(err, 'Could not approve payroll.');
         }
       },
     });
@@ -102,10 +103,10 @@ export default function PayrollDashboard({ basePath }: { basePath: string }) {
       action: async () => {
         try {
           await hrService.markPayrollPaid(id);
-          toast.success('Payroll marked as paid');
+          toast.success('Payroll marked as paid.');
           fetchRuns();
         } catch (err: any) {
-          toast.error(err.message || 'Error marking payroll as paid');
+          notifyError(err, 'Could not mark payroll as paid.');
         }
       },
     });

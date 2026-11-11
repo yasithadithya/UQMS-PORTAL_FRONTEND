@@ -16,6 +16,7 @@ import type { ApiFirstEntrySurveyBooking, ApiFirstEntrySurveyReport, ApiSurveyRe
 import { formatDate } from '@/utils/date';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
+import { notifyError } from '@/utils/notify';
 
 export default function CreateFirstEntrySurveyReport() {
   const navigate = useNavigate();
@@ -138,7 +139,7 @@ export default function CreateFirstEntrySurveyReport() {
           }
         }
       } catch (err: any) {
-        toast.error('Error loading report form data: ' + err.message);
+        notifyError(err, 'Could not load report form data.');
       } finally {
         setInitialLoading(false);
       }
@@ -169,12 +170,12 @@ export default function CreateFirstEntrySurveyReport() {
         setFirstSurveyDate(data.firstSurveyDate ? data.firstSurveyDate.split('T')[0] : '');
         setLastSurveyDate(data.lastSurveyDate ? data.lastSurveyDate.split('T')[0] : '');
         setSurveys(data.surveys || []);
-        toast.success('Report details pre-populated from the visit plan successfully!');
+        toast.success('Report details pre-populated from the visit plan.');
       } else {
-        toast.error('Failed to pre-populate details.');
+        toast.error('Could not pre-populate details.');
       }
     } catch (err: any) {
-      toast.error('Error pre-populating data: ' + err.message);
+      notifyError(err, 'Could not fill in the report from the visit plan.');
       clearForm();
     } finally {
       setLoading(false);
@@ -262,14 +263,14 @@ export default function CreateFirstEntrySurveyReport() {
       }
 
       if (res.success) {
-        toast.success(isEdit ? 'Survey Report updated successfully!' : 'Survey Report created successfully!');
+        toast.success(isEdit ? 'Survey report updated.' : 'Survey report created.');
         unsaved.allowNavigation();
         navigate(`/${activeModule}/marine/first-entry?tab=reports`);
       } else {
-        toast.error(res.message || 'Failed to save Survey Report.');
+        toast.error(res.message || 'Could not save survey report.');
       }
     } catch (err: any) {
-      toast.error('Error saving Survey Report: ' + err.message);
+      notifyError(err, 'Could not save survey report.');
     } finally {
       setLoading(false);
     }
@@ -292,11 +293,11 @@ export default function CreateFirstEntrySurveyReport() {
         }
       } else {
         previewWindow?.close();
-        toast.error('Could not find the certificate record for this Survey Report.');
+        toast.error('Could not find the certificate record for this survey report.');
       }
     } catch (err: any) {
       previewWindow?.close();
-      toast.error('Failed to retrieve certificate: ' + err.message);
+      notifyError(err, 'Could not load certificate.');
     }
   };
 

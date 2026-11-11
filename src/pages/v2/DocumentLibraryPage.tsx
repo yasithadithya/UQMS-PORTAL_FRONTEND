@@ -10,6 +10,7 @@ import { formatDate } from '@/utils/date';
 import { DOCUMENT_LIBRARIES, type DocumentLibraryKey } from '@/utils/permissions';
 import { DocumentList } from './shared';
 import s from './v2.module.css';
+import { notifyError } from '@/utils/notify';
 
 type Draft = { _id?: string; title: string; referenceNumber: string; issueDate: string; remarks: string; documents: ApiJobDocument[] };
 const EMPTY: Draft = { title: '', referenceNumber: '', issueDate: '', remarks: '', documents: [] };
@@ -83,7 +84,7 @@ export default function DocumentLibraryPage({ library, breadcrumbs }: { library:
       setDraft(null);
       load();
     } catch (err: any) {
-      toast.error(err.message);
+      notifyError(err);
     } finally {
       setSaving(false);
     }
@@ -168,7 +169,7 @@ export default function DocumentLibraryPage({ library, breadcrumbs }: { library:
         open={!!deleteId}
         destructive
         title="Delete this document?"
-        message="The document and its file list are removed. This can't be undone."
+        message="The document and its file list are removed. This cannot be undone."
         confirmText="Delete"
         onCancel={() => setDeleteId(null)}
         onConfirm={async () => {
@@ -177,7 +178,7 @@ export default function DocumentLibraryPage({ library, breadcrumbs }: { library:
             toast.success('Deleted.');
             load();
           } catch (err: any) {
-            toast.error(err.message);
+            notifyError(err);
           } finally {
             setDeleteId(null);
           }

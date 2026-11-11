@@ -6,6 +6,7 @@ import Pagination from '../../components/Pagination';
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input, Select, Textarea } from '@/ui';
+import { notifyError } from '@/utils/notify';
 const emptyForm = { title: '', body: '', priority: 'Normal', publishDate: '', expiryDate: '', isActive: true };
 
 export default function Announcements() {
@@ -31,7 +32,7 @@ export default function Announcements() {
         setPages(res.data?.pages || 1);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error loading announcements');
+      notifyError(err, 'Could not load announcements.');
     } finally {
       setLoading(false);
     }
@@ -53,22 +54,22 @@ export default function Announcements() {
   };
 
   const save = async () => {
-    if (!form.title.trim() || !form.body.trim()) return toast.warn('Title and body are required');
+    if (!form.title.trim() || !form.body.trim()) return toast.warn('Title and body are required.');
     const payload: any = { ...form };
     if (!payload.publishDate) delete payload.publishDate;
     payload.expiryDate = payload.expiryDate || null;
     try {
       if (editing) {
         await hrService.updateAnnouncement(editing._id, payload);
-        toast.success('Announcement updated');
+        toast.success('Announcement updated.');
       } else {
         await hrService.createAnnouncement(payload);
-        toast.success('Announcement published');
+        toast.success('Announcement published.');
       }
       setFormOpen(false);
       fetchItems();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving announcement');
+      notifyError(err, 'Could not save announcement.');
     }
   };
 
@@ -76,11 +77,11 @@ export default function Announcements() {
     if (!deleteId) return;
     try {
       await hrService.deleteAnnouncement(deleteId);
-      toast.success('Announcement deleted');
+      toast.success('Announcement deleted.');
       setDeleteId(null);
       fetchItems();
     } catch (err: any) {
-      toast.error(err.message || 'Error deleting announcement');
+      notifyError(err, 'Could not delete announcement.');
     }
   };
 

@@ -47,7 +47,7 @@ export function useUnsavedChanges() {
     <ConfirmDialog
       open={blocker.state === 'blocked'}
       title="Discard unsaved changes?"
-      message="You have changes on this page that haven't been saved. If you leave now they will be lost."
+      message="You have changes on this page that have not been saved. If you leave now they will be lost."
       confirmText="Leave page"
       cancelText="Keep editing"
       destructive

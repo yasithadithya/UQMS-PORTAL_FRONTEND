@@ -5,6 +5,7 @@ import { Badge, Modal, EmptyRow, FilterBar, Field } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, Input, Select } from '@/ui';
+import { notifyError } from '@/utils/notify';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function AttendanceView({ basePath }: { basePath: string }) {
@@ -23,7 +24,7 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
   useEffect(() => {
     hrService.getEmployees({ limit: 100 }).then(res => {
       if (res.success) setEmployees(res.data?.employees || []);
-    }).catch(() => toast.error('Failed to load employees'));
+    }).catch(() => toast.error('Could not load employees.'));
   }, []);
 
   const fetchLogs = useCallback(async () => {
@@ -41,7 +42,7 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
       if (logsRes.success) setLogs(logsRes.data || []);
       if (summaryRes.success) setSummary(summaryRes.data);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading attendance');
+      notifyError(err, 'Could not load attendance.');
     } finally {
       setLoading(false);
     }
@@ -52,23 +53,23 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
   }, [fetchLogs]);
 
   const handleClock = async (direction: 'in' | 'out') => {
-    if (!selectedEmployeeId) return toast.warn('Select an employee first');
+    if (!selectedEmployeeId) return toast.warn('Select an employee first.');
     setClockLoading(true);
     try {
       if (direction === 'in') await hrService.clockIn(selectedEmployeeId);
       else await hrService.clockOut(selectedEmployeeId);
-      toast.success(direction === 'in' ? 'Clocked in' : 'Clocked out');
+      toast.success(direction === 'in' ? 'Clocked in.' : 'Clocked out.');
       fetchLogs();
     } catch (err: any) {
-      toast.error(err.message || 'Error');
+      notifyError(err, direction === 'in' ? 'Could not clock in.' : 'Could not clock out.');
     } finally {
       setClockLoading(false);
     }
   };
 
   const submitManual = async () => {
-    if (!selectedEmployeeId) return toast.warn('Select an employee first');
-    if (!manual.date) return toast.warn('Date is required');
+    if (!selectedEmployeeId) return toast.warn('Select an employee first.');
+    if (!manual.date) return toast.warn('Date is required.');
     try {
       await hrService.manualAttendanceEntry({
         employeeId: selectedEmployeeId,
@@ -78,12 +79,12 @@ export default function AttendanceView({ basePath }: { basePath: string }) {
         status: manual.status,
         notes: manual.notes || undefined,
       });
-      toast.success('Manual entry saved');
+      toast.success('Manual entry saved.');
       setManualOpen(false);
       setManual({ date: '', clockIn: '', clockOut: '', status: 'Present', notes: '' });
       fetchLogs();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving manual entry');
+      notifyError(err, 'Could not save manual entry.');
     }
   };
 

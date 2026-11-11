@@ -4,6 +4,7 @@ import { usersService } from '@/api/services/users.service';
 import { toast } from 'react-toastify';
 import { Badge, Button, Card, Field, FormGrid, Input, LoadingBlock, PageHeader, Section } from '@/ui';
 import s from './Profile.module.css';
+import { notifyError } from '@/utils/notify';
 
 export default function ProfilePage() {
     const { user, updateUser } = useAuth();
@@ -63,7 +64,7 @@ export default function ProfilePage() {
                     });
                 }
             } catch (err: any) {
-                toast.error(err.message || 'Failed to load profile details');
+                notifyError(err, 'Could not load profile details.');
             } finally {
                 setLoadingProfile(false);
             }
@@ -83,7 +84,7 @@ export default function ProfilePage() {
 
         setSavingProfile(true);
         try {
-            if (!user?.id) throw new Error('No user context found');
+            if (!user?.id) throw new Error('No user context found.');
 
             const payload = {
                 username: profileData.username,
@@ -97,7 +98,7 @@ export default function ProfilePage() {
             const result = await updateUser(user.id, payload);
             if (result.success) {
                 setProfileSuccess('Profile updated successfully.');
-                toast.success('Profile updated successfully.');
+                toast.success('Profile updated.');
             } else {
                 setProfileError(result.error || 'Failed to update profile.');
             }
@@ -130,7 +131,7 @@ export default function ProfilePage() {
 
         setSavingPassword(true);
         try {
-            if (!user?.id) throw new Error('No user context found');
+            if (!user?.id) throw new Error('No user context found.');
 
             const result = await updateUser(user.id, {
                 password: passwordData.newPassword,
@@ -138,7 +139,7 @@ export default function ProfilePage() {
 
             if (result.success) {
                 setPasswordSuccess('Password changed successfully.');
-                toast.success('Password changed successfully.');
+                toast.success('Password changed.');
                 setPasswordData({
                     newPassword: '',
                     confirmPassword: '',

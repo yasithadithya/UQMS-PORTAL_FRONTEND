@@ -43,9 +43,9 @@ async function send(endpoint: string, init: RequestInit, headers: Record<string,
     });
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new Error(init.signal ? 'Request was cancelled.' : 'The server took too long to respond. Please try again.');
+      throw new Error(init.signal ? 'Request was cancelled.' : 'The server took too long to respond. Try again.');
     }
-    throw new Error("Can't reach the server. Check your connection and try again.");
+    throw new Error("Cannot reach the server. Check your connection and try again.");
   } finally {
     clearTimeout(timer);
   }

@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { MODULE_KEYS } from '../../utils/permissions';
 
 import { Button, ConfirmDialog, Select, Textarea } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function LeaveManagement({ basePath }: { basePath: string }) {
   const { can } = useAuth();
   const canApprove = can(MODULE_KEYS.hrLeave, 'approve');
@@ -33,7 +34,7 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
         setPages(res.data?.pages || 1);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Error loading leave requests');
+      notifyError(err, 'Could not load leave requests.');
     } finally {
       setLoading(false);
     }
@@ -49,27 +50,27 @@ export default function LeaveManagement({ basePath }: { basePath: string }) {
     setApproveId(null);
     try {
       await hrService.approveLeaveRequest(id);
-      toast.success('Leave request approved');
+      toast.success('Leave request approved.');
       fetchRequests();
     } catch (err: any) {
-      toast.error(err.message || 'Error approving request');
+      notifyError(err, 'Could not approve request.');
     }
   };
 
   const handleReject = async () => {
     if (!rejectId) return;
     if (!rejectReason.trim()) {
-      toast.warn('Please enter a rejection reason');
+      toast.warn('Enter a rejection reason.');
       return;
     }
     try {
       await hrService.rejectLeaveRequest(rejectId, rejectReason.trim());
-      toast.success('Leave request rejected');
+      toast.success('Leave request rejected.');
       setRejectId(null);
       setRejectReason('');
       fetchRequests();
     } catch (err: any) {
-      toast.error(err.message || 'Error rejecting request');
+      notifyError(err, 'Could not reject request.');
     }
   };
 

@@ -19,7 +19,7 @@ export default function LoginPage() {
 
         const result = await login(loginField, password);
         if (!result.success) {
-            setError(result.error || 'Invalid credentials');
+            setError(result.error || 'Invalid credentials.');
         }
         setLoading(false);
     };

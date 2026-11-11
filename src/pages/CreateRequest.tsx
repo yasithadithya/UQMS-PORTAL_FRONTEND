@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { errorText } from '@/utils/notify';
 import {
   operationsService,
   requestsService,
@@ -246,7 +247,7 @@ export default function CreateRequestPage() {
           try {
             await requestsService.uploadRequestSignedPdf(requestId, pendingSignedPdf);
           } catch (err: any) {
-            toast.warning(err.message || 'Request saved, but signed PDF upload failed.');
+            toast.warning(errorText(err, 'The request was saved, but the signed PDF could not be uploaded.'));
           }
         }
 
@@ -257,7 +258,7 @@ export default function CreateRequestPage() {
               pendingDocuments.map((doc) => ({ file: doc.file, name: doc.name, documentType: doc.documentType }))
             );
           } catch (err: any) {
-            toast.warning(err.message || 'Request saved, but document upload failed.');
+            toast.warning(errorText(err, 'The request was saved, but the documents could not be uploaded.'));
           }
         }
       }
@@ -265,7 +266,7 @@ export default function CreateRequestPage() {
       toast.success(res.data.requestNumber ? `Request ${res.data.requestNumber} created.` : 'Request created.');
       navigate('/new-request');
     } catch (err: any) {
-      setFormError(err.message || 'Failed to save request.');
+      setFormError(err.message || 'Could not save request.');
     } finally {
       setSaving(false);
     }

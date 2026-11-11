@@ -5,6 +5,7 @@ import { PageHeader, Badge, Modal, EmptyRow, Field, formatDate } from './hrShare
 import s from './hr.module.css';
 
 import { Button, ConfirmDialog, Input } from '@/ui';
+import { notifyError } from '@/utils/notify';
 export default function HolidaysManagement() {
   const [holidays, setHolidays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ export default function HolidaysManagement() {
       const res = await hrService.getHolidays();
       if (res.success) setHolidays(res.data || []);
     } catch (err: any) {
-      toast.error(err.message || 'Error loading holidays');
+      notifyError(err, 'Could not load holidays.');
     } finally {
       setLoading(false);
     }
@@ -38,19 +39,19 @@ export default function HolidaysManagement() {
   };
 
   const save = async () => {
-    if (!form.name || !form.date) return toast.warn('Name and date are required');
+    if (!form.name || !form.date) return toast.warn('Name and date are required.');
     try {
       if (editing) {
         await hrService.updateHoliday(editing._id, form);
-        toast.success('Holiday updated');
+        toast.success('Holiday updated.');
       } else {
         await hrService.addHoliday(form);
-        toast.success('Holiday added');
+        toast.success('Holiday added.');
       }
       setFormOpen(false);
       fetchHolidays();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving holiday');
+      notifyError(err, 'Could not save holiday.');
     }
   };
 
@@ -58,11 +59,11 @@ export default function HolidaysManagement() {
     if (!deleteId) return;
     try {
       await hrService.removeHoliday(deleteId);
-      toast.success('Holiday removed');
+      toast.success('Holiday removed.');
       setDeleteId(null);
       fetchHolidays();
     } catch (err: any) {
-      toast.error(err.message || 'Error removing holiday');
+      notifyError(err, 'Could not remove holiday.');
     }
   };
 

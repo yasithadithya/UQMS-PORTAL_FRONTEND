@@ -23,6 +23,7 @@ import {
   Textarea, Toolbar, type Column,
 } from '@/ui';
 import s from './ChecklistManagement.module.css';
+import { notifyError } from '@/utils/notify';
 
 /**
  * Admin master data, or (V2) QMS → Checklist: in QMS mode every addition, edit or deletion is sent to
@@ -100,7 +101,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         if (areasRes.success) setAreaOperations(areasRes.data);
         if (vCodesRes.success) setVesselCodes(vCodesRes.data);
       } catch (err: any) {
-        toast.error('Failed to load filter dropdown criteria: ' + err.message);
+        notifyError(err, 'Could not load filter dropdown criteria.');
       }
     };
     loadLookups();
@@ -140,7 +141,7 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         setTotalPages(res.pagination?.totalPages || 1);
       }
     } catch (err: any) {
-      toast.error('Failed to fetch checklist questions: ' + err.message);
+      notifyError(err, 'Could not load checklist questions.');
     } finally {
       setLoading(false);
     }
@@ -222,24 +223,24 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
       } else if (editingQuestion?._id) {
         const res = await checklistQuestionsService.updateQuestion(editingQuestion._id, payload);
         if (res.success) {
-          toast.success('Checklist item updated successfully.');
+          toast.success('Checklist item updated.');
           fetchQuestions();
           setShowModal(false);
         } else {
-          toast.error(res.message || 'Failed to update item.');
+          toast.error(res.message || 'Could not update item.');
         }
       } else {
         const res = await checklistQuestionsService.createQuestion(payload);
         if (res.success) {
-          toast.success('Checklist item created successfully.');
+          toast.success('Checklist item created.');
           fetchQuestions();
           setShowModal(false);
         } else {
-          toast.error(res.message || 'Failed to create item.');
+          toast.error(res.message || 'Could not create item.');
         }
       }
     } catch (err: any) {
-      toast.error('Error saving checklist item: ' + err.message);
+      notifyError(err, 'Could not save checklist item.');
     } finally {
       setSaving(false);
     }
@@ -269,13 +270,13 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
       }
       const res = await checklistQuestionsService.deleteQuestion(deleteConfirmId);
       if (res.success) {
-        toast.success('Checklist question deleted successfully.');
+        toast.success('Checklist question deleted.');
         fetchQuestions();
       } else {
-        toast.error(res.message || 'Failed to delete question.');
+        toast.error(res.message || 'Could not delete question.');
       }
     } catch (err: any) {
-      toast.error('Error deleting checklist question: ' + err.message);
+      notifyError(err, 'Could not delete checklist question.');
     } finally {
       setDeleting(false);
       setDeleteConfirmId(null);
@@ -508,11 +509,11 @@ export default function ChecklistManagement({ qms }: { qms?: boolean } = {}) {
         message={qms ? (
           <div className={s.stack}>
             <p>The deletion is sent for approval and acceptance. The item stays on check sheets until it is accepted.</p>
-            <Field label="Request comment" required error={deleteCommentError}>
+            <Field label="Request comment." required error={deleteCommentError}>
               <Textarea rows={3} value={deleteComment} onChange={(e) => { setDeleteComment(e.target.value); setDeleteCommentError(undefined); }} />
             </Field>
           </div>
-        ) : "It will no longer appear on new check sheets. This can't be undone."}
+        ) : "It will no longer appear on new check sheets. This cannot be undone."}
         confirmText={qms ? 'Send for approval' : 'Delete item'}
         destructive
         loading={deleting}

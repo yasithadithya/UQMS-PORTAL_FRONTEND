@@ -146,7 +146,7 @@ export default function UsersPage() {
                 const userId = editingUser._id || editingUser.id;
                 const result = await updateUser(userId, payload);
                 if (!result.success) {
-                    setFormError(result.error || 'Failed to update user');
+                    setFormError(result.error || 'Could not update user.');
                     return;
                 }
                 toast.success(`${formData.username} updated.`);
@@ -164,14 +164,14 @@ export default function UsersPage() {
                     empNumber: formData.empNumber,
                 });
                 if (!result.success) {
-                    setFormError(result.error || 'Failed to create user');
+                    setFormError(result.error || 'Could not create user.');
                     return;
                 }
                 toast.success(`${formData.username} added.`);
             }
             setShowModal(false);
         } catch (err: any) {
-            setFormError(err.message || 'An error occurred');
+            setFormError(err.message || 'An error occurred.');
         } finally {
             setSaving(false);
         }
@@ -186,7 +186,7 @@ export default function UsersPage() {
         if (result.success) {
             toast.success('User deleted.');
         } else {
-            toast.error(result.error || 'Failed to delete user.');
+            toast.error(result.error || 'Could not delete user.');
         }
     };
 
@@ -345,7 +345,7 @@ export default function UsersPage() {
             <ConfirmDialog
                 open={!!deleteTarget}
                 title={`Delete ${deleteTarget?.fullName || deleteTarget?.username || 'user'}?`}
-                message="They will no longer be able to sign in. This can't be undone."
+                message="They will no longer be able to sign in. This cannot be undone."
                 confirmText="Delete user"
                 destructive
                 loading={deleting}

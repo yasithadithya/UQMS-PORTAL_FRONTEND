@@ -30,11 +30,11 @@ export function AccessDenied() {
     <StatusPage
       icon={<Lock />}
       title="You don't have access to this page"
-      message="Your role doesn't include this area. If you need it, ask an administrator to update your role."
+      message="Your role does not include this area. If you need it, ask an administrator to update your role."
     />
   );
 }
 
 export function NotFound() {
-  return <StatusPage icon={<Compass />} title="Page not found" message="The page you're looking for doesn't exist or has moved." />;
+  return <StatusPage icon={<Compass />} title="Page not found" message="The page you are looking for does not exist or has moved." />;
 }

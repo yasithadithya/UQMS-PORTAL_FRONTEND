@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BadgeCheck, CheckCircle2, Download, Eye, FilePlus2, Mail, Pencil, Send, Trash2, Undo2, XCircle } from 'lucide-react';
+import { BadgeCheck, CheckCircle2, Download, Eye, FilePlus2, Pencil, Send, Trash2, Undo2, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { quotationsService, type ApiQuotation } from '@/api';
 import { useAuth } from '@/context/AuthContext';
@@ -16,6 +16,7 @@ import {
 } from './financeFormat';
 import { quotationsPath } from './financeTabs';
 import s from './finance.module.css';
+import { notifyError } from '@/utils/notify';
 
 type PendingAction = 'sent' | 'accepted' | 'delete' | 'approve' | 'revoke' | null;
 
@@ -58,7 +59,7 @@ export default function QuotationDetails() {
       setRevisions(history.data);
     } catch (err: any) {
       if (/not found/i.test(err.message || '')) setNotFound(true);
-      else setError(err.message || 'Failed to load the quotation.');
+      else setError(err.message || 'Could not load the quotation.');
     } finally {
       setLoading(false);
     }
@@ -93,14 +94,14 @@ export default function QuotationDetails() {
       await quotationsService.updateStatus(q._id, status, reason);
       toast.success(
         status === 'accepted'
-          ? `Quotation ${q.quotationNumber} accepted. First Entry for ${q.requestNumber} is now marked as quoted.`
+          ? `Quotation ${q.quotationNumber} accepted. First entry for ${q.requestNumber} is now marked as quoted.`
           : `Quotation ${q.quotationNumber} marked ${QUOTATION_STATUS_LABELS[status].toLowerCase()}.`
       );
       setPending(null);
       setRejecting(false);
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update the quotation.');
+      notifyError(err, 'Could not update the quotation.');
     } finally {
       setBusy(false);
     }
@@ -122,7 +123,7 @@ export default function QuotationDetails() {
       const previous = revisions.filter(r => r._id !== q._id).pop();
       navigate(previous ? `${listPath}/${previous._id}` : `/${module || 'finance'}?tab=quotations`);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete the quotation.');
+      notifyError(err, 'Could not delete the quotation.');
       setBusy(false);
     }
   };
@@ -134,7 +135,7 @@ export default function QuotationDetails() {
       if (mode === 'download') downloadPdf(blob, q.quotationNumber);
       else setPreviewUrl(URL.createObjectURL(blob));
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load the quotation PDF.');
+      notifyError(err, 'Could not load the quotation PDF.');
     } finally {
       setPdfLoading(null);
     }
@@ -169,7 +170,7 @@ export default function QuotationDetails() {
       toast.success(`Quotation ${q.quotationNumber} approved.`);
       setPending(null);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to approve the quotation.');
+      notifyError(err, 'Could not approve the quotation.');
     } finally {
       setBusy(false);
     }
@@ -183,7 +184,7 @@ export default function QuotationDetails() {
       toast.success('Approval revoked.');
       setPending(null);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to revoke the approval.');
+      notifyError(err, 'Could not revoke the approval.');
     } finally {
       setBusy(false);
     }
@@ -197,7 +198,7 @@ export default function QuotationDetails() {
       setSending(false);
       load();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send the quotation.');
+      notifyError(err, 'Could not send the quotation.');
     } finally {
       setBusy(false);
     }
@@ -218,10 +219,6 @@ export default function QuotationDetails() {
         actions={
           <>
             <Button icon={<Eye />} onClick={() => openPdf('preview')} loading={pdfLoading === 'preview'}>Preview PDF</Button>
-            {isOpen && canUpdate && (
-              <Button icon={<Mail />} disabled={!approval} title={approval ? undefined : 'Approve the quotation before sending it'}
-                onClick={() => { setEmailMessage(''); setSending(true); }}>Send to client</Button>
-            )}
             {isOpen && canApprove && !approval && (
               <Button variant="primary" icon={<BadgeCheck />} onClick={() => setPending('approve')}>Approve</Button>
             )}
@@ -472,7 +469,7 @@ export default function QuotationDetails() {
       <ConfirmDialog
         open={pending === 'delete'}
         title="Delete this draft?"
-        message={`${q.quotationNumber} will be deleted. This can't be undone.`}
+        message={`${q.quotationNumber} will be deleted. This cannot be undone.`}
         confirmText="Delete"
         destructive
         loading={busy}

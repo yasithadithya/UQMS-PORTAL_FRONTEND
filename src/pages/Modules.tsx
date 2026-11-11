@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { ArrowDown, ArrowUp, Blocks, CornerDownRight, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Card, ConfirmDialog, EmptyState, Field, IconButton, Input, Menu, Modal, PageHeader, Select } from '@/ui';
 import s from './Modules.module.css';
+import { notifyError } from '@/utils/notify';
 
 export default function ModulesPage() {
     const { modules, refreshModules, setModulesOptimistic, can } = useAuth();
@@ -70,7 +71,7 @@ export default function ModulesPage() {
             if (editingModule) {
                 const res = await modulesService.updateModule(editingModule._id, payload);
                 if (!res.success) {
-                    setFormError(res.message || 'Failed to update module');
+                    setFormError(res.message || 'Could not update module.');
                     setSaving(false);
                     return;
                 }
@@ -81,7 +82,7 @@ export default function ModulesPage() {
             } else {
                 const res = await modulesService.createModule(payload);
                 if (!res.success) {
-                    setFormError(res.message || 'Failed to create module');
+                    setFormError(res.message || 'Could not create module.');
                     setSaving(false);
                     return;
                 }
@@ -94,7 +95,7 @@ export default function ModulesPage() {
             refreshModules();
             setShowModal(false);
         } catch (err: any) {
-            setFormError(err.message || 'An error occurred');
+            setFormError(err.message || 'An error occurred.');
         } finally {
             setSaving(false);
         }
@@ -108,7 +109,7 @@ export default function ModulesPage() {
             // Also refresh from server
             refreshModules();
         } catch (err: any) {
-            toast.error(err.message || 'Failed to delete module. It might have sub-modules.');
+            notifyError(err, 'Could not delete module. It might have sub-modules.');
         }
     };
 
@@ -221,7 +222,7 @@ export default function ModulesPage() {
             refreshModules();
             toast.success('Module order updated.');
         } catch (err: any) {
-            toast.error('Failed to update module order: ' + err.message);
+            notifyError(err, 'Could not update module order.');
             // Revert on failure
             refreshModules();
         } finally {
@@ -370,7 +371,7 @@ export default function ModulesPage() {
             <ConfirmDialog
                 open={!!deleteTarget}
                 title={`Delete ${deleteTarget?.name ?? 'module'}?`}
-                message="Modules with sub-modules can't be deleted. This can't be undone."
+                message="Modules with sub-modules cannot be deleted. This cannot be undone."
                 confirmText="Delete module"
                 destructive
                 onConfirm={() => { const target = deleteTarget; setDeleteTarget(null); if (target) handleDelete(target._id); }}

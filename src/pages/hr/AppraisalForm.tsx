@@ -5,6 +5,7 @@ import { Modal, Field } from './hrShared';
 import s from './hr.module.css';
 
 import { Button, Input, Select, Textarea } from '@/ui';
+import { notifyError } from '@/utils/notify';
 interface RatingRow {
   criteria: string;
   rating: number;
@@ -44,8 +45,8 @@ export default function AppraisalForm({
   };
 
   const save = async (submit: boolean) => {
-    if (!employee || !cycle || !reviewer) return toast.warn('Employee, cycle, and reviewer are required');
-    if (ratings.some(r => !r.criteria.trim())) return toast.warn('Every rating row needs a criteria name');
+    if (!employee || !cycle || !reviewer) return toast.warn('Employee, cycle, and reviewer are required.');
+    if (ratings.some(r => !r.criteria.trim())) return toast.warn('Every rating row needs a criteria name.');
     setSaving(true);
     try {
       const payload = { employee, cycle, reviewer, ratings, strengths, areasForImprovement, reviewerComments };
@@ -58,13 +59,13 @@ export default function AppraisalForm({
       }
       if (submit && id) {
         await hrService.submitAppraisal(id);
-        toast.success('Appraisal submitted');
+        toast.success('Appraisal submitted.');
       } else {
-        toast.success('Appraisal saved as draft');
+        toast.success('Appraisal saved as draft.');
       }
       onSaved();
     } catch (err: any) {
-      toast.error(err.message || 'Error saving appraisal');
+      notifyError(err, 'Could not save appraisal.');
     } finally {
       setSaving(false);
     }

@@ -1,3 +1,12 @@
+/* Inside a job the workspace already pads the page, so use its full width. */
+.container.containerEmbedded {
+  max-width: none;
+  padding: 0;
+  /* Auto side margins make it shrink-to-fit inside the workspace's flex column. */
+  margin: 0;
+  width: 100%;
+}
+
 .container {
   padding: 16px;
   max-width: 1200px;
@@ -837,6 +846,83 @@ input:disabled {
   accent-color: var(--color-accent);
 }
 
+/* Compact progress + generate bar (inside a job) */
+.compactBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+}
+
+.compactProgressText {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.compactBar .compactProgressBar {
+  flex: 1 1 200px;
+  margin: 0;
+}
+
+/* Yes / No answer switch */
+.yesNo {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-1);
+}
+
+.yesNoBtn {
+  min-width: 56px;
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.yesNoBtn:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.yesNoBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.yesNoBtn:disabled {
+  cursor: not-allowed;
+  opacity: .6;
+}
+
+.yesOn,
+.yesOn:hover:not(:disabled) {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+  box-shadow: inset 0 0 0 1px var(--color-success-border);
+}
+
+.noOn,
+.noOn:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+  box-shadow: inset 0 0 0 1px var(--color-danger-border);
+}
+
 .checkedLocked {
   cursor: not-allowed;
   opacity: .6;
@@ -900,4 +986,105 @@ input:disabled {
   padding: 0;
   min-width: 0;
   display: contents;
+}
+
+/* ---------- Checklist sections as a grid of cards ---------- */
+.categoryBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.categoryBarTitle {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.categoryCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.categoryCard:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+.categoryCard:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.categoryCardDone {
+  border-color: var(--color-success-border);
+}
+
+.categoryName {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.categoryMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-tertiary);
+}
+
+.categoryWarn {
+  color: var(--color-danger-fg);
+  font-weight: var(--weight-medium);
+}
+
+.categoryProgress {
+  display: block;
+  height: 4px;
+  margin-top: auto;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-3, var(--color-border));
+  overflow: hidden;
+}
+
+.categoryProgress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-success-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .categoryCard { transition: none; }
+}
+
+/* Inside the pop-up: no top gap, and all four inputs on one line when there's room. */
+.questionsListModal {
+  margin-top: 0;
+  gap: var(--space-3);
+}
+
+@media (min-width: 1100px) {
+  .questionsListModal .rowInputs {
+    grid-template-columns: 170px 210px minmax(0, 1fr) minmax(0, 1fr);
+  }
 }

@@ -12,6 +12,13 @@ import { HR_KEYS, MODULE_KEYS, isNavigable, type ModuleKey } from '@/utils/permi
 import { MARINE_TABS, TAB_MODULE, marineTabForPath } from '@/pages/marineTabs';
 import { resolveHrTab, visibleHrGroups } from '@/pages/hr/hrTabs';
 import { FINANCE_TABS } from '@/pages/finance/financeTabs';
+import { MAIN_SURVEY_TYPE_LABELS, MAIN_TYPES_BY_SECTOR, type MainSurveyType, type Sector } from '@/config/surveyCategories';
+
+/** My Jobs sector sub-modules. */
+const JOB_SECTOR_BY_KEY: Record<string, Sector> = {
+  [MODULE_KEYS.jobsMarine]: 'marine',
+  [MODULE_KEYS.jobsIndustrial]: 'industrial',
+};
 
 /* ------------------------------------------------------------------ types */
 
@@ -173,6 +180,27 @@ export function useNavigation(): Navigation {
           }
         }
         return sections;
+      }
+
+      // My Jobs → Marine / Industrial: one link per main survey type (?type=<mainType>).
+      const sector = JOB_SECTOR_BY_KEY[mod.key ?? ''];
+      if (sector) {
+        const types = MAIN_TYPES_BY_SECTOR[sector];
+        const activeType = (loc: Loc) => {
+          const requested = params(loc.search).get('type') as MainSurveyType;
+          return types.includes(requested) ? requested : types[0];
+        };
+        return [{
+          id: mod._id,
+          items: types.map(t => ({
+            kind: 'link' as const,
+            id: `${path}?type=${t}`,
+            label: MAIN_SURVEY_TYPE_LABELS[t],
+            to: `${path}?type=${t}`,
+            trail,
+            isActive: (loc: Loc) => underPath(loc.pathname, path) && activeType(loc) === t,
+          })),
+        }];
       }
 
       if (mod.key === MODULE_KEYS.finance) {

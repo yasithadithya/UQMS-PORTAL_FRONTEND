@@ -126,7 +126,7 @@ export default function GenericModulePage() {
             const sectorPath = `/${normalizedModule}/${pathSegments[1]}`;
             const jobId = pathSegments[2];
             if (pathSegments.length > 3) return <NotFound />;
-            if (jobId) return <JobPage key={jobId} jobId={jobId} backHref={sectorPath} backLabel={sectorModule.name} mode="work" />;
+            if (jobId) return <JobPage key={jobId} jobId={jobId} backHref={`${sectorPath}${location.search}`} backLabel={sectorModule.name} mode="work" />;
             return <MyJobsPage key={sectorPath} basePath={sectorPath} sector={SECTOR_BY_MODULE_KEY[sectorModule.key!]} sectorLabel={sectorModule.name} />;
         }
 

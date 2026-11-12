@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Briefcase } from 'lucide-react';
-import { DataTable, PageHeader, SearchInput, Tabs, Toolbar, type Column } from '@/ui';
+import { DataTable, PageHeader, SearchInput, Toolbar, type Column } from '@/ui';
 import Pagination from '@/components/Pagination';
 import { useAuth } from '@/context/AuthContext';
 import { MODULE_KEYS } from '@/utils/permissions';
@@ -17,7 +17,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
   const navigate = useNavigate();
   const { can, user } = useAuth();
   const seesAll = !isSurveyorRoleName(user?.role?.roleName) || can(MODULE_KEYS.jobs, 'view-all');
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const types = MAIN_TYPES_BY_SECTOR[sector];
   const mainType = (types.includes(params.get('type') as MainSurveyType) ? params.get('type') : types[0]) as MainSurveyType;
 
@@ -26,7 +26,6 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
   const [limit, setLimit] = useState(25);
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [meta, setMeta] = useState<PaginationMeta & { total: number }>({ page: 1, limit: 25, totalPages: 1, hasNextPage: false, hasPrevPage: false, total: 0 });
-  const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,13 +51,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
     return () => clearTimeout(t);
   }, [load]);
 
-  useEffect(() => {
-    jobsService.getCounts().then(res => setCounts(res.data)).catch(() => setCounts({}));
-  }, []);
-
   useEffect(() => setPage(1), [sector, mainType, search]);
-
-  const pick = (type: MainSurveyType) => setParams({ type });
 
   const columns: Column<ApiJob>[] = [
     { key: 'job', header: 'Job', primary: true, cell: j => (
@@ -76,16 +69,9 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
   return (
     <div className="animate-in">
       <PageHeader
-        breadcrumbs={[{ label: 'My Jobs' }, { label: sectorLabel }]}
-        title={`${sectorLabel} jobs`}
+        breadcrumbs={[{ label: 'My Jobs' }, { label: sectorLabel, href: basePath }, { label: MAIN_SURVEY_TYPE_LABELS[mainType] }]}
+        title={`${sectorLabel} · ${MAIN_SURVEY_TYPE_LABELS[mainType]}`}
         description={seesAll ? 'All open jobs across surveyors. Completed jobs move to View Report.' : 'Jobs you are booked on. Open a job to plan the visits and start reporting. Completed jobs move to View Report.'}
-      />
-
-      <Tabs
-        label="Main survey type"
-        value={mainType}
-        onValueChange={pick}
-        items={types.map(t => ({ value: t, label: MAIN_SURVEY_TYPE_LABELS[t], count: counts[t] ?? 0 }))}
       />
 
       <Toolbar
@@ -100,7 +86,7 @@ export default function MyJobsPage({ basePath, sector, sectorLabel }: { basePath
         loading={loading}
         error={error}
         onRetry={load}
-        onRowClick={j => navigate(`${basePath}/${j._id}`)}
+        onRowClick={j => navigate(`${basePath}/${j._id}?type=${mainType}`)}
         empty={{ icon: <Briefcase />, title: 'No jobs here', description: `No ${MAIN_SURVEY_TYPE_LABELS[mainType].toLowerCase()} jobs ${seesAll ? '' : 'are booked for you '}right now.` }}
         footer={meta.total > limit && (
           <Pagination page={meta.page} limit={limit} total={meta.total} totalPages={meta.totalPages} onPageChange={setPage} onLimitChange={setLimit} />

@@ -317,10 +317,10 @@
 }
 
 .navSectionLabel {
-  padding: var(--space-2) var(--space-2) 2px;
-  font-size: var(--text-xs);
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  font-size: var(--text-base);
   font-weight: var(--weight-semibold);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
 }
 
 .subItem {
